@@ -1,88 +1,67 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from fastapi import APIRouter, HTTPException
 from typing import Dict, Any
 from datetime import datetime, timezone
 
-from backend.app.database import get_db
-from backend.app.models.job import Job
-from backend.app.models.application import Application
 from backend.app.schemas.application import ApplicationUpdate, ApplicationResponse
+from backend.app.firebase import firebase_manager
 
 router = APIRouter(prefix="/applications", tags=["Applications"])
 
 @router.get("/stats")
-async def get_application_stats(db: AsyncSession = Depends(get_db)):
-    """Summary metrics of the job hunting pipeline."""
-    stmt = select(Application.status, func.count(Application.id)).group_by(Application.status)
-    res = await db.execute(stmt)
-    counts = dict(res.all())
-    
-    total_jobs_res = await db.execute(select(func.count(Job.id)))
-    total_jobs = total_jobs_res.scalar() or 0
-
-    return {
-        "total_jobs": total_jobs,
-        "disponivel": counts.get("disponivel", 0),
-        "avaliada": counts.get("avaliada", 0),
-        "em_preparacao": counts.get("em_preparacao", 0),
-        "candidatado": counts.get("candidatado", 0),
-        "entrevista": counts.get("entrevista", 0),
-        "positiva": counts.get("positiva", 0),
-        "negativa": counts.get("negativa", 0),
-        "descartada": counts.get("descartada", 0)
-    }
+async def get_application_stats():
+    """Summary metrics of the job hunting pipeline from Firebase."""
+    return await firebase_manager.get_stats()
 
 @router.post("/{job_id}/apply")
-async def mark_applied(job_id: int, notes: str = "", db: AsyncSession = Depends(get_db)):
-    """Fast action: Mark 'Já me candidatei'."""
-    stmt = select(Application).where(Application.job_id == job_id)
-    res = await db.execute(stmt)
-    app = res.scalar_one_or_none()
+async def mark_applied(job_id: int, notes: str = ""):
+    """Fast action: Mark 'Já me candidatei' in Firebase."""
+    app = await firebase_manager.get_application(job_id) or {}
+    now = datetime.now(timezone.utc).isoformat()
     
-    now = datetime.now(timezone.utc)
-    if not app:
-        app = Application(
-            job_id=job_id,
-            status="candidatado",
-            applied_at=now,
-            notes=notes
-        )
-        db.add(app)
-    else:
-        app.status = "candidatado"
-        app.applied_at = now
-        if notes:
-            app.notes = notes
+    app["status"] = "candidatado"
+    app["applied_at"] = now
+    if notes:
+        app["notes"] = notes
 
-    await db.commit()
-    await db.refresh(app)
-    return {"status": "success", "message": "Marcado como candidatado!", "data": app}
+    await firebase_manager.save_application(job_id, app)
+    return {"status": "success", "message": "Marcado como candidatado no Firebase!", "data": app}
 
 @router.patch("/{job_id}", response_model=ApplicationResponse)
-async def update_application(job_id: int, update_data: ApplicationUpdate, db: AsyncSession = Depends(get_db)):
-    stmt = select(Application).where(Application.job_id == job_id)
-    res = await db.execute(stmt)
-    app = res.scalar_one_or_none()
-    
-    if not app:
-        app = Application(job_id=job_id, status=update_data.status or "disponivel")
-        db.add(app)
+async def update_application(job_id: int, update_data: ApplicationUpdate):
+    app = await firebase_manager.get_application(job_id) or {}
+    now = datetime.now(timezone.utc).isoformat()
     
     if update_data.status is not None:
-        app.status = update_data.status
-        if update_data.status == "candidatado" and not app.applied_at:
-            app.applied_at = datetime.now(timezone.utc)
+        app["status"] = update_data.status
+        if update_data.status == "candidatado" and not app.get("applied_at"):
+            app["applied_at"] = now
     if update_data.notes is not None:
-        app.notes = update_data.notes
+        app["notes"] = update_data.notes
     if update_data.feedback_notes is not None:
-        app.feedback_notes = update_data.feedback_notes
-        app.feedback_received_at = datetime.now(timezone.utc)
+        app["feedback_notes"] = update_data.feedback_notes
+        app["feedback_received_at"] = now
     if update_data.custom_cv_text is not None:
-        app.custom_cv_text = update_data.custom_cv_text
+        app["custom_cv_text"] = update_data.custom_cv_text
     if update_data.custom_cover_letter is not None:
-        app.custom_cover_letter = update_data.custom_cover_letter
+        app["custom_cover_letter"] = update_data.custom_cover_letter
 
-    await db.commit()
-    await db.refresh(app)
-    return app
+    res = await firebase_manager.save_application(job_id, app)
+
+    return ApplicationResponse(
+        id=int(res.get("id") or job_id),
+        job_id=job_id,
+        status=res.get("status", "disponivel"),
+        match_score=res.get("match_score"),
+        match_summary=res.get("match_summary"),
+        pros=res.get("pros"),
+        gaps=res.get("gaps"),
+        applied_at=res.get("applied_at"),
+        custom_cv_path=res.get("custom_cv_path"),
+        custom_cover_letter=res.get("custom_cover_letter"),
+        custom_cv_text=res.get("custom_cv_text"),
+        notes=res.get("notes"),
+        feedback_received_at=res.get("feedback_received_at"),
+        feedback_notes=res.get("feedback_notes"),
+        created_at=res.get("created_at") or now,
+        updated_at=res.get("updated_at") or now
+    )

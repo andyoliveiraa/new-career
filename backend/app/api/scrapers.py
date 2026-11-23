@@ -1,14 +1,9 @@
-from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from fastapi import APIRouter, BackgroundTasks
 from typing import List, Optional
 import time
 import logging
 
-from backend.app.database import get_db, AsyncSessionLocal
-from backend.app.models.job import Job
-from backend.app.models.application import Application
-from backend.app.models.scan import ScanHistory
+from backend.app.firebase import firebase_manager
 from backend.app.scrapers.netempregos import NetEmpregosScraper
 from backend.app.scrapers.google_jobs import GoogleJobsScraper
 from backend.app.scrapers.jobspy_scraper import JobSpyScraper
@@ -30,63 +25,62 @@ async def run_scan_task(sources: List[str], query: str, location: Optional[str],
     total_found = 0
     total_new = 0
 
-    async with AsyncSessionLocal() as db:
-        for src_name in sources:
-            scraper = SCRAPERS_MAP.get(src_name)
-            if not scraper:
-                continue
+    current_jobs = await firebase_manager.list_jobs(limit=1000)
+    existing_keys = {j.get("job_key") for j in current_jobs}
+    next_id = max([int(j.get("id", 0)) for j in current_jobs], default=0) + 1
 
-            try:
-                raw_jobs = await scraper.search(query=query, location=location, limit=limit_per_source)
-                total_found += len(raw_jobs)
-                
-                for rj in raw_jobs:
-                    # Check if already exists by job_key
-                    stmt = select(Job).where(Job.job_key == rj["job_key"])
-                    existing = (await db.execute(stmt)).scalar_one_or_none()
-                    
-                    if not existing:
-                        # Calculate distance
-                        dist = await calculate_job_distance(rj.get("location"), location or "Lisboa")
-                        
-                        new_job = Job(
-                            job_key=rj["job_key"],
-                            title=rj["title"],
-                            company=rj["company"],
-                            location=rj["location"],
-                            is_remote=rj["is_remote"],
-                            salary=rj["salary"],
-                            description=rj["description"],
-                            url=rj["url"],
-                            source=rj["source"],
-                            distance_km=dist,
-                            raw_metadata=rj.get("raw_metadata")
-                        )
-                        db.add(new_job)
-                        await db.flush() # Get new_job.id
-                        
-                        # Create initial application entry
-                        new_app = Application(job_id=new_job.id, status="disponivel")
-                        db.add(new_app)
-                        total_new += 1
+    for src_name in sources:
+        scraper = SCRAPERS_MAP.get(src_name)
+        if not scraper:
+            continue
 
-                await db.commit()
+        try:
+            raw_jobs = await scraper.search(query=query, location=location, limit=limit_per_source)
+            total_found += len(raw_jobs)
 
-            except Exception as e:
-                logger.error(f"Error executing scraper {src_name}: {e}")
+            for rj in raw_jobs:
+                key = rj.get("job_key")
+                if key not in existing_keys:
+                    dist = await calculate_job_distance(rj.get("location"), location or "Covilhã")
+                    new_id = next_id
+                    next_id += 1
 
-        duration = time.time() - start_time
-        scan_rec = ScanHistory(
-            engine=",".join(sources),
-            query=query,
-            location=location,
-            total_found=total_found,
-            total_new=total_new,
-            status="completed",
-            duration_seconds=round(duration, 2)
-        )
-        db.add(scan_rec)
-        await db.commit()
+                    job_record = {
+                        "id": new_id,
+                        "job_key": key,
+                        "title": rj["title"],
+                        "company": rj["company"],
+                        "location": rj["location"],
+                        "is_remote": rj["is_remote"],
+                        "salary": rj.get("salary"),
+                        "description": rj.get("description"),
+                        "url": rj["url"],
+                        "source": rj["source"],
+                        "distance_km": dist,
+                        "liveness_status": "active",
+                        "application_status": "disponivel",
+                        "raw_metadata": rj.get("raw_metadata")
+                    }
+
+                    await firebase_manager.save_job(job_record)
+                    await firebase_manager.save_application(new_id, {"status": "disponivel"})
+
+                    existing_keys.add(key)
+                    total_new += 1
+
+        except Exception as e:
+            logger.error(f"Erro ao executar scraper {src_name} no Firebase: {e}")
+
+    duration = time.time() - start_time
+    await firebase_manager.add_scan_history({
+        "engine": ",".join(sources),
+        "query": query,
+        "location": location,
+        "total_found": total_found,
+        "total_new": total_new,
+        "status": "completed",
+        "duration_seconds": round(duration, 2)
+    })
 
 @router.post("/scan")
 async def trigger_scan(
@@ -100,12 +94,10 @@ async def trigger_scan(
     background_tasks.add_task(run_scan_task, selected_sources, query, location, limit)
     return {
         "status": "started",
-        "message": f"Varredura iniciada para '{query}' em '{location}' nas fontes: {', '.join(selected_sources)}",
+        "message": f"Varredura iniciada no Firebase para '{query}' em '{location}' nas fontes: {', '.join(selected_sources)}",
         "sources": selected_sources
     }
 
 @router.get("/history")
-async def get_scan_history(limit: int = 15, db: AsyncSession = Depends(get_db)):
-    stmt = select(ScanHistory).order_by(desc(ScanHistory.executed_at)).limit(limit)
-    res = await db.execute(stmt)
-    return res.scalars().all()
+async def get_scan_history(limit: int = 15):
+    return await firebase_manager.get_scan_history(limit)

@@ -32,6 +32,8 @@ ENV/
 .env
 .env.local
 .env.*.local
+firebase-credentials.json
+*serviceAccountKey*.json
 
 # Node & Next.js
 node_modules/

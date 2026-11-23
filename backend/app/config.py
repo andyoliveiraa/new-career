@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # Storage
     STORAGE_DIR: str = "./storage"
 
+    # Firebase Settings
+    FIREBASE_CREDENTIALS_PATH: Optional[str] = os.getenv("FIREBASE_CREDENTIALS_PATH", "./firebase-credentials.json")
+    FIREBASE_PROJECT_ID: Optional[str] = os.getenv("FIREBASE_PROJECT_ID")
+    USE_FIREBASE: bool = True
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()

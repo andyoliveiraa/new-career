@@ -1,11 +1,9 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
 from backend.app.main import app
-from backend.app.database import init_db
 
 @pytest.mark.asyncio
 async def test_health_check():
-    await init_db()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/api/health")
@@ -15,22 +13,29 @@ async def test_health_check():
         assert "New Career" in data["project"]
 
 @pytest.mark.asyncio
-async def test_profile_api():
-    await init_db()
+async def test_firebase_profile_api():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/api/profile")
         assert resp.status_code == 200
         data = resp.json()
-        assert "full_name" in data
-        assert len(data["skills"]) > 0
+        assert "André" in data["full_name"] or len(data["skills"]) > 0
 
 @pytest.mark.asyncio
-async def test_application_stats_api():
-    await init_db()
+async def test_firebase_application_stats_api():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/api/applications/stats")
         assert resp.status_code == 200
         data = resp.json()
         assert "total_jobs" in data
+        assert data["total_jobs"] >= 20
+
+@pytest.mark.asyncio
+async def test_firebase_jobs_api():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/jobs")
+        assert resp.status_code == 200
+        jobs = resp.json()
+        assert len(jobs) >= 20

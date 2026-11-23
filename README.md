@@ -2,6 +2,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Firebase](https://img.shields.io/badge/Firebase-Firestore-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-Unslop-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
@@ -113,6 +114,20 @@ Acesse a aplicação no navegador em: `http://localhost:5173`.
 $env:PYTHONPATH = "."
 .\backend\.venv\Scripts\python.exe -m pytest backend/tests/ -v
 ```
+
+---
+
+## 🔥 Configuração do Firebase Firestore
+
+Toda a base de dados do projeto roda sobre o **Google Cloud Firestore (Firebase)**:
+- Coleções gerenciadas: `jobs`, `applications`, `profiles`, e `scan_history`.
+- O sistema já possui fallback persistente local automático (`storage/local_firestore.json`) para que tudo funcione de imediato mesmo sem internet ou chaves configuradas.
+
+### Para conectar ao seu projeto na nuvem Firebase:
+1. Acesse o [Console do Firebase](https://console.firebase.google.com/) e selecione o seu projeto.
+2. Vá em **Configurações do Projeto (Engrenagem)** > **Contas de Serviço** > **Gerar nova chave privada**.
+3. Baixe o arquivo JSON e renomeie-o para `firebase-credentials.json` na raiz deste projeto (ou defina `FIREBASE_CREDENTIALS_PATH=./caminho/chave.json` no seu arquivo `.env`).
+4. Ao iniciar a aplicação, ela se conectará automaticamente à nuvem do Firebase Firestore!
 
 ---
 
