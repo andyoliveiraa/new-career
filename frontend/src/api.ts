@@ -62,6 +62,56 @@ export const api = {
     return res.json();
   },
 
+  async uploadCareerOpsZip(file: File): Promise<OnboardingResult> {
+    const formData = new FormData();
+    formData.append('zip_file', file);
+
+    const res = await fetch(`${API_BASE}/auth/onboarding/upload-zip`, {
+      method: 'POST',
+      headers: {
+        ...authHeaders()
+      },
+      body: formData
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Erro ao descompactar e importar arquivo ZIP');
+    }
+    return res.json();
+  },
+
+  async uploadCareerOpsPrivacy(files: {
+    cvFile: File;
+    profileFile?: File | null;
+    applicationsFile?: File | null;
+    outputZip?: File | null;
+  }): Promise<OnboardingResult> {
+    const formData = new FormData();
+    formData.append('cv_file', files.cvFile);
+    if (files.profileFile) {
+      formData.append('profile_file', files.profileFile);
+    }
+    if (files.applicationsFile) {
+      formData.append('applications_file', files.applicationsFile);
+    }
+    if (files.outputZip) {
+      formData.append('output_zip', files.outputZip);
+    }
+
+    const res = await fetch(`${API_BASE}/auth/onboarding/upload-privacy`, {
+      method: 'POST',
+      headers: {
+        ...authHeaders()
+      },
+      body: formData
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Erro ao importar ficheiros no modo privacidade');
+    }
+    return res.json();
+  },
+
   async onboardingManual(payload: {
     headline?: string;
     location?: string;

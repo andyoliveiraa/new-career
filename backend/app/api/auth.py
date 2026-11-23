@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import Dict, Any
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from typing import Dict, Any, Optional
 from backend.app.schemas.auth import (
     UserRegister, UserLogin, UserResponse, TokenResponse,
     CareerOpsOnboardingRequest, ManualOnboardingRequest, OnboardingResultResponse
@@ -77,6 +77,54 @@ async def onboarding_career_ops(
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     result = await CareerOpsImporter.import_from_directory(req.directory_path, current_user["id"])
+    return OnboardingResultResponse(**result)
+
+@router.post("/onboarding/upload-zip", response_model=OnboardingResultResponse)
+async def onboarding_upload_zip(
+    zip_file: UploadFile = File(...),
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Modo Rápido: Upload de arquivo ZIP completo da pasta Career-Ops."""
+    if not zip_file.filename.lower().endswith(".zip"):
+        raise HTTPException(status_code=400, detail="Por favor envie um ficheiro com formato .zip válido.")
+
+    content = await zip_file.read()
+    result = await CareerOpsImporter.import_from_zip(content, current_user["id"])
+    return OnboardingResultResponse(**result)
+
+@router.post("/onboarding/upload-privacy", response_model=OnboardingResultResponse)
+async def onboarding_upload_privacy(
+    cv_file: UploadFile = File(..., description="Ficheiro cv.md"),
+    profile_file: Optional[UploadFile] = File(None, description="Ficheiro config/profile.yml"),
+    applications_file: Optional[UploadFile] = File(None, description="Ficheiro data/applications.md"),
+    output_zip: Optional[UploadFile] = File(None, description="Ficheiro ZIP com os PDFs da pasta output/"),
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Modo de Privacidade: Upload individual dos ficheiros Markdown/YAML e apenas a pasta output em ZIP."""
+    cv_bytes = await cv_file.read()
+    cv_content = cv_bytes.decode("utf-8", errors="replace")
+
+    profile_content = None
+    if profile_file:
+        prof_bytes = await profile_file.read()
+        profile_content = prof_bytes.decode("utf-8", errors="replace")
+
+    applications_content = None
+    if applications_file:
+        apps_bytes = await applications_file.read()
+        applications_content = apps_bytes.decode("utf-8", errors="replace")
+
+    output_zip_bytes = None
+    if output_zip:
+        output_zip_bytes = await output_zip.read()
+
+    result = await CareerOpsImporter.import_from_files(
+        user_id=current_user["id"],
+        cv_content=cv_content,
+        profile_content=profile_content,
+        applications_content=applications_content,
+        output_zip_bytes=output_zip_bytes
+    )
     return OnboardingResultResponse(**result)
 
 @router.post("/onboarding/manual", response_model=OnboardingResultResponse)

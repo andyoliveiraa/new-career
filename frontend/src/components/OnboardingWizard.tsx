@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   FolderSync, Sparkles, CheckCircle2, AlertCircle, ArrowRight,
-  Check, Layers
+  Check, Layers, UploadCloud, Shield, FileText, Archive
 } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
@@ -11,8 +11,25 @@ export const OnboardingWizard: React.FC = () => {
   const { user, setCompletedOnboarding } = useAuth();
   const [selectedMode, setSelectedMode] = useState<'career_ops' | 'manual' | null>(null);
 
-  // Career-Ops state
-  const [directoryPath, setDirectoryPath] = useState('');
+  // Sub-mode in Career-Ops: 'zip' (Modo Rápido) or 'privacy' (Modo Privacidade)
+  const [careerOpsSubMode, setCareerOpsSubMode] = useState<'privacy' | 'zip'>('privacy');
+
+  // Modo Rápido (Full Zip)
+  const [fullZipFile, setFullZipFile] = useState<File | null>(null);
+  const fullZipInputRef = useRef<HTMLInputElement>(null);
+
+  // Modo de Privacidade (Individual files)
+  const [cvFile, setCvFile] = useState<File | null>(null);
+  const [profileFile, setProfileFile] = useState<File | null>(null);
+  const [applicationsFile, setApplicationsFile] = useState<File | null>(null);
+  const [outputZipFile, setOutputZipFile] = useState<File | null>(null);
+
+  const cvInputRef = useRef<HTMLInputElement>(null);
+  const profileInputRef = useRef<HTMLInputElement>(null);
+  const appsInputRef = useRef<HTMLInputElement>(null);
+  const outputZipInputRef = useRef<HTMLInputElement>(null);
+
+  // Processing & Feedback state
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<OnboardingResult | null>(null);
@@ -26,24 +43,50 @@ export const OnboardingWizard: React.FC = () => {
   const [manualLoading, setManualLoading] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
 
-  const handleImportCareerOps = async () => {
-    if (!directoryPath.trim()) {
-      setImportError('Por favor indique o caminho da pasta do Career-Ops.');
+  // 1. Submit Modo Rápido (ZIP)
+  const handleImportFullZip = async () => {
+    if (!fullZipFile) {
+      setImportError('Por favor selecione o ficheiro .zip da pasta do Career-Ops.');
       return;
     }
 
     setImporting(true);
     setImportError(null);
     try {
-      const res = await api.onboardingCareerOps(directoryPath.trim());
+      const res = await api.uploadCareerOpsZip(fullZipFile);
       setImportResult(res);
     } catch (err: any) {
-      setImportError(err.message || 'Erro ao importar dados do Career-Ops.');
+      setImportError(err.message || 'Erro ao descompactar e importar arquivo ZIP.');
     } finally {
       setImporting(false);
     }
   };
 
+  // 2. Submit Modo de Privacidade (Ficheiros Individuais)
+  const handleImportPrivacy = async () => {
+    if (!cvFile) {
+      setImportError('O ficheiro "cv.md" é obrigatório como CV Base Mestre.');
+      return;
+    }
+
+    setImporting(true);
+    setImportError(null);
+    try {
+      const res = await api.uploadCareerOpsPrivacy({
+        cvFile,
+        profileFile,
+        applicationsFile,
+        outputZip: outputZipFile
+      });
+      setImportResult(res);
+    } catch (err: any) {
+      setImportError(err.message || 'Erro ao importar ficheiros no modo privacidade.');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  // 3. Submit Manual
   const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setManualLoading(true);
@@ -88,13 +131,14 @@ export const OnboardingWizard: React.FC = () => {
 
         {/* Wizard Main Card */}
         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-md">
+          {/* SCREEN 1: CHOICE */}
           {!selectedMode && (
             <div>
               <h2 className="text-base font-medium text-slate-200 mb-2 text-center">
                 Já utilizou o sistema Career-Ops anteriormente?
               </h2>
               <p className="text-xs text-slate-400 mb-6 text-center">
-                Pode importar instantaneamente todo o seu histórico ou começar com um perfil novo.
+                Pode enviar os seus ficheiros do Career-Ops para a VPS ou começar com um perfil novo.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -112,11 +156,11 @@ export const OnboardingWizard: React.FC = () => {
                       <span>Sim, importar do Career-Ops</span>
                     </h3>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      Importe o seu perfil, histórico de vagas submetidas, relatórios de fit e o CV base em Markdown.
+                      Carregue o seu CV Base em Markdown, perfil e histórico de vagas submetidas com PDFs.
                     </p>
                   </div>
                   <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center gap-1 text-xs font-medium text-blue-400">
-                    <span>Configurar importação</span>
+                    <span>Configurar envio</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </div>
                 </button>
@@ -147,7 +191,7 @@ export const OnboardingWizard: React.FC = () => {
             </div>
           )}
 
-          {/* MODE: Career-Ops Import */}
+          {/* SCREEN 2: CAREER-OPS UPLOADS (MODO PRIVACIDADE vs MODO RÁPIDO) */}
           {selectedMode === 'career_ops' && !importResult && (
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -158,17 +202,33 @@ export const OnboardingWizard: React.FC = () => {
                 >
                   ← Escolher outra opção
                 </button>
-                <span className="text-xs font-mono text-blue-400 bg-blue-500/10 px-2.5 py-0.5 rounded-full border border-blue-500/20">
-                  Career-Ops Importer
-                </span>
+                <div className="flex items-center gap-1 p-0.5 rounded-lg bg-slate-950 border border-slate-800 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => { setCareerOpsSubMode('privacy'); setImportError(null); }}
+                    className={`px-3 py-1 rounded-md transition-colors flex items-center gap-1.5 font-medium ${
+                      careerOpsSubMode === 'privacy'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Shield className="w-3 h-3" />
+                    <span>Modo Privacidade</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setCareerOpsSubMode('zip'); setImportError(null); }}
+                    className={`px-3 py-1 rounded-md transition-colors flex items-center gap-1.5 font-medium ${
+                      careerOpsSubMode === 'zip'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <Archive className="w-3 h-3" />
+                    <span>ZIP Completo</span>
+                  </button>
+                </div>
               </div>
-
-              <h2 className="text-lg font-medium text-slate-100 mb-1">
-                Importar Dados do Career-Ops
-              </h2>
-              <p className="text-xs text-slate-400 mb-5">
-                Indique a pasta local onde tem os ficheiros do Career-Ops. Vamos ler e sincronizar todos os registos.
-              </p>
 
               {importError && (
                 <div className="mb-4 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm flex items-start gap-2.5">
@@ -177,78 +237,265 @@ export const OnboardingWizard: React.FC = () => {
                 </div>
               )}
 
-              {/* Path Input */}
-              <div className="mb-5">
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-medium text-slate-300">
-                    Caminho da Pasta do Career-Ops
-                  </label>
+              {/* SUB-MODE 1: MODO DE PRIVACIDADE */}
+              {careerOpsSubMode === 'privacy' && (
+                <div>
+                  <div className="mb-4">
+                    <h2 className="text-lg font-medium text-slate-100 flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-emerald-400" />
+                      <span>Modo de Privacidade (Upload Ficheiro a Ficheiro)</span>
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Controle exatamente o que envia para a VPS. Suba apenas os ficheiros essenciais e comprima exclusivamente a pasta <strong>output/</strong> em ZIP.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3 mb-6">
+                    {/* 1. cv.md */}
+                    <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0 mt-0.5">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                            <span>1. CV Base Mestre (`cv.md`)</span>
+                            <span className="text-[10px] text-amber-400 font-mono bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">Obrigatório</span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-0.5 font-mono">
+                            Caminho no Career-Ops: <strong className="text-slate-300">cv.md</strong> (na raiz)
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <input
+                          type="file"
+                          accept=".md"
+                          ref={cvInputRef}
+                          onChange={(e) => setCvFile(e.target.files?.[0] || null)}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => cvInputRef.current?.click()}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                            cvFile
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                              : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+                          }`}
+                        >
+                          {cvFile ? `✓ ${cvFile.name}` : 'Selecionar .md'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 2. profile.yml */}
+                    <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center shrink-0 mt-0.5">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold text-slate-200">
+                            2. Perfil & Competências (`profile.yml`)
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-0.5 font-mono">
+                            Caminho no Career-Ops: <strong className="text-slate-300">config/profile.yml</strong>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <input
+                          type="file"
+                          accept=".yml,.yaml"
+                          ref={profileInputRef}
+                          onChange={(e) => setProfileFile(e.target.files?.[0] || null)}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => profileInputRef.current?.click()}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                            profileFile
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                              : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+                          }`}
+                        >
+                          {profileFile ? `✓ ${profileFile.name}` : 'Selecionar .yml'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 3. applications.md */}
+                    <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center shrink-0 mt-0.5">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold text-slate-200">
+                            3. Vagas Submetidas (`applications.md`)
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-0.5 font-mono">
+                            Caminho no Career-Ops: <strong className="text-slate-300">data/applications.md</strong>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <input
+                          type="file"
+                          accept=".md"
+                          ref={appsInputRef}
+                          onChange={(e) => setApplicationsFile(e.target.files?.[0] || null)}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => appsInputRef.current?.click()}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                            applicationsFile
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                              : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+                          }`}
+                        >
+                          {applicationsFile ? `✓ ${applicationsFile.name}` : 'Selecionar .md'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 4. output.zip */}
+                    <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center shrink-0 mt-0.5">
+                          <Archive className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-semibold text-slate-200">
+                            4. PDFs das Vagas (`output.zip`)
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-0.5 font-mono">
+                            Caminho no Career-Ops: Comprima apenas a pasta <strong className="text-slate-300">output/</strong>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <input
+                          type="file"
+                          accept=".zip"
+                          ref={outputZipInputRef}
+                          onChange={(e) => setOutputZipFile(e.target.files?.[0] || null)}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => outputZipInputRef.current?.click()}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                            outputZipFile
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                              : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-800'
+                          }`}
+                        >
+                          {outputZipFile ? `✓ ${outputZipFile.name}` : 'Selecionar .zip'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => setDirectoryPath('C:\\Users\\andy_\\Desktop\\IA\\career-ops')}
-                    className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors"
+                    onClick={handleImportPrivacy}
+                    disabled={importing || !cvFile}
+                    className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
                   >
-                    Usar pasta local detetada
+                    {importing ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>A processar ficheiros e descompactar PDFs...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Importar com Privacidade</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </button>
                 </div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={directoryPath}
-                    onChange={(e) => setDirectoryPath(e.target.value)}
-                    placeholder="Ex: C:\caminho\para\career-ops"
-                    className="w-full px-3.5 py-2.5 bg-slate-950/70 border border-slate-800 rounded-lg text-slate-200 font-mono text-xs focus:outline-none focus:border-blue-500 transition-colors"
-                  />
-                </div>
-              </div>
+              )}
 
-              {/* What will be imported */}
-              <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-800/80 mb-6 space-y-2.5">
-                <h4 className="text-xs font-semibold text-slate-300 tracking-wider uppercase">
-                  Ficheiros e Dados Identificados:
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-400">
-                  <div className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span><strong className="text-slate-300">cv.md:</strong> CV Base Mestre para a IA</span>
+              {/* SUB-MODE 2: MODO RÁPIDO (ARQUIVO ZIP COMPLETO) */}
+              {careerOpsSubMode === 'zip' && (
+                <div>
+                  <div className="mb-4">
+                    <h2 className="text-lg font-medium text-slate-100 flex items-center gap-2">
+                      <Archive className="w-4 h-4 text-blue-400" />
+                      <span>Modo Rápido (Pasta Completa em ZIP)</span>
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Comprima toda a pasta do Career-Ops num ficheiro <strong>.zip</strong>. O servidor VPS descompactará e organizará tudo automaticamente.
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span><strong className="text-slate-300">profile.yml:</strong> Competências e perfil</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span><strong className="text-slate-300">applications.md:</strong> Vagas já candidatadas</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span><strong className="text-slate-300">output/*.pdf:</strong> PDFs de currículos gerados</span>
-                  </div>
-                </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={handleImportCareerOps}
-                disabled={importing}
-                className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
-              >
-                {importing ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>A analisar e importar dados...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Verificar e Importar Dados</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
+                  {/* Dropzone */}
+                  <div
+                    onClick={() => fullZipInputRef.current?.click()}
+                    className="p-8 rounded-xl border-2 border-dashed border-slate-800 hover:border-blue-500/50 bg-slate-950/40 hover:bg-slate-950/70 text-center cursor-pointer transition-colors mb-5 group"
+                  >
+                    <input
+                      type="file"
+                      accept=".zip"
+                      ref={fullZipInputRef}
+                      onChange={(e) => setFullZipFile(e.target.files?.[0] || null)}
+                      className="hidden"
+                    />
+                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                      <UploadCloud className="w-6 h-6" />
+                    </div>
+                    {fullZipFile ? (
+                      <div>
+                        <div className="text-sm font-medium text-emerald-400 flex items-center justify-center gap-1.5">
+                          <Check className="w-4 h-4" />
+                          <span>{fullZipFile.name}</span>
+                        </div>
+                        <div className="text-xs text-slate-400 mt-1">
+                          {(fullZipFile.size / (1024 * 1024)).toFixed(2)} MB • Clique para alterar
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="text-sm font-medium text-slate-200">
+                          Clique aqui ou arraste o ficheiro <span className="font-mono text-blue-400">career-ops.zip</span>
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1">
+                          Contendo `cv.md`, `config/profile.yml`, `data/applications.md` e pasta `output/`
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleImportFullZip}
+                    disabled={importing || !fullZipFile}
+                    className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
+                  >
+                    {importing ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>A enviar e descompactar na VPS...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Descompactar e Importar no Servidor</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          {/* SUCCESS SCREEN FOR CAREER-OPS */}
+          {/* SCREEN 3: SUCCESS FEEDBACK */}
           {importResult && (
             <div className="text-center py-4">
               <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-4">
@@ -258,7 +505,7 @@ export const OnboardingWizard: React.FC = () => {
                 Importação Concluída com Sucesso!
               </h2>
               <p className="text-xs text-slate-400 mb-6">
-                Todos os dados foram indexados e associados à sua conta com total privacidade.
+                Todos os ficheiros foram descompactados e indexados com total isolamento para o utilizador.
               </p>
 
               {/* Counters */}
@@ -292,7 +539,7 @@ export const OnboardingWizard: React.FC = () => {
             </div>
           )}
 
-          {/* MODE: Manual Setup */}
+          {/* SCREEN 4: MANUAL SETUP */}
           {selectedMode === 'manual' && (
             <div>
               <div className="flex items-center justify-between mb-4">
