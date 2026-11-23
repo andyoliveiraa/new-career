@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { ProfileData } from '../types';
 import { api } from '../api';
-import { User, Save, Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { User, Save, Plus, Trash2, CheckCircle2, GraduationCap } from 'lucide-react';
 
 interface ProfileViewProps {
   onSaved?: () => void;
@@ -13,6 +13,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [newSkill, setNewSkill] = useState('');
+  const [newDegree, setNewDegree] = useState('');
+  const [newInstitution, setNewInstitution] = useState('');
+  const [newPeriod, setNewPeriod] = useState('');
+  const [showAddEdu, setShowAddEdu] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -59,6 +63,31 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
     setProfile({
       ...profile,
       skills: profile.skills.filter((s) => s !== skillToRemove)
+    });
+  };
+
+  const addEducation = () => {
+    if (!newDegree.trim() || !newInstitution.trim() || !profile) return;
+    const newEdu = {
+      degree: newDegree.trim(),
+      institution: newInstitution.trim(),
+      period: newPeriod.trim() || 'Concluído'
+    };
+    setProfile({
+      ...profile,
+      educations: [...(profile.educations || []), newEdu]
+    });
+    setNewDegree('');
+    setNewInstitution('');
+    setNewPeriod('');
+    setShowAddEdu(false);
+  };
+
+  const removeEducation = (index: number) => {
+    if (!profile) return;
+    setProfile({
+      ...profile,
+      educations: (profile.educations || []).filter((_, idx) => idx !== index)
     });
   };
 
@@ -234,6 +263,92 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
                 )}
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Educations Summary */}
+        <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-sm text-txt-primary uppercase tracking-wider text-xs flex items-center gap-2">
+              <GraduationCap className="w-4 h-4 text-accent-light" />
+              Formação Académica Registada ({(profile.educations || []).length})
+            </h3>
+            <button
+              type="button"
+              onClick={() => setShowAddEdu(!showAddEdu)}
+              className="text-xs text-accent-light hover:underline flex items-center gap-1 font-medium"
+            >
+              <Plus className="w-3.5 h-3.5" /> Adicionar Formação
+            </button>
+          </div>
+
+          {showAddEdu && (
+            <div className="p-3.5 rounded-xl bg-surface-200 border border-surface-border space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <input
+                  type="text"
+                  placeholder="Grau / Curso (ex: Licenciatura em Engenharia)"
+                  value={newDegree}
+                  onChange={(e) => setNewDegree(e.target.value)}
+                  className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
+                />
+                <input
+                  type="text"
+                  placeholder="Instituição (ex: Univ. de Lisboa)"
+                  value={newInstitution}
+                  onChange={(e) => setNewInstitution(e.target.value)}
+                  className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
+                />
+                <input
+                  type="text"
+                  placeholder="Período (ex: 2019 - 2023)"
+                  value={newPeriod}
+                  onChange={(e) => setNewPeriod(e.target.value)}
+                  className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddEdu(false)}
+                  className="px-2.5 py-1 text-xs text-txt-secondary hover:text-txt-primary"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={addEducation}
+                  className="px-3 py-1 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold shadow-xs"
+                >
+                  Guardar Formação
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {(!profile.educations || profile.educations.length === 0) ? (
+              <div className="text-xs text-txt-muted py-2">Nenhuma formação académica adicionada.</div>
+            ) : (
+              profile.educations.map((edu, idx) => (
+                <div key={idx} className="p-3 rounded-lg bg-surface-200/50 border border-surface-border flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium text-txt-primary">
+                      {edu.degree} — <span className="text-accent-light">{edu.institution}</span>
+                    </div>
+                    <div className="text-xs text-txt-muted">{edu.period}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeEducation(idx)}
+                    className="p-1.5 text-txt-muted hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
+                    title="Remover formação"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </form>

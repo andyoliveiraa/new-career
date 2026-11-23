@@ -329,9 +329,9 @@ export const JobsView: React.FC<JobsViewProps> = ({
                         onClick={() => onOpenJobAI(j)}
                       >
                         <div className="font-medium text-txt-primary text-sm line-clamp-1">{j.title}</div>
-                        <div className="text-xs text-txt-secondary flex justify-between">
-                          <span>{j.company}</span>
-                          <span className="text-txt-muted">{j.location || 'Portugal'}</span>
+                        <div className="text-xs text-txt-secondary flex items-center justify-between gap-2 min-w-0">
+                          <span className="truncate font-medium text-txt-primary/90" title={j.company}>{j.company}</span>
+                          <span className="text-txt-muted shrink-0 text-[11px]">{j.location || 'Portugal'}</span>
                         </div>
                         <div className="flex items-center justify-between pt-1 text-[11px]">
                           <span className="text-txt-muted uppercase text-[10px]">{j.source}</span>

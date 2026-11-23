@@ -9,15 +9,15 @@ import {
 } from 'lucide-react';
 
 const PRESET_COLORS = [
-  { name: 'Grafite Executivo', hex: '#1e293b' },
-  { name: 'Azul Corporativo', hex: '#2563eb' },
-  { name: 'Azul Ardósia', hex: '#475569' },
-  { name: 'Verde Esmeralda', hex: '#059669' },
-  { name: 'Teal Moderno', hex: '#0f766e' },
-  { name: 'Índigo Profissional', hex: '#4f46e5' },
-  { name: 'Roxo Criativo', hex: '#7c3aed' },
-  { name: 'Rubi Elegante', hex: '#b91c1c' },
-  { name: 'Âmbar Premium', hex: '#b45309' }
+  { name: 'Grafite', fullName: 'Grafite Executivo', hex: '#1e293b' },
+  { name: 'Azul', fullName: 'Azul Corporativo', hex: '#2563eb' },
+  { name: 'Ardósia', fullName: 'Azul Ardósia', hex: '#475569' },
+  { name: 'Esmeralda', fullName: 'Verde Esmeralda', hex: '#059669' },
+  { name: 'Teal', fullName: 'Teal Moderno', hex: '#0f766e' },
+  { name: 'Índigo', fullName: 'Índigo Profissional', hex: '#4f46e5' },
+  { name: 'Roxo', fullName: 'Roxo Criativo', hex: '#7c3aed' },
+  { name: 'Rubi', fullName: 'Rubi Elegante', hex: '#b91c1c' },
+  { name: 'Âmbar', fullName: 'Âmbar Premium', hex: '#b45309' }
 ];
 
 const POPULAR_GOOGLE_FONTS = [
@@ -53,9 +53,9 @@ export const CVBuilderView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewHtml, setPreviewHtml] = useState<string>('');
-  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [loadingPreview, setLoadingPreview] = useState(true);
   const [auditResult, setAuditResult] = useState<ATSAuditResult | null>(null);
-  const [loadingAudit, setLoadingAudit] = useState(false);
+  const [loadingAudit, setLoadingAudit] = useState(true);
   const [activeConfigTab, setActiveConfigTab] = useState<'layout' | 'typography' | 'blocks' | 'photo'>('layout');
   const [showTipsAccordion, setShowTipsAccordion] = useState(true);
   const [customFontInput, setCustomFontInput] = useState('');
@@ -336,8 +336,8 @@ export const CVBuilderView: React.FC = () => {
       {/* Main 3-Column Studio Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* ================= COLUMN 1: CONTROLS & BUILDER (4 cols) ================= */}
-        <div className="lg:col-span-4 space-y-4">
+        {/* ================= COLUMN 1: CONTROLS & BUILDER ================= */}
+        <div className="lg:col-span-5 xl:col-span-4 space-y-4">
           <div className="bg-surface-100 border border-surface-border rounded-2xl p-4 space-y-4">
             
             {/* Template Name Input */}
@@ -597,6 +597,7 @@ export const CVBuilderView: React.FC = () => {
                         key={preset.hex}
                         type="button"
                         onClick={() => updateTemplateField('accent_color', preset.hex)}
+                        title={preset.fullName}
                         className={`flex items-center gap-1.5 p-1.5 rounded-lg border text-left text-[11px] transition-all ${
                           selectedTemplate?.accent_color?.toLowerCase() === preset.hex.toLowerCase()
                             ? 'border-accent bg-accent/10 font-bold'
@@ -607,7 +608,7 @@ export const CVBuilderView: React.FC = () => {
                           className="w-3 h-3 rounded-full shrink-0 border border-black/20"
                           style={{ backgroundColor: preset.hex }}
                         />
-                        <span className="truncate text-txt-secondary">{preset.name}</span>
+                        <span className="truncate text-txt-secondary font-medium">{preset.name}</span>
                       </button>
                     ))}
                   </div>
@@ -733,8 +734,8 @@ export const CVBuilderView: React.FC = () => {
           </div>
         </div>
 
-        {/* ================= COLUMN 2: LIVE A4 PREVIEW (5 cols) ================= */}
-        <div className="lg:col-span-5 space-y-3">
+        {/* ================= COLUMN 2: LIVE A4 PREVIEW ================= */}
+        <div className="lg:col-span-7 xl:col-span-5 space-y-3">
           <div className="bg-surface-100 border border-surface-border rounded-2xl p-4 flex flex-col h-[780px]">
             <div className="flex items-center justify-between pb-3 border-b border-surface-border">
               <div className="flex items-center gap-2">
@@ -778,8 +779,8 @@ export const CVBuilderView: React.FC = () => {
           </div>
         </div>
 
-        {/* ================= COLUMN 3: REAL-TIME ATS AUDIT & CRAFT TIPS (3 cols) ================= */}
-        <div className="lg:col-span-3 space-y-4">
+        {/* ================= COLUMN 3: REAL-TIME ATS AUDIT & CRAFT TIPS ================= */}
+        <div className="lg:col-span-12 xl:col-span-3 space-y-4">
           
           {/* ATS Score Card */}
           <div className="bg-surface-100 border border-surface-border rounded-2xl p-4 space-y-4">

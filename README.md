@@ -93,6 +93,18 @@ Permite a migração imediata de quem já utiliza o Career-Ops, funcionando perf
 - **Isolamento Multi-Tenant**:
   - Cada utilizador tem a sua partição privada de chaves e webhook no Firestore Cloud (`users/{user_id}/settings`).
 
+### 9. 💎 Padrão de Design Unslop & Layout Responsivo
+- **Navbar em Linha Única & Menu Mobile**:
+  - Altura fixa e tipografia contida com `whitespace-nowrap` e truncamento inteligente para nomes de utilizador longos.
+  - Menu drawer expansível para tablets e telemóveis.
+- **Pipeline Kanban Anti-Colisão**:
+  - Cabeçalhos de cartões com proteção de largura (`min-w-0`, `truncate`, `shrink-0`) eliminando sobreposições entre títulos de vagas, empresas extensas e badges de localização.
+- **Estúdio de CV Adaptativo**:
+  - Grelha responsiva de 3 colunas (Controlos, Pré-visualização A4 e Auditoria ATS) equilibrada entre ecrãs portáteis e monitores ultra-wide.
+  - Seletor de cores com etiquetas concisas e tooltips completos.
+- **Perfil Mestre Abrangente**:
+  - Gestão de dados pessoais, resumo executivo, competências técnicas e secção dedicada para **Formação Académica Registada** (grau, universidade/instituição e período).
+
 ---
 
 ## 🏗️ Arquitetura do Repositório
