@@ -46,6 +46,7 @@ next-env.d.ts
 # Generated outputs & scratch
 backend/output/
 backend/storage/
+storage/users/
 *.log
 
 # OS

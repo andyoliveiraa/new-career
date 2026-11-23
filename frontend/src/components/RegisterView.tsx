@@ -81,7 +81,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onSwitchToLogin }) =
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="André Dias"
+                placeholder="Nome Completo"
                 className="w-full px-3.5 py-2.5 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600"
               />
             </div>
@@ -95,7 +95,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onSwitchToLogin }) =
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="oliveira.dias@ubi.pt"
+                placeholder="username@email.com"
                 className="w-full px-3.5 py-2.5 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600"
               />
             </div>

@@ -12,18 +12,16 @@ export const OnboardingWizard: React.FC = () => {
   const [selectedMode, setSelectedMode] = useState<'career_ops' | 'manual' | null>(null);
 
   // Career-Ops state
-  const [directoryPath, setDirectoryPath] = useState(
-    'C:\\Users\\andy_\\Desktop\\IA\\career-ops'
-  );
+  const [directoryPath, setDirectoryPath] = useState('');
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<OnboardingResult | null>(null);
 
   // Manual state
-  const [headline, setHeadline] = useState('Profissional em Tecnologias de Informação & Gestão');
-  const [location, setLocation] = useState('Covilhã, Portugal');
-  const [phone, setPhone] = useState('+351 925 220 777');
-  const [initialSkills, setInitialSkills] = useState('Python, Linux, Suporte Técnico, Atendimento');
+  const [headline, setHeadline] = useState('');
+  const [location, setLocation] = useState('');
+  const [phone, setPhone] = useState('');
+  const [initialSkills, setInitialSkills] = useState('');
   const [initialCvText, setInitialCvText] = useState('');
   const [manualLoading, setManualLoading] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
@@ -181,15 +179,24 @@ export const OnboardingWizard: React.FC = () => {
 
               {/* Path Input */}
               <div className="mb-5">
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">
-                  Caminho da Pasta do Career-Ops
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-medium text-slate-300">
+                    Caminho da Pasta do Career-Ops
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setDirectoryPath('C:\\Users\\andy_\\Desktop\\IA\\career-ops')}
+                    className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    Usar pasta local detetada
+                  </button>
+                </div>
                 <div className="relative">
                   <input
                     type="text"
                     value={directoryPath}
                     onChange={(e) => setDirectoryPath(e.target.value)}
-                    placeholder="Ex: C:\Users\nome\Desktop\career-ops"
+                    placeholder="Ex: C:\caminho\para\career-ops"
                     className="w-full px-3.5 py-2.5 bg-slate-950/70 border border-slate-800 rounded-lg text-slate-200 font-mono text-xs focus:outline-none focus:border-blue-500 transition-colors"
                   />
                 </div>

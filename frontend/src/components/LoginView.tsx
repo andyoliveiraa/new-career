@@ -68,7 +68,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSwitchToRegister }) => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="exemplo@ubi.pt"
+                placeholder="username@email.com"
                 className="w-full px-3.5 py-2.5 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600"
               />
             </div>

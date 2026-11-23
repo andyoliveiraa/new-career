@@ -1,4 +1,21 @@
 {
-  "users": {},
-  "user_data": {}
+  "users": {
+    "3fb7a9575865": {
+      "id": "3fb7a9575865",
+      "email": "andrexxdias@hotmail.com",
+      "password_hash": "4b30611d09d46a37b9b6f2f672025e4a$62b86ffa1f1a09ec8835eeae732c49dba6b09e31a5ceda08c62062554c7e4b06",
+      "full_name": "André Filipe Oliveira Dias",
+      "has_completed_onboarding": false,
+      "created_at": "2026-11-23T05:52:27.071782+00:00",
+      "updated_at": "2026-11-23T05:52:27.071782+00:00"
+    }
+  },
+  "user_data": {
+    "3fb7a9575865": {
+      "profile": {},
+      "jobs": {},
+      "applications": {},
+      "scan_history": {}
+    }
+  }
 }
