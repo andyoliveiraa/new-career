@@ -5,11 +5,33 @@ from backend.app.firebase import firebase_manager
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
 
+DEFAULT_PROFILE = {
+    "id": 1,
+    "full_name": "André Filipe Oliveira Dias",
+    "headline": "Profissional em Tecnologias de Informação & Gestão Operacional",
+    "email": "oliveira.dias@ubi.pt",
+    "phone": "+351 925 220 777",
+    "location": "Covilhã, Portugal",
+    "linkedin_url": "https://linkedin.com/in/andre-dias-ubi",
+    "github_url": "https://github.com/andyoliveiraa",
+    "portfolio_url": None,
+    "summary": "Profissional com formação em Informática Web, Móvel e na Nuvem pela Universidade da Beira Interior (UBI) e experiência comprovada em suporte técnico, sistemas e gestão de operações.",
+    "skills": [
+        {"name": "Python", "level": "avancado", "category": "tech"},
+        {"name": "Linux & Redes", "level": "avancado", "category": "tech"},
+        {"name": "Suporte Técnico & Troubleshooting", "level": "expert", "category": "tech"},
+        {"name": "Gestão Operacional", "level": "expert", "category": "operations"}
+    ],
+    "experiences": [],
+    "educations": [],
+    "certifications": [],
+    "verified_facts": []
+}
+
 @router.get("", response_model=ProfileResponse)
 async def get_profile():
     prof = await firebase_manager.get_profile()
     if not prof:
-        from backend.app.scripts.import_career_ops import DEFAULT_PROFILE
         prof = await firebase_manager.save_profile(DEFAULT_PROFILE)
 
     now = datetime.now(timezone.utc)

@@ -29,6 +29,9 @@ class FirebaseManager:
         return cls._instance
 
     def _initialize(self):
+        # 0. Always load local persistent store first so cached and seeded jobs/profile are immediately ready
+        self._load_local_store()
+
         # 1. Check if Firebase credentials JSON exists
         cred_path = settings.FIREBASE_CREDENTIALS_PATH
         if cred_path and os.path.exists(cred_path):
@@ -57,7 +60,6 @@ class FirebaseManager:
 
         # 3. Local persistent fallback store (offline / developer mode)
         logger.info("Firebase rodando em modo Local Firestore (armazenamento persistente em storage/local_firestore.json). Para conectar à nuvem Firebase, insira seu ficheiro 'firebase-credentials.json'.")
-        self._load_local_store()
 
     def _load_local_store(self):
         os.makedirs(os.path.dirname(self._local_store_path), exist_ok=True)
