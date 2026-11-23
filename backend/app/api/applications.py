@@ -1,21 +1,24 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any
 from datetime import datetime, timezone
 
 from backend.app.schemas.application import ApplicationUpdate, ApplicationResponse
 from backend.app.firebase import firebase_manager
+from backend.app.auth_utils import get_current_user
 
 router = APIRouter(prefix="/applications", tags=["Applications"])
 
 @router.get("/stats")
-async def get_application_stats():
-    """Summary metrics of the job hunting pipeline from Firebase."""
-    return await firebase_manager.get_stats()
+async def get_application_stats(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Summary metrics of the job hunting pipeline from Firebase scoped to current user."""
+    user_id = current_user["id"]
+    return await firebase_manager.get_stats(user_id)
 
 @router.post("/{job_id}/apply")
-async def mark_applied(job_id: int, notes: str = ""):
+async def mark_applied(job_id: int, notes: str = "", current_user: Dict[str, Any] = Depends(get_current_user)):
     """Fast action: Mark 'Já me candidatei' in Firebase."""
-    app = await firebase_manager.get_application(job_id) or {}
+    user_id = current_user["id"]
+    app = await firebase_manager.get_application(user_id, job_id) or {}
     now = datetime.now(timezone.utc).isoformat()
     
     app["status"] = "candidatado"
@@ -23,12 +26,13 @@ async def mark_applied(job_id: int, notes: str = ""):
     if notes:
         app["notes"] = notes
 
-    await firebase_manager.save_application(job_id, app)
+    await firebase_manager.save_application(user_id, job_id, app)
     return {"status": "success", "message": "Marcado como candidatado no Firebase!", "data": app}
 
 @router.patch("/{job_id}", response_model=ApplicationResponse)
-async def update_application(job_id: int, update_data: ApplicationUpdate):
-    app = await firebase_manager.get_application(job_id) or {}
+async def update_application(job_id: int, update_data: ApplicationUpdate, current_user: Dict[str, Any] = Depends(get_current_user)):
+    user_id = current_user["id"]
+    app = await firebase_manager.get_application(user_id, job_id) or {}
     now = datetime.now(timezone.utc).isoformat()
     
     if update_data.status is not None:
@@ -45,7 +49,7 @@ async def update_application(job_id: int, update_data: ApplicationUpdate):
     if update_data.custom_cover_letter is not None:
         app["custom_cover_letter"] = update_data.custom_cover_letter
 
-    res = await firebase_manager.save_application(job_id, app)
+    res = await firebase_manager.save_application(user_id, job_id, app)
 
     return ApplicationResponse(
         id=int(res.get("id") or job_id),

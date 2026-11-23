@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import type { Job, ApplicationStats } from './types';
 import { api } from './api';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { LoginView } from './components/LoginView';
+import { RegisterView } from './components/RegisterView';
+import { OnboardingWizard } from './components/OnboardingWizard';
 import { Navbar } from './components/Navbar';
 import { DashboardView } from './components/DashboardView';
 import { JobsView } from './components/JobsView';
@@ -8,7 +12,10 @@ import { ScraperView } from './components/ScraperView';
 import { ProfileView } from './components/ProfileView';
 import { AIStudioModal } from './components/AIStudioModal';
 
-export const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const [authView, setAuthView] = useState<'login' | 'register'>('login');
+
   const [activeTab, setActiveTab] = useState<'dashboard' | 'jobs' | 'scrapers' | 'profile'>('dashboard');
   const [jobs, setJobs] = useState<Job[]>([]);
   const [stats, setStats] = useState<ApplicationStats>({
@@ -32,8 +39,10 @@ export const App: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState('');
 
   useEffect(() => {
-    loadData();
-  }, [filterQuery, filterLocation, filterSource, filterStatus]);
+    if (isAuthenticated && user?.has_completed_onboarding) {
+      loadData();
+    }
+  }, [isAuthenticated, user?.has_completed_onboarding, filterQuery, filterLocation, filterSource, filterStatus]);
 
   const loadData = async () => {
     setLoading(true);
@@ -100,6 +109,32 @@ export const App: React.FC = () => {
     }
   };
 
+  // 1. Loading auth state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-6 h-6 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+          <span className="text-xs text-slate-400">A carregar New Career...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Unauthenticated: Login or Register
+  if (!isAuthenticated) {
+    if (authView === 'register') {
+      return <RegisterView onSwitchToLogin={() => setAuthView('login')} />;
+    }
+    return <LoginView onSwitchToRegister={() => setAuthView('register')} />;
+  }
+
+  // 3. Authenticated but needs Onboarding Setup
+  if (user && !user.has_completed_onboarding) {
+    return <OnboardingWizard />;
+  }
+
+  // 4. Authenticated & Onboarded: Full Workspace
   return (
     <div className="min-h-screen bg-background text-txt-primary flex flex-col font-sans selection:bg-accent selection:text-white">
       {/* Navbar */}
@@ -161,9 +196,17 @@ export const App: React.FC = () => {
 
       {/* Subtle Footer */}
       <footer className="border-t border-surface-border py-4 text-center text-xs text-txt-muted bg-surface-100/40">
-        New Career — Plataforma de Emprego & AI Career Ops • Padrão Unslop Craft
+        New Career — Plataforma Multi-Utilizador de Emprego & AI Career Ops • Padrão Unslop Craft
       </footer>
     </div>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 };
 

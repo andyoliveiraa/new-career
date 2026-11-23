@@ -1,5 +1,5 @@
-from fastapi import APIRouter, BackgroundTasks
-from typing import List, Optional
+from fastapi import APIRouter, BackgroundTasks, Depends
+from typing import List, Optional, Dict, Any
 import time
 import logging
 
@@ -9,6 +9,7 @@ from backend.app.scrapers.google_jobs import GoogleJobsScraper
 from backend.app.scrapers.jobspy_scraper import JobSpyScraper
 from backend.app.scrapers.ats_portals import ATSPortalsScraper
 from backend.app.services.geo_filter import calculate_job_distance
+from backend.app.auth_utils import get_current_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/scrapers", tags=["Scrapers"])
@@ -20,12 +21,12 @@ SCRAPERS_MAP = {
     "ats": ATSPortalsScraper()
 }
 
-async def run_scan_task(sources: List[str], query: str, location: Optional[str], limit_per_source: int):
+async def run_scan_task(user_id: str, sources: List[str], query: str, location: Optional[str], limit_per_source: int):
     start_time = time.time()
     total_found = 0
     total_new = 0
 
-    current_jobs = await firebase_manager.list_jobs(limit=1000)
+    current_jobs = await firebase_manager.list_jobs(user_id=user_id, limit=1000)
     existing_keys = {j.get("job_key") for j in current_jobs}
     next_id = max([int(j.get("id", 0)) for j in current_jobs], default=0) + 1
 
@@ -62,8 +63,8 @@ async def run_scan_task(sources: List[str], query: str, location: Optional[str],
                         "raw_metadata": rj.get("raw_metadata")
                     }
 
-                    await firebase_manager.save_job(job_record)
-                    await firebase_manager.save_application(new_id, {"status": "disponivel"})
+                    await firebase_manager.save_job(user_id, job_record)
+                    await firebase_manager.save_application(user_id, new_id, {"status": "disponivel"})
 
                     existing_keys.add(key)
                     total_new += 1
@@ -72,7 +73,7 @@ async def run_scan_task(sources: List[str], query: str, location: Optional[str],
             logger.error(f"Erro ao executar scraper {src_name} no Firebase: {e}")
 
     duration = time.time() - start_time
-    await firebase_manager.add_scan_history({
+    await firebase_manager.add_scan_history(user_id, {
         "engine": ",".join(sources),
         "query": query,
         "location": location,
@@ -88,10 +89,11 @@ async def trigger_scan(
     query: str = "Desenvolvedor",
     location: Optional[str] = "Lisboa",
     limit: int = 20,
-    background_tasks: BackgroundTasks = BackgroundTasks()
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     selected_sources = sources or ["netempregos", "ats"]
-    background_tasks.add_task(run_scan_task, selected_sources, query, location, limit)
+    background_tasks.add_task(run_scan_task, current_user["id"], selected_sources, query, location, limit)
     return {
         "status": "started",
         "message": f"Varredura iniciada no Firebase para '{query}' em '{location}' nas fontes: {', '.join(selected_sources)}",
@@ -99,5 +101,6 @@ async def trigger_scan(
     }
 
 @router.get("/history")
-async def get_scan_history(limit: int = 15):
-    return await firebase_manager.get_scan_history(limit)
+async def get_scan_history(limit: int = 15, current_user: Dict[str, Any] = Depends(get_current_user)):
+    user_id = current_user["id"]
+    return await firebase_manager.get_scan_history(user_id, limit=limit)

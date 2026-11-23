@@ -1,45 +1,44 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from typing import Dict, Any
 from datetime import datetime, timezone
 from backend.app.schemas.profile import ProfileUpdate, ProfileResponse
 from backend.app.firebase import firebase_manager
+from backend.app.auth_utils import get_current_user
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
 
-DEFAULT_PROFILE = {
-    "id": 1,
-    "full_name": "André Filipe Oliveira Dias",
-    "headline": "Profissional em Tecnologias de Informação & Gestão Operacional",
-    "email": "oliveira.dias@ubi.pt",
-    "phone": "+351 925 220 777",
-    "location": "Covilhã, Portugal",
-    "linkedin_url": "https://linkedin.com/in/andre-dias-ubi",
-    "github_url": "https://github.com/andyoliveiraa",
-    "portfolio_url": None,
-    "summary": "Profissional com formação em Informática Web, Móvel e na Nuvem pela Universidade da Beira Interior (UBI) e experiência comprovada em suporte técnico, sistemas e gestão de operações.",
-    "skills": [
-        {"name": "Python", "level": "avancado", "category": "tech"},
-        {"name": "Linux & Redes", "level": "avancado", "category": "tech"},
-        {"name": "Suporte Técnico & Troubleshooting", "level": "expert", "category": "tech"},
-        {"name": "Gestão Operacional", "level": "expert", "category": "operations"}
-    ],
-    "experiences": [],
-    "educations": [],
-    "certifications": [],
-    "verified_facts": []
-}
-
 @router.get("", response_model=ProfileResponse)
-async def get_profile():
-    prof = await firebase_manager.get_profile()
+async def get_profile(current_user: Dict[str, Any] = Depends(get_current_user)):
+    user_id = current_user["id"]
+    prof = await firebase_manager.get_profile(user_id)
     if not prof:
-        prof = await firebase_manager.save_profile(DEFAULT_PROFILE)
+        prof = {
+            "id": 1,
+            "user_id": user_id,
+            "full_name": current_user.get("full_name", ""),
+            "headline": "Profissional em Transição / Procura Ativa",
+            "email": current_user.get("email", ""),
+            "phone": "",
+            "location": "Portugal",
+            "linkedin_url": None,
+            "github_url": None,
+            "portfolio_url": None,
+            "summary": "Perfil mestre criado na plataforma New Career.",
+            "skills": [],
+            "experiences": [],
+            "educations": [],
+            "certifications": [],
+            "verified_facts": [],
+            "master_cv_text": ""
+        }
+        await firebase_manager.save_profile(user_id, prof)
 
     now = datetime.now(timezone.utc)
     return ProfileResponse(
         id=int(prof.get("id", 1)),
-        full_name=prof.get("full_name", "André Filipe Oliveira Dias"),
+        full_name=prof.get("full_name") or current_user.get("full_name", ""),
         headline=prof.get("headline"),
-        email=prof.get("email"),
+        email=prof.get("email") or current_user.get("email", ""),
         phone=prof.get("phone"),
         location=prof.get("location"),
         linkedin_url=prof.get("linkedin_url"),
@@ -55,9 +54,11 @@ async def get_profile():
     )
 
 @router.put("", response_model=ProfileResponse)
-async def update_profile(profile_data: ProfileUpdate):
+async def update_profile(profile_data: ProfileUpdate, current_user: Dict[str, Any] = Depends(get_current_user)):
+    user_id = current_user["id"]
     data = profile_data.model_dump()
-    saved = await firebase_manager.save_profile(data)
+    data["user_id"] = user_id
+    saved = await firebase_manager.save_profile(user_id, data)
     now = datetime.now(timezone.utc)
     return ProfileResponse(
         id=int(saved.get("id", 1)),

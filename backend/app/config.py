@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     FIREBASE_PROJECT_ID: Optional[str] = os.getenv("FIREBASE_PROJECT_ID")
     USE_FIREBASE: bool = True
 
+    # Auth & JWT Settings
+    JWT_SECRET: str = os.getenv("JWT_SECRET", "new-career-super-secret-jwt-key-2026")
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_DAYS: int = 7
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Briefcase, LayoutDashboard, User, Search } from 'lucide-react';
+import { Briefcase, LayoutDashboard, User, Search, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
   activeTab: string;
@@ -8,6 +9,8 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, statsTotal = 0 }) => {
+  const { user, logout } = useAuth();
+
   const navItems = [
     { id: 'dashboard', label: 'Painel Geral', icon: LayoutDashboard },
     { id: 'jobs', label: 'Vagas & Pipeline', icon: Briefcase, badge: statsTotal > 0 ? statsTotal : undefined },
@@ -15,13 +18,22 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, statsTo
     { id: 'profile', label: 'Perfil Mestre', icon: User },
   ];
 
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+  };
+
   return (
     <header className="border-b border-surface-border bg-surface-100/90 backdrop-blur sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo & Title */}
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
-            <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center text-white font-bold text-lg shadow-sm">
+            <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center text-white font-bold text-sm shadow-sm">
               NC
             </div>
             <div>
@@ -61,10 +73,31 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, statsTo
             })}
           </nav>
 
-          {/* System Status Indicator */}
-          <div className="flex items-center space-x-2 text-xs text-txt-muted">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Sistema Ativo</span>
+          {/* User profile & Logout */}
+          <div className="flex items-center space-x-3">
+            {user && (
+              <div className="flex items-center gap-2.5 pl-3 border-l border-surface-border">
+                <div className="w-8 h-8 rounded-full bg-blue-600/20 border border-blue-500/30 text-blue-400 font-semibold text-xs flex items-center justify-center">
+                  {getInitials(user.full_name || 'NC')}
+                </div>
+                <div className="hidden sm:block text-left">
+                  <div className="text-xs font-medium text-txt-primary leading-none">
+                    {user.full_name}
+                  </div>
+                  <div className="text-[10px] text-txt-muted leading-tight mt-0.5">
+                    {user.email}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={logout}
+                  title="Terminar Sessão"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors ml-1"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

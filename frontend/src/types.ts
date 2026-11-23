@@ -93,3 +93,29 @@ export interface ScanRecord {
   duration_seconds?: number;
   executed_at: string;
 }
+
+export interface User {
+  id: string;
+  full_name: string;
+  email: string;
+  has_completed_onboarding: boolean;
+  created_at?: string;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+}
+
+export interface OnboardingResult {
+  success: boolean;
+  message: string;
+  experiences_count: number;
+  educations_count: number;
+  skills_count: number;
+  jobs_count: number;
+  applications_count: number;
+  cv_base_loaded: boolean;
+  profile_name?: string;
+}

@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException, Query
-from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Query, Depends
+from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 
 from backend.app.schemas.job import JobResponse
 from backend.app.services.liveness import LivenessService
 from backend.app.firebase import firebase_manager
+from backend.app.auth_utils import get_current_user
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
@@ -17,9 +18,12 @@ async def list_jobs(
     liveness: Optional[str] = None,
     is_remote: Optional[bool] = None,
     limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0)
+    offset: int = Query(0, ge=0),
+    current_user: Dict[str, Any] = Depends(get_current_user)
 ):
+    user_id = current_user["id"]
     raw_jobs = await firebase_manager.list_jobs(
+        user_id=user_id,
         query=query,
         location=location,
         source=source,
@@ -56,8 +60,9 @@ async def list_jobs(
     return output
 
 @router.get("/{job_id}", response_model=JobResponse)
-async def get_job(job_id: int):
-    rj = await firebase_manager.get_job(job_id)
+async def get_job(job_id: int, current_user: Dict[str, Any] = Depends(get_current_user)):
+    user_id = current_user["id"]
+    rj = await firebase_manager.get_job(user_id, job_id)
     if not rj:
         raise HTTPException(status_code=404, detail="Vaga não encontrada no Firebase")
 
@@ -84,8 +89,9 @@ async def get_job(job_id: int):
     )
 
 @router.post("/{job_id}/check-liveness")
-async def check_job_liveness(job_id: int):
-    rj = await firebase_manager.get_job(job_id)
+async def check_job_liveness(job_id: int, current_user: Dict[str, Any] = Depends(get_current_user)):
+    user_id = current_user["id"]
+    rj = await firebase_manager.get_job(user_id, job_id)
     if not rj:
         raise HTTPException(status_code=404, detail="Vaga não encontrada no Firebase")
 
@@ -96,13 +102,13 @@ async def check_job_liveness(job_id: int):
     rj["liveness_reason"] = check_res.get("reason")
     rj["liveness_checked_at"] = now_iso
 
-    app = await firebase_manager.get_application(job_id)
+    app = await firebase_manager.get_application(user_id, job_id)
     if app and check_res["status"] == "expired" and app.get("status") == "disponivel":
         app["status"] = "descartada"
         app["notes"] = (app.get("notes") or "") + f" [Auto-descartada: {check_res.get('reason')}]"
-        await firebase_manager.save_application(job_id, app)
+        await firebase_manager.save_application(user_id, job_id, app)
 
-    await firebase_manager.save_job(rj)
+    await firebase_manager.save_job(user_id, rj)
 
     return {
         "job_id": job_id,
@@ -112,6 +118,7 @@ async def check_job_liveness(job_id: int):
     }
 
 @router.delete("/{job_id}")
-async def delete_job(job_id: int):
-    await firebase_manager.delete_job(job_id)
+async def delete_job(job_id: int, current_user: Dict[str, Any] = Depends(get_current_user)):
+    user_id = current_user["id"]
+    await firebase_manager.delete_job(user_id, job_id)
     return {"status": "success", "message": "Vaga removida com sucesso do Firebase"}

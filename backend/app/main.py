@@ -5,6 +5,7 @@ import logging
 
 from backend.app.config import settings
 from backend.app.database import init_db
+from backend.app.api.auth import router as auth_router
 from backend.app.api.jobs import router as jobs_router
 from backend.app.api.applications import router as applications_router
 from backend.app.api.profile import router as profile_router
@@ -39,6 +40,7 @@ app.add_middleware(
 )
 
 # Include API Routers
+app.include_router(auth_router, prefix="/api")
 app.include_router(jobs_router, prefix="/api")
 app.include_router(applications_router, prefix="/api")
 app.include_router(profile_router, prefix="/api")
