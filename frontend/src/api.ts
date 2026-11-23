@@ -1,7 +1,7 @@
 import type {
   Job, ApplicationStats, ProfileData, JDAnalysis, CVTailorResult,
   CoverLetterResult, ScanRecord, AuthResponse, User, OnboardingResult,
-  CVTemplate, ATSAuditResult
+  CVTemplate, ATSAuditResult, UserSettings, TestKeyResult, TestWebhookResult
 } from './types';
 
 const API_BASE = 'http://localhost:8000/api';
@@ -372,5 +372,53 @@ export const api = {
     });
     if (!res.ok) throw new Error('Erro ao gerar pré-visualização do CV');
     return res.text();
+  },
+
+  // Settings & Integrations
+  async getUserSettings(): Promise<UserSettings> {
+    const res = await fetch(`${API_BASE}/settings`, {
+      headers: { ...authHeaders() }
+    });
+    if (!res.ok) throw new Error('Erro ao carregar configurações do utilizador');
+    return res.json();
+  },
+
+  async updateUserSettings(settings: Partial<UserSettings>): Promise<UserSettings> {
+    const res = await fetch(`${API_BASE}/settings`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders()
+      },
+      body: JSON.stringify(settings)
+    });
+    if (!res.ok) throw new Error('Erro ao guardar configurações');
+    return res.json();
+  },
+
+  async testApiKey(provider: string, apiKey?: string): Promise<TestKeyResult> {
+    const res = await fetch(`${API_BASE}/settings/test-key`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders()
+      },
+      body: JSON.stringify({ provider, api_key: apiKey || undefined })
+    });
+    if (!res.ok) throw new Error('Erro ao testar chave de API');
+    return res.json();
+  },
+
+  async testDiscordWebhook(webhookUrl?: string): Promise<TestWebhookResult> {
+    const res = await fetch(`${API_BASE}/settings/test-webhook`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders()
+      },
+      body: JSON.stringify({ webhook_url: webhookUrl || undefined })
+    });
+    if (!res.ok) throw new Error('Erro ao testar webhook do Discord');
+    return res.json();
   }
 };

@@ -97,11 +97,14 @@ class FirebaseManager:
                 "jobs": {},
                 "applications": {},
                 "scan_history": {},
-                "cv_templates": {}
+                "cv_templates": {},
+                "settings": {}
             }
         partition = self._local_data["user_data"][user_id]
         if "cv_templates" not in partition:
             partition["cv_templates"] = {}
+        if "settings" not in partition:
+            partition["settings"] = {}
         return partition
 
     # ==================== USERS & AUTH ====================
@@ -577,5 +580,42 @@ class FirebaseManager:
                     pass
 
         self._save_local_store()
+
+    # ==================== SETTINGS ====================
+    async def get_user_settings(self, user_id: str) -> Dict[str, Any]:
+        partition = self._get_user_partition(user_id)
+        if "settings" not in partition:
+            partition["settings"] = {}
+
+        if self._is_live and self._db:
+            try:
+                doc = self._db.collection("users").document(user_id).collection("settings").document("general").get()
+                if doc.exists:
+                    st = doc.to_dict()
+                    partition["settings"] = st
+                    return st
+            except Exception as e:
+                logger.warning(f"Aviso ao obter settings no Firestore Cloud: {e}")
+
+        return partition.get("settings", {})
+
+    async def save_user_settings(self, user_id: str, settings_dict: Dict[str, Any]) -> Dict[str, Any]:
+        partition = self._get_user_partition(user_id)
+        if "settings" not in partition:
+            partition["settings"] = {}
+
+        now = datetime.now(timezone.utc).isoformat()
+        settings_dict["user_id"] = user_id
+        settings_dict["updated_at"] = now
+
+        if self._is_live and self._db:
+            try:
+                self._db.collection("users").document(user_id).collection("settings").document("general").set(settings_dict, merge=True)
+            except Exception as e:
+                logger.warning(f"Aviso ao salvar settings no Firestore Cloud: {e}")
+
+        partition["settings"].update(settings_dict)
+        self._save_local_store()
+        return partition["settings"]
 
 firebase_manager = FirebaseManager.get_instance()

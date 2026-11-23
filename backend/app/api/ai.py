@@ -40,7 +40,8 @@ async def analyze_job(job_id: int, current_user: Dict[str, Any] = Depends(get_cu
         "description": job.get("description")
     }
 
-    analysis = await AITailorService.analyze_fit(job_dict, profile_dict)
+    user_settings = await firebase_manager.get_user_settings(user_id)
+    analysis = await AITailorService.analyze_fit(job_dict, profile_dict, user_keys=user_settings)
 
     # Save to application
     app = await firebase_manager.get_application(user_id, job_id) or {}
@@ -79,7 +80,8 @@ async def tailor_cv(request: CVTailorRequest, current_user: Dict[str, Any] = Dep
         "description": job.get("description")
     }
 
-    tailored = await AITailorService.tailor_cv(job_dict, profile_dict)
+    user_settings = await firebase_manager.get_user_settings(user_id)
+    tailored = await AITailorService.tailor_cv(job_dict, profile_dict, user_keys=user_settings)
 
     # Resolve CV template config
     template_config = None
@@ -135,7 +137,8 @@ async def generate_cover_letter(request: CoverLetterRequest, current_user: Dict[
         "description": job.get("description")
     }
 
-    cl_res = await AITailorService.generate_cover_letter(job_dict, profile_dict, request.angle or "direct")
+    user_settings = await firebase_manager.get_user_settings(user_id)
+    cl_res = await AITailorService.generate_cover_letter(job_dict, profile_dict, request.angle or "direct", user_keys=user_settings)
 
     app = await firebase_manager.get_application(user_id, request.job_id) or {}
     app["custom_cover_letter"] = cl_res.get("cover_letter_text", "")

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Briefcase, LayoutDashboard, User, Search, Palette, LogOut } from 'lucide-react';
+import { Briefcase, LayoutDashboard, User, Search, Palette, Sliders, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface NavbarProps {
@@ -17,6 +17,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, statsTo
     { id: 'cv-builder', label: 'Modelos de CV', icon: Palette },
     { id: 'scrapers', label: 'Central de Varredura', icon: Search },
     { id: 'profile', label: 'Perfil Mestre', icon: User },
+    { id: 'settings', label: 'Configurações', icon: Sliders },
   ];
 
   const getInitials = (name: string) => {

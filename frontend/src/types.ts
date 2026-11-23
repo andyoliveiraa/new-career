@@ -155,3 +155,38 @@ export interface ATSAuditResult {
   warnings: string[];
   actionable_tips: string[];
 }
+
+export interface UserSettings {
+  user_id: string;
+  discord_webhook_url?: string | null;
+  discord_notify_on_new_jobs: boolean;
+  discord_notify_on_status_change: boolean;
+  primary_ai_provider: 'gemini' | 'groq' | 'openai';
+  gemini_api_key?: string | null;
+  openai_api_key?: string | null;
+  groq_api_key?: string | null;
+  serpapi_api_key?: string | null;
+  jsearch_api_key?: string | null;
+  has_gemini_key: boolean;
+  has_openai_key: boolean;
+  has_groq_key: boolean;
+  has_serpapi_key: boolean;
+  has_jsearch_key: boolean;
+  has_discord_webhook: boolean;
+  updated_at?: string;
+}
+
+export interface TestKeyResult {
+  provider: string;
+  valid: boolean;
+  message: string;
+  status: 'active' | 'invalid' | 'error';
+  latency_ms?: number | null;
+  details?: string | null;
+}
+
+export interface TestWebhookResult {
+  success: boolean;
+  message: string;
+  latency_ms?: number | null;
+}

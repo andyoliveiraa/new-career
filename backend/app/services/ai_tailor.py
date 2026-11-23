@@ -8,14 +8,19 @@ logger = logging.getLogger(__name__)
 
 class AITailorService:
     @staticmethod
-    async def call_llm(prompt: str, system_prompt: str = "", provider: Optional[str] = None) -> str:
-        """Call AI provider with fallback hierarchy: Gemini -> Groq -> OpenAI"""
-        chosen_provider = provider or ("gemini" if settings.GEMINI_API_KEY else ("groq" if settings.GROQ_API_KEY else "openai"))
+    async def call_llm(prompt: str, system_prompt: str = "", provider: Optional[str] = None, user_keys: Optional[Dict[str, str]] = None) -> str:
+        """Call AI provider with user keys or system keys and fallback hierarchy: Gemini -> Groq -> OpenAI"""
+        keys = user_keys or {}
+        gemini_key = keys.get("gemini_api_key") or settings.GEMINI_API_KEY
+        groq_key = keys.get("groq_api_key") or settings.GROQ_API_KEY
+        openai_key = keys.get("openai_api_key") or settings.OPENAI_API_KEY
+
+        chosen_provider = provider or keys.get("primary_ai_provider") or ("gemini" if gemini_key else ("groq" if groq_key else "openai"))
 
         # 1. Google Gemini
-        if chosen_provider == "gemini" and settings.GEMINI_API_KEY:
+        if chosen_provider == "gemini" and gemini_key:
             try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={settings.GEMINI_API_KEY}"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
                 payload = {
                     "contents": [{"parts": [{"text": f"{system_prompt}\n\n{prompt}"}]}],
                     "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"}
@@ -29,10 +34,10 @@ class AITailorService:
                 logger.warning(f"Gemini API call failed: {e}")
 
         # 2. Groq
-        if (chosen_provider == "groq" or not settings.GEMINI_API_KEY) and settings.GROQ_API_KEY:
+        if (chosen_provider == "groq" or not gemini_key) and groq_key:
             try:
                 url = "https://api.groq.com/openai/v1/chat/completions"
-                headers = {"Authorization": f"Bearer {settings.GROQ_API_KEY}"}
+                headers = {"Authorization": f"Bearer {groq_key}"}
                 payload = {
                     "model": "llama-3.3-70b-versatile",
                     "messages": [
@@ -51,10 +56,10 @@ class AITailorService:
                 logger.warning(f"Groq API call failed: {e}")
 
         # 3. OpenAI
-        if settings.OPENAI_API_KEY:
+        if openai_key:
             try:
                 url = "https://api.openai.com/v1/chat/completions"
-                headers = {"Authorization": f"Bearer {settings.OPENAI_API_KEY}"}
+                headers = {"Authorization": f"Bearer {openai_key}"}
                 payload = {
                     "model": "gpt-4o-mini",
                     "messages": [
@@ -96,7 +101,7 @@ class AITailorService:
         return json.dumps(fallback)
 
     @classmethod
-    async def analyze_fit(cls, job_dict: Dict[str, Any], profile_dict: Dict[str, Any]) -> Dict[str, Any]:
+    async def analyze_fit(cls, job_dict: Dict[str, Any], profile_dict: Dict[str, Any], user_keys: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         system_prompt = (
             "You are an elite Tech Career Advisor and ATS Auditor. Analyze the job posting vs candidate profile. "
             "Output strictly valid JSON with keys: match_score (float 0-100), summary (string), strengths (list of strings), "
@@ -115,14 +120,14 @@ Skills: {json.dumps(profile_dict.get('skills', []))}
 Summary: {profile_dict.get('summary', '')}
 Experience: {json.dumps(profile_dict.get('experiences', []))[:2000]}
 """
-        raw_res = await cls.call_llm(prompt, system_prompt)
+        raw_res = await cls.call_llm(prompt, system_prompt, user_keys=user_keys)
         try:
             return json.loads(raw_res)
         except Exception:
             return json.loads(cls._offline_fallback_analysis(prompt))
 
     @classmethod
-    async def tailor_cv(cls, job_dict: Dict[str, Any], profile_dict: Dict[str, Any]) -> Dict[str, Any]:
+    async def tailor_cv(cls, job_dict: Dict[str, Any], profile_dict: Dict[str, Any], user_keys: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         system_prompt = (
             "You are an ATS CV Optimization expert. Your job is to adapt the candidate's summary and experience bullets "
             "to mirror the Job Description terminology WITHOUT hallucinating false experience. Every claim must remain true to the original profile. "
@@ -137,7 +142,7 @@ Description: {job_dict.get('description', '')[:2500]}
 Candidate Raw Profile:
 {json.dumps(profile_dict, indent=2)}
 """
-        raw_res = await cls.call_llm(prompt, system_prompt)
+        raw_res = await cls.call_llm(prompt, system_prompt, user_keys=user_keys)
         try:
             data = json.loads(raw_res)
             return {
@@ -153,7 +158,7 @@ Candidate Raw Profile:
             }
 
     @classmethod
-    async def generate_cover_letter(cls, job_dict: Dict[str, Any], profile_dict: Dict[str, Any], angle: str = "direct") -> Dict[str, Any]:
+    async def generate_cover_letter(cls, job_dict: Dict[str, Any], profile_dict: Dict[str, Any], angle: str = "direct", user_keys: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         system_prompt = (
             "You are a master communicator. Write a concise, authentic, high-impact cover letter (maximum 250 words) "
             "and a LinkedIn connection note (maximum 280 characters). Avoid clichés, corporate jargon, and exclamation marks. "
@@ -170,7 +175,7 @@ Candidate Name: {profile_dict.get('full_name')}
 Candidate Background: {profile_dict.get('summary', '')}
 Skills: {json.dumps(profile_dict.get('skills', []))}
 """
-        raw_res = await cls.call_llm(prompt, system_prompt)
+        raw_res = await cls.call_llm(prompt, system_prompt, user_keys=user_keys)
         try:
             return json.loads(raw_res)
         except Exception:

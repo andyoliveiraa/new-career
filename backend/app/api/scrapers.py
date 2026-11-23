@@ -25,6 +25,7 @@ async def run_scan_task(user_id: str, sources: List[str], query: str, location: 
     start_time = time.time()
     total_found = 0
     total_new = 0
+    new_jobs_list: List[Dict[str, Any]] = []
 
     current_jobs = await firebase_manager.list_jobs(user_id=user_id, limit=1000)
     existing_keys = {j.get("job_key") for j in current_jobs}
@@ -67,6 +68,7 @@ async def run_scan_task(user_id: str, sources: List[str], query: str, location: 
                     await firebase_manager.save_application(user_id, new_id, {"status": "disponivel"})
 
                     existing_keys.add(key)
+                    new_jobs_list.append(job_record)
                     total_new += 1
 
         except Exception as e:
@@ -82,6 +84,24 @@ async def run_scan_task(user_id: str, sources: List[str], query: str, location: 
         "status": "completed",
         "duration_seconds": round(duration, 2)
     })
+
+    # Trigger Discord Webhook Notification if enabled
+    if total_new > 0:
+        try:
+            user_settings = await firebase_manager.get_user_settings(user_id)
+            discord_webhook = user_settings.get("discord_webhook_url")
+            notify_enabled = user_settings.get("discord_notify_on_new_jobs", True)
+
+            if discord_webhook and notify_enabled:
+                from backend.app.services.discord_notifier import DiscordNotificationService
+                await DiscordNotificationService.send_new_jobs_notification(
+                    webhook_url=discord_webhook,
+                    jobs=new_jobs_list,
+                    query=query,
+                    location=location
+                )
+        except Exception as notify_err:
+            logger.warning(f"Aviso ao enviar notificação de novas vagas para Discord: {notify_err}")
 
 @router.post("/scan")
 async def trigger_scan(

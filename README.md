@@ -81,6 +81,18 @@ Permite a migração imediata de quem já utiliza o Career-Ops, funcionando perf
 - Fluxo completo: *Disponíveis ➔ Avaliadas ➔ Em Preparação ➔ Candidatado ➔ Entrevista ➔ Positiva / Oferta ➔ Negativa ➔ Descartada*.
 - Ação rápida de 1 clique para marcar como candidatado e registar a data.
 
+### 8. ⚙️ Central de Configurações, Webhook do Discord & Validação de Chaves de API
+- **Webhook do Discord com Notificações em Tempo Real**:
+  - Envio de alertas automáticos quando novas vagas forem descobertas durante varreduras.
+  - Botão **"Testar Webhook"** de 1 clique que dispara um Embed corporativo formatado e confirma a receção pelo Discord (HTTP 204).
+  - Toggles granulares para controlar que tipo de evento gera alertas no canal.
+- **Validação Ativa de Chaves de API**:
+  - Teste em tempo real para **Google Gemini**, **OpenAI**, **Groq Cloud**, **SerpApi** e **RapidAPI JSearch**.
+  - O sistema efetua um ping leve aos endpoints oficiais e reporta latência em milissegundos, estado operacional (*Ativa*, *Quota Esgotada*, *Inválida*) e contagem de modelos disponíveis.
+  - Configuração do **Provedor de IA Primário** com cascata inteligente de fallback automático.
+- **Isolamento Multi-Tenant**:
+  - Cada utilizador tem a sua partição privada de chaves e webhook no Firestore Cloud (`users/{user_id}/settings`).
+
 ---
 
 ## 🏗️ Arquitetura do Repositório
@@ -102,7 +114,7 @@ new-career/
 │   │   ├── services/        # CareerOpsImporter, Liveness, Geo-Filter, AI Tailor, PDF Generator
 │   │   ├── api/             # Rotas REST (/auth, /jobs, /applications, /scrapers, /ai, /profile)
 │   │   └── scripts/         # Scripts de migração, reset e sincronização Cloud
-│   ├── tests/               # Testes automatizados (15 testes pytest: Auth, Templates, ATS, Liveness, Scrapers)
+│   ├── tests/               # Testes automatizados (18 testes pytest: Auth, Templates, ATS, Liveness, Scrapers, Settings & Discord)
 │   └── requirements.txt     # Dependências Python
 ├── frontend/
 │   ├── src/
