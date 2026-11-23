@@ -17,6 +17,7 @@ class CVTailorRequest(BaseModel):
     job_id: int
     provider: Optional[str] = "gemini" # gemini, openai, groq, local
     tone: Optional[str] = "direct" # direct, technical, leadership
+    template_id: Optional[str] = None # Optional ID of the CV template to use
 
 class CVTailorResponse(BaseModel):
     job_id: int

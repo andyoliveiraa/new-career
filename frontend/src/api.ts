@@ -1,6 +1,7 @@
 import type {
   Job, ApplicationStats, ProfileData, JDAnalysis, CVTailorResult,
-  CoverLetterResult, ScanRecord, AuthResponse, User, OnboardingResult
+  CoverLetterResult, ScanRecord, AuthResponse, User, OnboardingResult,
+  CVTemplate, ATSAuditResult
 } from './types';
 
 const API_BASE = 'http://localhost:8000/api';
@@ -273,14 +274,14 @@ export const api = {
     return res.json();
   },
 
-  async tailorCV(jobId: number): Promise<CVTailorResult> {
+  async tailorCV(jobId: number, templateId?: string): Promise<CVTailorResult> {
     const res = await fetch(`${API_BASE}/ai/tailor-cv`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...authHeaders()
       },
-      body: JSON.stringify({ job_id: jobId })
+      body: JSON.stringify({ job_id: jobId, template_id: templateId })
     });
     if (!res.ok) throw new Error('Erro ao adaptar currículo');
     return res.json();
@@ -297,5 +298,79 @@ export const api = {
     });
     if (!res.ok) throw new Error('Erro ao gerar carta de apresentação');
     return res.json();
+  },
+
+  // CV Templates & ATS Auditor
+  async getCVTemplates(): Promise<CVTemplate[]> {
+    const res = await fetch(`${API_BASE}/cv-templates`, {
+      headers: { ...authHeaders() }
+    });
+    if (!res.ok) throw new Error('Erro ao carregar modelos de CV');
+    return res.json();
+  },
+
+  async createCVTemplate(template: Partial<CVTemplate>): Promise<CVTemplate> {
+    const res = await fetch(`${API_BASE}/cv-templates`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders()
+      },
+      body: JSON.stringify(template)
+    });
+    if (!res.ok) throw new Error('Erro ao criar modelo de CV');
+    return res.json();
+  },
+
+  async updateCVTemplate(id: string, updates: Partial<CVTemplate>): Promise<CVTemplate> {
+    const res = await fetch(`${API_BASE}/cv-templates/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders()
+      },
+      body: JSON.stringify(updates)
+    });
+    if (!res.ok) throw new Error('Erro ao atualizar modelo de CV');
+    return res.json();
+  },
+
+  async deleteCVTemplate(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/cv-templates/${id}`, {
+      method: 'DELETE',
+      headers: { ...authHeaders() }
+    });
+    if (!res.ok) throw new Error('Erro ao remover modelo de CV');
+  },
+
+  async auditCVTemplate(template: Partial<CVTemplate>, profile?: any, jobId?: number): Promise<ATSAuditResult> {
+    const res = await fetch(`${API_BASE}/cv-templates/audit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders()
+      },
+      body: JSON.stringify({ template, profile, job_id: jobId })
+    });
+    if (!res.ok) throw new Error('Erro ao auditar modelo de CV');
+    return res.json();
+  },
+
+  async previewCVTemplate(template: Partial<CVTemplate>, tailoredSummary?: string, tailoredExperiences?: any[], highlightedSkills?: string[]): Promise<string> {
+    const res = await fetch(`${API_BASE}/cv-templates/preview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders()
+      },
+      body: JSON.stringify({
+        template,
+        tailored_summary: tailoredSummary,
+        tailored_experiences: tailoredExperiences,
+        highlighted_skills: highlightedSkills
+      })
+    });
+    if (!res.ok) throw new Error('Erro ao gerar pré-visualização do CV');
+    return res.text();
   }
 };

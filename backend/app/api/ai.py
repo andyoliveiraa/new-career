@@ -81,11 +81,21 @@ async def tailor_cv(request: CVTailorRequest, current_user: Dict[str, Any] = Dep
 
     tailored = await AITailorService.tailor_cv(job_dict, profile_dict)
 
+    # Resolve CV template config
+    template_config = None
+    if request.template_id:
+        template_config = await firebase_manager.get_cv_template(user_id, request.template_id)
+    if not template_config:
+        templates = await firebase_manager.list_cv_templates(user_id)
+        default_tpl = next((t for t in templates if t.get("is_default")), None)
+        template_config = default_tpl or (templates[0] if templates else None)
+
     html_content = PDFGeneratorService.render_html(
         profile_dict=profile_dict,
         tailored_summary=tailored.get("tailored_summary", ""),
         tailored_experiences=tailored.get("tailored_experiences", []),
-        highlighted_skills=tailored.get("highlighted_skills", [])
+        highlighted_skills=tailored.get("highlighted_skills", []),
+        template_config=template_config
     )
 
     pdf_filename = f"cv_job_{request.job_id}.pdf"

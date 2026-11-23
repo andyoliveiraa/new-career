@@ -10,13 +10,14 @@ import { DashboardView } from './components/DashboardView';
 import { JobsView } from './components/JobsView';
 import { ScraperView } from './components/ScraperView';
 import { ProfileView } from './components/ProfileView';
+import { CVBuilderView } from './components/CVBuilderView';
 import { AIStudioModal } from './components/AIStudioModal';
 
 const AppContent: React.FC = () => {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'jobs' | 'scrapers' | 'profile'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'jobs' | 'cv-builder' | 'scrapers' | 'profile'>('dashboard');
   const [jobs, setJobs] = useState<Job[]>([]);
   const [stats, setStats] = useState<ApplicationStats>({
     total_jobs: 0,
@@ -174,6 +175,10 @@ const AppContent: React.FC = () => {
             filterStatus={filterStatus}
             setFilterStatus={setFilterStatus}
           />
+        )}
+
+        {activeTab === 'cv-builder' && (
+          <CVBuilderView />
         )}
 
         {activeTab === 'scrapers' && (

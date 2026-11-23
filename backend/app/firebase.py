@@ -96,9 +96,13 @@ class FirebaseManager:
                 "profile": {},
                 "jobs": {},
                 "applications": {},
-                "scan_history": {}
+                "scan_history": {},
+                "cv_templates": {}
             }
-        return self._local_data["user_data"][user_id]
+        partition = self._local_data["user_data"][user_id]
+        if "cv_templates" not in partition:
+            partition["cv_templates"] = {}
+        return partition
 
     # ==================== USERS & AUTH ====================
     async def create_user(self, email: str, password_hash: str, full_name: str) -> Dict[str, Any]:
@@ -388,5 +392,190 @@ class FirebaseManager:
         history = list(partition["scan_history"].values())
         history.sort(key=lambda x: x.get("executed_at", ""), reverse=True)
         return history[:limit]
+
+    # ==================== CV TEMPLATES ====================
+    async def list_cv_templates(self, user_id: str) -> List[Dict[str, Any]]:
+        partition = self._get_user_partition(user_id)
+        if "cv_templates" not in partition:
+            partition["cv_templates"] = {}
+
+        if self._is_live and self._db:
+            try:
+                docs = self._db.collection("users").document(user_id).collection("cv_templates").stream()
+                for doc in docs:
+                    t = doc.to_dict()
+                    partition["cv_templates"][t["id"]] = t
+            except Exception as e:
+                logger.warning(f"Aviso ao listar cv_templates no Firestore Cloud: {e}")
+
+        # If user has no templates, auto-seed defaults
+        if not partition["cv_templates"]:
+            await self._seed_default_templates(user_id)
+
+        templates = list(partition["cv_templates"].values())
+        templates.sort(key=lambda x: (not x.get("is_default", False), x.get("created_at", "")))
+        return templates
+
+    async def get_cv_template(self, user_id: str, template_id: str) -> Optional[Dict[str, Any]]:
+        partition = self._get_user_partition(user_id)
+        if "cv_templates" not in partition:
+            partition["cv_templates"] = {}
+
+        if self._is_live and self._db:
+            try:
+                doc = self._db.collection("users").document(user_id).collection("cv_templates").document(template_id).get()
+                if doc.exists:
+                    t = doc.to_dict()
+                    partition["cv_templates"][t["id"]] = t
+                    return t
+            except Exception as e:
+                logger.warning(f"Aviso ao obter cv_template no Firestore Cloud: {e}")
+
+        if not partition["cv_templates"]:
+            await self._seed_default_templates(user_id)
+
+        return partition["cv_templates"].get(template_id)
+
+    async def save_cv_template(self, user_id: str, template_dict: Dict[str, Any]) -> Dict[str, Any]:
+        partition = self._get_user_partition(user_id)
+        if "cv_templates" not in partition:
+            partition["cv_templates"] = {}
+
+        now = datetime.now(timezone.utc).isoformat()
+        t_id = template_dict.get("id") or f"tpl_{uuid.uuid4().hex[:8]}"
+        template_dict["id"] = t_id
+        template_dict["user_id"] = user_id
+        template_dict["updated_at"] = now
+        if not template_dict.get("created_at"):
+            template_dict["created_at"] = now
+
+        # If this template is set as default, unset default on all other templates
+        if template_dict.get("is_default"):
+            for other_id, other_t in partition["cv_templates"].items():
+                if other_id != t_id and other_t.get("is_default"):
+                    other_t["is_default"] = False
+                    if self._is_live and self._db:
+                        try:
+                            self._db.collection("users").document(user_id).collection("cv_templates").document(other_id).update({"is_default": False})
+                        except Exception:
+                            pass
+
+        if self._is_live and self._db:
+            try:
+                self._db.collection("users").document(user_id).collection("cv_templates").document(t_id).set(template_dict, merge=True)
+            except Exception as e:
+                logger.warning(f"Aviso ao salvar cv_template no Firestore Cloud: {e}")
+
+        partition["cv_templates"][t_id] = template_dict
+        self._save_local_store()
+        return template_dict
+
+    async def delete_cv_template(self, user_id: str, template_id: str) -> bool:
+        partition = self._get_user_partition(user_id)
+        if "cv_templates" not in partition:
+            return False
+
+        if template_id in partition["cv_templates"]:
+            del partition["cv_templates"][template_id]
+
+            if self._is_live and self._db:
+                try:
+                    self._db.collection("users").document(user_id).collection("cv_templates").document(template_id).delete()
+                except Exception as e:
+                    logger.warning(f"Aviso ao apagar cv_template no Firestore Cloud: {e}")
+
+            self._save_local_store()
+            return True
+        return False
+
+    async def _seed_default_templates(self, user_id: str):
+        default_templates = [
+            {
+                "id": "tpl_classic_ats",
+                "name": "ATS Clássico (Alta Compatibilidade)",
+                "layout": "classic_ats",
+                "has_photo": False,
+                "photo_url": None,
+                "accent_color": "#1e293b",
+                "font_family": "Inter",
+                "font_heading": "Inter",
+                "font_size_scale": "normal",
+                "blocks_order": ["summary", "skills", "experiences", "educations", "certifications", "projects", "languages"],
+                "block_visibility": {
+                    "summary": True, "skills": True, "experiences": True,
+                    "educations": True, "certifications": True, "projects": True, "languages": True
+                },
+                "is_default": True
+            },
+            {
+                "id": "tpl_modern_split",
+                "name": "Executivo Moderno (Duas Colunas)",
+                "layout": "modern_split",
+                "has_photo": False,
+                "photo_url": None,
+                "accent_color": "#2563eb",
+                "font_family": "DM Sans",
+                "font_heading": "Space Grotesk",
+                "font_size_scale": "normal",
+                "blocks_order": ["summary", "skills", "experiences", "educations", "certifications", "projects", "languages"],
+                "block_visibility": {
+                    "summary": True, "skills": True, "experiences": True,
+                    "educations": True, "certifications": True, "projects": True, "languages": True
+                },
+                "is_default": False
+            },
+            {
+                "id": "tpl_tech_minimal",
+                "name": "Tech Minimal (Engenharia & Tech)",
+                "layout": "tech_minimal",
+                "has_photo": False,
+                "photo_url": None,
+                "accent_color": "#0f766e",
+                "font_family": "Space Grotesk",
+                "font_heading": "Space Grotesk",
+                "font_size_scale": "compact",
+                "blocks_order": ["summary", "skills", "experiences", "projects", "educations", "certifications", "languages"],
+                "block_visibility": {
+                    "summary": True, "skills": True, "experiences": True,
+                    "educations": True, "certifications": True, "projects": True, "languages": True
+                },
+                "is_default": False
+            },
+            {
+                "id": "tpl_compact_executive",
+                "name": "Compacto Simétrico",
+                "layout": "compact_executive",
+                "has_photo": False,
+                "photo_url": None,
+                "accent_color": "#4f46e5",
+                "font_family": "Plus Jakarta Sans",
+                "font_heading": "Plus Jakarta Sans",
+                "font_size_scale": "normal",
+                "blocks_order": ["summary", "skills", "experiences", "educations", "certifications", "projects", "languages"],
+                "block_visibility": {
+                    "summary": True, "skills": True, "experiences": True,
+                    "educations": True, "certifications": True, "projects": True, "languages": True
+                },
+                "is_default": False
+            }
+        ]
+
+        partition = self._get_user_partition(user_id)
+        if "cv_templates" not in partition:
+            partition["cv_templates"] = {}
+
+        now = datetime.now(timezone.utc).isoformat()
+        for t in default_templates:
+            t["user_id"] = user_id
+            t["created_at"] = now
+            t["updated_at"] = now
+            partition["cv_templates"][t["id"]] = t
+            if self._is_live and self._db:
+                try:
+                    self._db.collection("users").document(user_id).collection("cv_templates").document(t["id"]).set(t)
+                except Exception:
+                    pass
+
+        self._save_local_store()
 
 firebase_manager = FirebaseManager.get_instance()

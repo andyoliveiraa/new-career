@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import type { Job, JDAnalysis, CVTailorResult, CoverLetterResult } from '../types';
+import React, { useState, useEffect } from 'react';
+import type { Job, JDAnalysis, CVTailorResult, CoverLetterResult, CVTemplate } from '../types';
 import { api } from '../api';
-import { X, Sparkles, FileText, Send, Download, Check, Copy, ExternalLink, HelpCircle } from 'lucide-react';
+import { X, Sparkles, FileText, Send, Download, Check, Copy, ExternalLink, HelpCircle, Layout } from 'lucide-react';
 
 interface AIStudioModalProps {
   job: Job | null;
@@ -19,6 +19,19 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
   const [coverResult, setCoverResult] = useState<CoverLetterResult | null>(null);
   const [copiedCover, setCopiedCover] = useState(false);
   const [copiedLinkedin, setCopiedLinkedin] = useState(false);
+  const [templates, setTemplates] = useState<CVTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+
+  useEffect(() => {
+    api.getCVTemplates()
+      .then(tpls => {
+        setTemplates(tpls);
+        const def = tpls.find(t => t.is_default);
+        if (def) setSelectedTemplateId(def.id);
+        else if (tpls.length > 0) setSelectedTemplateId(tpls[0].id);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleRunAnalysis = async () => {
     setLoading(true);
@@ -36,7 +49,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
   const handleTailorCV = async () => {
     setLoading(true);
     try {
-      const res = await api.tailorCV(job.id);
+      const res = await api.tailorCV(job.id, selectedTemplateId || undefined);
       setTailorResult(res);
       onRefreshJob();
     } catch (err) {
@@ -240,6 +253,28 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
                   <p className="text-xs text-txt-secondary max-w-md mx-auto">
                     Adapta cirurgicamente o resumo profissional e os destaques das suas experiências reais às palavras-chave deste anúncio, gerando um PDF profissional pronto para submissão.
                   </p>
+
+                  {/* Template Picker */}
+                  {templates.length > 0 && (
+                    <div className="max-w-xs mx-auto text-left pt-2">
+                      <label className="block text-xs font-medium text-txt-muted mb-1 flex items-center gap-1.5">
+                        <Layout className="w-3.5 h-3.5 text-accent-light" />
+                        Modelo de Design CV a Utilizar:
+                      </label>
+                      <select
+                        value={selectedTemplateId}
+                        onChange={(e) => setSelectedTemplateId(e.target.value)}
+                        className="w-full text-xs bg-surface-100 border border-surface-border rounded-lg px-3 py-2 text-txt-primary focus:outline-none focus:border-accent"
+                      >
+                        {templates.map(tpl => (
+                          <option key={tpl.id} value={tpl.id}>
+                            {tpl.name} {tpl.is_default ? '(Padrão)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
                   <button
                     onClick={handleTailorCV}
                     disabled={loading}

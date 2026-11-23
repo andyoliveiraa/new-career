@@ -52,14 +52,31 @@ Permite a migração imediata de quem já utiliza o Career-Ops, funcionando perf
 - **Camada Headless / HTTP**: Inspeção de marcadores de encerramento de ofertas ("vaga encerrada", "candidaturas fechadas", "404 Not Found").
 - Badges visuais imediatos: **Ativa**, **Expirada** ou **A Verificar**.
 
-### 5. 🎯 AI Career Studio & Adaptação de CV (Sem Alucinações)
+### 5. 🎨 Construtor de CV Modular & Auditoria ATS em Tempo Real
+- **Múltiplos Modelos de CV Salvos**:
+  - Crie, duplique e alterne entre vários modelos de CV (ex: *ATS Clássico*, *Executivo Moderno*, *Tech Minimal*, *Compacto Simétrico*).
+  - Defina um modelo padrão que é automaticamente utilizado ao submeter candidaturas.
+- **Construtor por Blocos Interativo**:
+  - Reordene a sequência dos blocos (Resumo, Competências, Experiência, Formação, Projetos, Certificações, Idiomas) com setas de ordenação.
+  - Oculte ou exiba qualquer bloco individualmente em 1 clique.
+- **Liberdade Total de Cores & Fontes do Google Fonts**:
+  - Seletor de qualquer cor através de `<input type="color">`, valor HEX livre ou paletas pré-definidas.
+  - Tipografia via **Google Fonts**: escolha entre as mais populares (Inter, Roboto, DM Sans, Plus Jakarta Sans, Outfit, Space Grotesk, Poppins, Montserrat, Lora, Merriweather) ou digite o nome de **qualquer fonte da biblioteca do Google Fonts** com importação dinâmica.
+  - Fotografia opcional (circular/rounded com URL ou data URI) com alerta automático de conformidade anti-discriminação (EEOC).
+- **Auditor ATS em Tempo Real (Pontuação de 0 a 100)**:
+  - Avaliação contínua de compatibilidade com sistemas ATS corporativos (Taleo, Workday, Greenhouse, Lever).
+  - Verificação de dados de contacto essenciais, densidade de competências, métricas quantitativas nos bullet points e segurança de layout.
+  - Alertas instantâneos e checklist de aprovação/aviso com **Dicas de Ouro** (Fórmula XYZ da Google, regra dos 6 segundos dos recrutadores, etc.).
+
+### 6. 🎯 AI Career Studio & Adaptação de CV (Sem Alucinações)
+- **Seleção do Modelo de CV**: Escolha qual modelo de design de CV utilizar ao adaptar o currículo para uma vaga específica.
 - **Auditoria de Fit & Match Score (0 a 100%)**: Diagnóstico detalhado de pontos fortes e lacunas técnicas em relação ao anúncio.
 - **Adaptação Cirúrgica de CV**: Alinha o resumo profissional e os bullet points reais às palavras-chave da vaga, respeitando estritamente os fatos comprovados do perfil mestre.
-- **Exportação de PDF ATS-Friendly**: Geração de currículo A4 profissional via Playwright em tipografia de alto contraste (Space Grotesk + DM Sans).
+- **Exportação de PDF ATS-Friendly**: Geração de currículo A4 profissional via Playwright/HTML com tipografia e cores do modelo selecionado.
 - **Carta de Apresentação & Mensagem LinkedIn**: Redação concisa, persuasiva e livre de clichês corporativos.
 - **Simulador de Entrevista (STAR+R)**: Perguntas comportamentais prováveis e estrutura sugerida de resposta.
 
-### 6. 📋 Pipeline de Gestão de Candidaturas ("Já me candidatei")
+### 7. 📋 Pipeline de Gestão de Candidaturas ("Já me candidatei")
 - Visualização em **Tabela Densa** ou **Quadro Kanban**.
 - Fluxo completo: *Disponíveis ➔ Avaliadas ➔ Em Preparação ➔ Candidatado ➔ Entrevista ➔ Positiva / Oferta ➔ Negativa ➔ Descartada*.
 - Ação rápida de 1 clique para marcar como candidatado e registar a data.
@@ -85,7 +102,7 @@ new-career/
 │   │   ├── services/        # CareerOpsImporter, Liveness, Geo-Filter, AI Tailor, PDF Generator
 │   │   ├── api/             # Rotas REST (/auth, /jobs, /applications, /scrapers, /ai, /profile)
 │   │   └── scripts/         # Scripts de migração, reset e sincronização Cloud
-│   ├── tests/               # Testes automatizados (12 testes pytest com auth e uploads)
+│   ├── tests/               # Testes automatizados (15 testes pytest: Auth, Templates, ATS, Liveness, Scrapers)
 │   └── requirements.txt     # Dependências Python
 ├── frontend/
 │   ├── src/

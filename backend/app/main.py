@@ -11,6 +11,7 @@ from backend.app.api.applications import router as applications_router
 from backend.app.api.profile import router as profile_router
 from backend.app.api.scrapers import router as scrapers_router
 from backend.app.api.ai import router as ai_router
+from backend.app.api.cv_templates import router as cv_templates_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("new_career")
@@ -46,6 +47,7 @@ app.include_router(applications_router, prefix="/api")
 app.include_router(profile_router, prefix="/api")
 app.include_router(scrapers_router, prefix="/api")
 app.include_router(ai_router, prefix="/api")
+app.include_router(cv_templates_router, prefix="/api")
 
 @app.get("/api/health")
 async def health_check():

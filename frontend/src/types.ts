@@ -119,3 +119,39 @@ export interface OnboardingResult {
   cv_base_loaded: boolean;
   profile_name?: string;
 }
+
+export interface CVTemplate {
+  id: string;
+  name: string;
+  layout: 'classic_ats' | 'modern_split' | 'compact_executive' | 'tech_minimal';
+  has_photo: boolean;
+  photo_url?: string | null;
+  accent_color: string;
+  font_family: string;
+  font_heading?: string | null;
+  font_size_scale: 'compact' | 'normal' | 'spacious';
+  blocks_order: string[];
+  block_visibility: Record<string, boolean>;
+  is_default: boolean;
+  user_id?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ATSAuditCheckItem {
+  id: string;
+  label: string;
+  passed: boolean;
+  importance: 'high' | 'medium' | 'low';
+  message: string;
+}
+
+export interface ATSAuditResult {
+  score: number;
+  status: 'excellent' | 'good' | 'needs_improvement';
+  summary: string;
+  checklist: ATSAuditCheckItem[];
+  strengths: string[];
+  warnings: string[];
+  actionable_tips: string[];
+}
