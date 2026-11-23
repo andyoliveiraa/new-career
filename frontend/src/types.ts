@@ -1,0 +1,95 @@
+export interface Job {
+  id: number;
+  job_key: string;
+  title: string;
+  company: string;
+  location?: string;
+  is_remote: boolean;
+  salary?: string;
+  description?: string;
+  url: string;
+  source: string;
+  liveness_status: 'active' | 'expired' | 'uncertain' | 'unknown';
+  liveness_checked_at?: string;
+  liveness_reason?: string;
+  distance_km?: number;
+  published_at?: string;
+  created_at: string;
+  application_status?: string;
+  match_score?: number;
+}
+
+export interface ApplicationStats {
+  total_jobs: number;
+  disponivel: number;
+  avaliada: number;
+  em_preparacao: number;
+  candidatado: number;
+  entrevista: number;
+  positiva: number;
+  negativa: number;
+  descartada: number;
+}
+
+export interface ProfileData {
+  id?: number;
+  full_name: string;
+  headline?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+  linkedin_url?: string;
+  github_url?: string;
+  portfolio_url?: string;
+  summary?: string;
+  skills: string[];
+  experiences: Array<{
+    role: string;
+    company: string;
+    period: string;
+    location?: string;
+    bullets?: string[];
+  }>;
+  educations: Array<{
+    degree: string;
+    institution: string;
+    period: string;
+  }>;
+  verified_facts?: string[];
+}
+
+export interface JDAnalysis {
+  job_id: number;
+  match_score: number;
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  keywords: string[];
+  recommendation: string;
+}
+
+export interface CVTailorResult {
+  job_id: number;
+  tailored_summary: string;
+  tailored_experiences: any[];
+  highlighted_skills: string[];
+  pdf_download_url?: string;
+}
+
+export interface CoverLetterResult {
+  job_id: number;
+  cover_letter_text: string;
+  linkedin_note: string;
+}
+
+export interface ScanRecord {
+  id: number;
+  engine: string;
+  query: string;
+  location?: string;
+  total_found: number;
+  total_new: number;
+  status: string;
+  duration_seconds?: number;
+  executed_at: string;
+}

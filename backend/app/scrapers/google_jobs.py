@@ -1,0 +1,108 @@
+import httpx
+from typing import List, Dict, Any, Optional
+import hashlib
+import logging
+from backend.app.scrapers.base import BaseScraper
+from backend.app.config import settings
+
+logger = logging.getLogger(__name__)
+
+class GoogleJobsScraper(BaseScraper):
+    @property
+    def source_name(self) -> str:
+        return "google"
+
+    async def search(self, query: str, location: Optional[str] = None, limit: int = 25) -> List[Dict[str, Any]]:
+        jobs = []
+        loc = location or "Portugal"
+        full_query = f"{query} em {loc}" if loc else query
+        
+        # 1. Try SerpApi if key is present
+        if settings.SERPAPI_API_KEY:
+            try:
+                serp_jobs = await self._search_serpapi(full_query, loc, limit)
+                if serp_jobs:
+                    return serp_jobs
+            except Exception as e:
+                logger.warning(f"SerpApi Google Jobs failed: {e}")
+
+        # 2. Try JSearch if key is present
+        if settings.JSEARCH_API_KEY:
+            try:
+                jsearch_jobs = await self._search_jsearch(full_query, limit)
+                if jsearch_jobs:
+                    return jsearch_jobs
+            except Exception as e:
+                logger.warning(f"JSearch Google Jobs failed: {e}")
+
+        return jobs
+
+    async def _search_serpapi(self, query: str, location: str, limit: int) -> List[Dict[str, Any]]:
+        url = "https://serpapi.com/search.json"
+        params = {
+            "engine": "google_jobs",
+            "q": query,
+            "location": location,
+            "hl": "pt",
+            "gl": "pt",
+            "api_key": settings.SERPAPI_API_KEY
+        }
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(url, params=params)
+            if resp.status_code == 200:
+                data = resp.json()
+                results = data.get("jobs_results", [])
+                jobs = []
+                for item in results[:limit]:
+                    job_id = item.get("job_id", "")
+                    job_url = item.get("share_link") or (item.get("related_links", [{}])[0].get("link") if item.get("related_links") else "")
+                    if not job_url:
+                        job_url = f"https://www.google.com/search?q={query}&ibp=htl;jobs#fpstate=tldetail&htidocid={job_id}"
+                    
+                    job_key = hashlib.sha256(f"google:{job_id or job_url}".encode()).hexdigest()[:24]
+                    jobs.append({
+                        "job_key": job_key,
+                        "title": item.get("title", "Sem título"),
+                        "company": item.get("company_name", "Confidencial"),
+                        "location": item.get("location", location),
+                        "is_remote": "remote" in (item.get("location", "") + item.get("title", "")).lower(),
+                        "salary": item.get("detected_extensions", {}).get("salary"),
+                        "description": item.get("description"),
+                        "url": job_url,
+                        "source": self.source_name,
+                        "raw_metadata": item
+                    })
+                return jobs
+        return []
+
+    async def _search_jsearch(self, query: str, limit: int) -> List[Dict[str, Any]]:
+        url = "https://jsearch.p.rapidapi.com/search"
+        headers = {
+            "x-rapidapi-key": settings.JSEARCH_API_KEY,
+            "x-rapidapi-host": "jsearch.p.rapidapi.com"
+        }
+        params = {"query": query, "page": "1", "num_pages": "1"}
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(url, headers=headers, params=params)
+            if resp.status_code == 200:
+                data = resp.json()
+                results = data.get("data", [])
+                jobs = []
+                for item in results[:limit]:
+                    job_id = item.get("job_id", "")
+                    job_url = item.get("job_apply_link") or item.get("job_google_link") or ""
+                    job_key = hashlib.sha256(f"jsearch:{job_id or job_url}".encode()).hexdigest()[:24]
+                    jobs.append({
+                        "job_key": job_key,
+                        "title": item.get("job_title", "Sem título"),
+                        "company": item.get("employer_name", "Confidencial"),
+                        "location": f"{item.get('job_city', '')}, {item.get('job_country', '')}".strip(", "),
+                        "is_remote": item.get("job_is_remote", False),
+                        "salary": item.get("job_salary"),
+                        "description": item.get("job_description"),
+                        "url": job_url,
+                        "source": self.source_name,
+                        "raw_metadata": item
+                    })
+                return jobs
+        return []
