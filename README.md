@@ -105,20 +105,20 @@ new-career/
 │   ├── app/
 │   │   ├── main.py          # Ponto de entrada FastAPI com CORS e routers
 │   │   ├── config.py        # Configurações de ambiente, JWT e Firebase
-│   │   ├── firebase.py      # Gestor Firestore Multi-Tenant + Fallback Local
+│   │   ├── firebase.py      # Gestor Firestore Multi-Tenant (Users, Jobs, CVs, Settings)
 │   │   ├── auth_utils.py    # Funções de hashing PBKDF2 e tokens JWT
 │   │   ├── database.py      # SQLite assíncrono (SQLAlchemy + aiosqlite)
 │   │   ├── models/          # Modelos de entidades
-│   │   ├── schemas/         # Schemas de validação Pydantic V2 (Auth, Jobs, Profile)
+│   │   ├── schemas/         # Schemas Pydantic V2 (Auth, Jobs, Profile, CV Templates, Settings)
 │   │   ├── scrapers/        # Scrapers (Net-Empregos, Google, JobSpy, ATS)
-│   │   ├── services/        # CareerOpsImporter, Liveness, Geo-Filter, AI Tailor, PDF Generator
-│   │   ├── api/             # Rotas REST (/auth, /jobs, /applications, /scrapers, /ai, /profile)
+│   │   ├── services/        # Services: ATS Auditor, Discord Notifier, Key Tester, PDF Generator, AI Tailor
+│   │   ├── api/             # Rotas REST (/auth, /jobs, /applications, /scrapers, /ai, /profile, /cv-templates, /settings)
 │   │   └── scripts/         # Scripts de migração, reset e sincronização Cloud
-│   ├── tests/               # Testes automatizados (18 testes pytest: Auth, Templates, ATS, Liveness, Scrapers, Settings & Discord)
+│   ├── tests/               # Testes automatizados (18 testes pytest com isolamento multi-tenant)
 │   └── requirements.txt     # Dependências Python
 ├── frontend/
 │   ├── src/
-│   │   ├── components/      # LoginView, RegisterView, OnboardingWizard, Navbar, DashboardView, JobsView, etc.
+│   │   ├── components/      # LoginView, RegisterView, OnboardingWizard, Navbar, DashboardView, JobsView, CVBuilderView, SettingsView, AIStudioModal
 │   │   ├── context/         # AuthContext (Gestão global de sessão e utilizador)
 │   │   ├── api.ts           # Cliente HTTP da API com autenticação Bearer
 │   │   ├── types.ts         # Tipagens TypeScript estritas
@@ -198,7 +198,7 @@ Como o sistema utiliza uploads diretos via browser e armazenamento relativo (`st
 ## 🔥 Configuração do Firebase Firestore
 
 Toda a base de dados do projeto roda sobre o **Google Cloud Firestore (Firebase)**:
-- Coleções estruturadas: `users`, `users/{user_id}/jobs`, `applications`, `profile`, `scan_history`.
+- Coleções estruturadas: `users`, `users/{user_id}/jobs`, `applications`, `profile`, `cv_templates`, `settings`, `scan_history`.
 - O sistema possui **fallback persistente local automático** (`storage/local_firestore.json`) para que tudo funcione de imediato mesmo sem internet ou sem chaves configuradas.
 
 ### Para ligar ao seu projeto na nuvem Firebase:
@@ -212,7 +212,7 @@ Toda a base de dados do projeto roda sobre o **Google Cloud Firestore (Firebase)
 
 ## 🧪 Testes Automatizados
 
-A plataforma conta com uma suíte rigorosa de 12 testes cobrindo autenticação, isolamento de múltiplos utilizadores, upload de arquivos ZIP, modo de privacidade, scrapers e verificação de disponibilidade:
+A plataforma conta com uma suíte rigorosa de **18 testes automatizados** cobrindo autenticação JWT, isolamento de dados multi-utilizador, upload de ficheiros e descompactação ZIP segura (proteção Zip Slip), modo de privacidade, construtor de modelos de CV, motor de auditoria ATS, validação de webhooks do Discord, diagnósticos de chaves de API, scrapers e verificação de liveness em tempo real:
 
 ```powershell
 $env:PYTHONPATH = "."
