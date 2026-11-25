@@ -180,3 +180,43 @@ def test_pdf_generator_html_rendering():
     assert "#7c3aed" in html
     assert "https://example.com/avatar.png" in html
     assert "cv-modern-split" in html
+    assert "<!--email_off-->" in html
+    assert "width: 210mm;" in html
+
+
+def test_ats_auditor_portuguese_nominal_verbs_and_skills_cap():
+    template = CVTemplateBase(
+        name="ATS PT",
+        layout="classic_ats",
+        has_photo=False,
+        accent_color="#2563eb",
+        font_family="Inter",
+    )
+    profile = {
+        "full_name": "André Dias",
+        "email": "andre@example.com",
+        "phone": "+351 965 398 851",
+        "location": "Portugal",
+        "summary": "Profissional polivalente com experiência em gestão operacional, equipas e atendimento ao cliente.",
+        "skills": [f"Skill {i}" for i in range(30)],
+        "experiences": [
+            {
+                "role": "Diretor",
+                "company": "Associação",
+                "bullets": [
+                    "Coordenação e gestão direta da equipa criativa de 8 pessoas.",
+                    "Implementação de melhorias e monitorização de performance com 25% mais tráfego.",
+                    "Administração técnica do website e planeamento estratégico anual.",
+                ],
+            }
+        ],
+        "educations": [{"degree": "Técnico", "institution": "Escola"}],
+    }
+    audit = ATSAuditorService.audit(template, profile)
+    metrics_item = next(c for c in audit.checklist if c.id == "metrics_verbs")
+    skills_item = next(c for c in audit.checklist if c.id == "skills_density")
+    font_item = next(c for c in audit.checklist if c.id == "font_safety")
+    assert metrics_item.passed is True
+    assert skills_item.passed is False
+    assert font_item.passed is True
+    assert any("LinkedIn" in tip for tip in audit.actionable_tips)

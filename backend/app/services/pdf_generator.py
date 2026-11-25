@@ -43,6 +43,10 @@ MODERN_CV_TEMPLATE = """<!DOCTYPE html>
             padding: 0;
         }
 
+        html, body {
+            background-color: #ffffff;
+        }
+
         body {
             font-family: var(--font-body);
             font-size: {{ body_font_size }};
@@ -51,6 +55,24 @@ MODERN_CV_TEMPLATE = """<!DOCTYPE html>
             background-color: #ffffff;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+        }
+
+        @media screen {
+            body {
+                width: 210mm;
+                min-height: 297mm;
+                margin: 0 auto;
+                padding: 12mm 14mm;
+            }
+        }
+
+        @media print {
+            body {
+                width: auto;
+                min-height: auto;
+                margin: 0;
+                padding: 0;
+            }
         }
 
         a {
@@ -100,6 +122,14 @@ MODERN_CV_TEMPLATE = """<!DOCTYPE html>
         .contact-item {
             display: inline-flex;
             align-items: center;
+            gap: 4px;
+        }
+
+        .contact-icon {
+            width: 11px;
+            height: 11px;
+            flex-shrink: 0;
+            color: var(--primary);
         }
 
         .profile-photo {
@@ -323,6 +353,7 @@ MODERN_CV_TEMPLATE = """<!DOCTYPE html>
     </style>
 </head>
 <body class="cv-{{ layout_class }}">
+<!--email_off-->
 
 {% if layout_class == 'modern-split' %}
     <!-- MODERN SPLIT LAYOUT -->
@@ -453,12 +484,12 @@ MODERN_CV_TEMPLATE = """<!DOCTYPE html>
             {% endif %}
         </div>
         <div class="contact-bar">
-            {% if profile.email %}<span class="contact-item">✉ {{ profile.email }}</span>{% endif %}
-            {% if profile.phone %}<span class="contact-item">☏ {{ profile.phone }}</span>{% endif %}
-            {% if profile.location %}<span class="contact-item">📍 {{ profile.location }}</span>{% endif %}
-            {% if profile.linkedin_url %}<span class="contact-item">🔗 {{ profile.linkedin_url }}</span>{% endif %}
-            {% if profile.github_url %}<span class="contact-item">💻 {{ profile.github_url }}</span>{% endif %}
-            {% if profile.portfolio_url %}<span class="contact-item">🌐 {{ profile.portfolio_url }}</span>{% endif %}
+            {% if profile.email %}<span class="contact-item"><svg class="contact-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>{{ profile.email }}</span>{% endif %}
+            {% if profile.phone %}<span class="contact-item"><svg class="contact-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>{{ profile.phone }}</span>{% endif %}
+            {% if profile.location %}<span class="contact-item"><svg class="contact-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>{{ profile.location }}</span>{% endif %}
+            {% if profile.linkedin_url %}<span class="contact-item"><svg class="contact-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>{{ profile.linkedin_url }}</span>{% endif %}
+            {% if profile.github_url %}<span class="contact-item"><svg class="contact-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>{{ profile.github_url }}</span>{% endif %}
+            {% if profile.portfolio_url %}<span class="contact-item"><svg class="contact-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>{{ profile.portfolio_url }}</span>{% endif %}
         </div>
     </header>
 
@@ -559,6 +590,7 @@ MODERN_CV_TEMPLATE = """<!DOCTYPE html>
 
 {% endif %}
 
+<!--/email_off-->
 </body>
 </html>
 """
