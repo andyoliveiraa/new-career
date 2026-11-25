@@ -167,7 +167,7 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className={`grid grid-cols-1 gap-4 ${sources.includes('netempregos') ? 'sm:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'}`}>
           <div>
             <label className="block text-xs font-medium text-txt-secondary mb-1">{t('scraper.queryLabel')}</label>
             <input
@@ -202,17 +202,19 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-txt-secondary mb-1">{t('scraper.maxPagesLabel')}</label>
-            <input
-              type="number"
-              min={1}
-              max={20}
-              value={maxPages}
-              onChange={(e) => setMaxPages(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
-              className="w-full h-9 bg-surface-200 border border-surface-border rounded-lg px-3 text-sm text-txt-primary focus:outline-none focus:border-accent"
-            />
-          </div>
+          {sources.includes('netempregos') && (
+            <div>
+              <label className="block text-xs font-medium text-txt-secondary mb-1">{t('scraper.maxPagesLabel')}</label>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={maxPages}
+                onChange={(e) => setMaxPages(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                className="w-full h-9 bg-surface-200 border border-surface-border rounded-lg px-3 text-sm text-txt-primary focus:outline-none focus:border-accent"
+              />
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end pt-2">
