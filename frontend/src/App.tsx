@@ -15,13 +15,15 @@ import { ProfileView } from './components/ProfileView';
 import { CVBuilderView } from './components/CVBuilderView';
 import { SettingsView } from './components/SettingsView';
 import { AIStudioModal } from './components/AIStudioModal';
+import { LegalView } from './components/LegalView';
 import { trackEvent, trackPageView } from './firebase';
 
 const AppContent: React.FC = () => {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const { t } = useLanguage();
-  const [authView, setAuthView] = useState<'login' | 'register'>('login');
+  const [authView, setAuthView] = useState<'login' | 'register' | 'rgpd' | 'privacy'>('login');
+  const [legalOverlay, setLegalOverlay] = useState<'rgpd' | 'privacy' | null>(null);
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'jobs' | 'cv-builder' | 'scrapers' | 'profile' | 'settings'>('dashboard');
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -189,10 +191,43 @@ const AppContent: React.FC = () => {
   }
 
   if (!isAuthenticated) {
-    if (authView === 'register') {
-      return <RegisterView onSwitchToLogin={() => setAuthView('login')} />;
+    if (authView === 'rgpd' || authView === 'privacy') {
+      return (
+        <LegalView
+          page={authView}
+          onChangePage={(page) => setAuthView(page)}
+          onBack={() => setAuthView('login')}
+        />
+      );
     }
-    return <LoginView onSwitchToRegister={() => setAuthView('register')} />;
+    if (authView === 'register') {
+      return (
+        <RegisterView
+          onSwitchToLogin={() => setAuthView('login')}
+          onOpenRgpd={() => setAuthView('rgpd')}
+          onOpenPrivacy={() => setAuthView('privacy')}
+        />
+      );
+    }
+    return (
+      <LoginView
+        onSwitchToRegister={() => setAuthView('register')}
+        onOpenRgpd={() => setAuthView('rgpd')}
+        onOpenPrivacy={() => setAuthView('privacy')}
+      />
+    );
+  }
+
+  if (legalOverlay) {
+    return (
+      <LegalView
+        page={legalOverlay}
+        onChangePage={(page) => setLegalOverlay(page)}
+        onBack={() => setLegalOverlay(null)}
+        backLabel={t('legal.backToApp')}
+        showLanguageSelector={false}
+      />
+    );
   }
 
   if (user && !user.has_completed_onboarding) {
@@ -271,8 +306,23 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      <footer className="border-t border-surface-border py-4 text-center text-xs text-txt-muted bg-surface-100/40">
-        {t('app.footer')}
+      <footer className="border-t border-surface-border py-4 px-4 text-center text-xs text-txt-muted bg-surface-100/40 flex flex-wrap items-center justify-center gap-3">
+        <span>{t('app.footer')}</span>
+        <span className="text-surface-border">·</span>
+        <button
+          type="button"
+          onClick={() => setLegalOverlay('rgpd')}
+          className="hover:text-txt-primary transition-colors underline underline-offset-2"
+        >
+          {t('legal.rgpdTab')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setLegalOverlay('privacy')}
+          className="hover:text-txt-primary transition-colors underline underline-offset-2"
+        >
+          {t('legal.privacyTab')}
+        </button>
       </footer>
     </div>
   );

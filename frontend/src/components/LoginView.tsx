@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
-import { LogIn, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
+import { LogIn, ArrowRight, ShieldCheck, AlertCircle, Scale, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { LanguageSelector } from './LanguageSelector';
 
 interface LoginViewProps {
   onSwitchToRegister: () => void;
+  onOpenRgpd: () => void;
+  onOpenPrivacy: () => void;
 }
 
-export const LoginView: React.FC<LoginViewProps> = ({ onSwitchToRegister }) => {
+export const LoginView: React.FC<LoginViewProps> = ({
+  onSwitchToRegister,
+  onOpenRgpd,
+  onOpenPrivacy,
+}) => {
   const { login } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const [email, setEmail] = useState('');
@@ -127,6 +133,26 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSwitchToRegister }) => {
               </button>
             </p>
           </div>
+        </div>
+
+        {/* RGPD & Privacy Navigation (below Login card) */}
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={onOpenRgpd}
+            className="h-9 px-3.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs font-medium text-slate-300 hover:text-slate-100 transition-colors inline-flex items-center gap-2"
+          >
+            <Scale className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            <span>{t('legal.rgpdButton')}</span>
+          </button>
+          <button
+            type="button"
+            onClick={onOpenPrivacy}
+            className="h-9 px-3.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs font-medium text-slate-300 hover:text-slate-100 transition-colors inline-flex items-center gap-2"
+          >
+            <Lock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span>{t('legal.privacyButton')}</span>
+          </button>
         </div>
       </div>
     </div>

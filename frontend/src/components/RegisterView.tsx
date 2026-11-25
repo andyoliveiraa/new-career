@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserPlus, ArrowLeft, ShieldCheck, AlertCircle, Globe } from 'lucide-react';
+import { UserPlus, ArrowLeft, ShieldCheck, AlertCircle, Globe, Scale, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { LANGUAGES, type LanguageCode } from '../i18n';
@@ -7,9 +7,15 @@ import { LanguageSelector } from './LanguageSelector';
 
 interface RegisterViewProps {
   onSwitchToLogin: () => void;
+  onOpenRgpd?: () => void;
+  onOpenPrivacy?: () => void;
 }
 
-export const RegisterView: React.FC<RegisterViewProps> = ({ onSwitchToLogin }) => {
+export const RegisterView: React.FC<RegisterViewProps> = ({
+  onSwitchToLogin,
+  onOpenRgpd,
+  onOpenPrivacy,
+}) => {
   const { register } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const [fullName, setFullName] = useState('');
@@ -197,6 +203,31 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onSwitchToLogin }) =
             </p>
           </div>
         </div>
+
+        {(onOpenRgpd || onOpenPrivacy) && (
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+            {onOpenRgpd && (
+              <button
+                type="button"
+                onClick={onOpenRgpd}
+                className="h-9 px-3.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs font-medium text-slate-300 hover:text-slate-100 transition-colors inline-flex items-center gap-2"
+              >
+                <Scale className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <span>{t('legal.rgpdButton')}</span>
+              </button>
+            )}
+            {onOpenPrivacy && (
+              <button
+                type="button"
+                onClick={onOpenPrivacy}
+                className="h-9 px-3.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-xs font-medium text-slate-300 hover:text-slate-100 transition-colors inline-flex items-center gap-2"
+              >
+                <Lock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>{t('legal.privacyButton')}</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
