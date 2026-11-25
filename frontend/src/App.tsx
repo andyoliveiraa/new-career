@@ -15,6 +15,7 @@ import { ProfileView } from './components/ProfileView';
 import { CVBuilderView } from './components/CVBuilderView';
 import { SettingsView } from './components/SettingsView';
 import { AIStudioModal } from './components/AIStudioModal';
+import { trackEvent, trackPageView } from './firebase';
 
 const AppContent: React.FC = () => {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
@@ -78,9 +79,21 @@ const AppContent: React.FC = () => {
     }
   }, [isAuthenticated, user?.has_completed_onboarding, loadData]);
 
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      trackPageView(authView, `New Career - ${authView}`);
+    } else if (user && !user.has_completed_onboarding) {
+      trackPageView('onboarding', 'New Career - Onboarding');
+    } else {
+      trackPageView(activeTab, `New Career - ${activeTab}`);
+    }
+  }, [authLoading, isAuthenticated, authView, user, activeTab]);
+
   const handleMarkApplied = async (jobId: number) => {
     try {
       await api.markApplied(jobId);
+      trackEvent('job_applied', { job_id: jobId });
       showToast(t('app.toastApplied'), 'success');
       await loadData();
     } catch (err: any) {
@@ -91,6 +104,7 @@ const AppContent: React.FC = () => {
   const handleCheckLiveness = async (jobId: number) => {
     try {
       const res = await api.checkLiveness(jobId);
+      trackEvent('job_liveness_checked', { status: res.liveness_status });
       setJobs((prev) =>
         prev.map((j) =>
           j.id === jobId
@@ -108,6 +122,7 @@ const AppContent: React.FC = () => {
     try {
       const ids = jobs.slice(0, 20).map((j) => j.id);
       const res = await api.checkLivenessBatch(ids);
+      trackEvent('jobs_liveness_batch_checked', { checked: res.checked, active: res.active, expired: res.expired });
       showToast(
         t('app.toastLivenessBatch', { checked: res.checked, active: res.active, expired: res.expired }),
         'success'
@@ -121,6 +136,7 @@ const AppContent: React.FC = () => {
   const handleCreateManualJob = async (payload: ManualJobPayload) => {
     try {
       await api.createManualJob(payload);
+      trackEvent('manual_job_created', { is_remote: !!payload.is_remote });
       showToast(t('app.toastJobAdded'), 'success');
       await loadData();
     } catch (err: any) {
@@ -132,6 +148,7 @@ const AppContent: React.FC = () => {
   const handleExportJobs = async (format: 'csv' | 'json') => {
     try {
       await api.exportJobs(format, filterStatus || undefined);
+      trackEvent('jobs_exported', { format });
       showToast(t('app.toastExported', { format: format.toUpperCase() }), 'success');
     } catch (err: any) {
       showToast(err.message || t('app.toastExportError'), 'error');
@@ -141,6 +158,7 @@ const AppContent: React.FC = () => {
   const handleUpdateStatus = async (jobId: number, status: string) => {
     try {
       await api.updateApplication(jobId, { status });
+      trackEvent('job_status_updated', { status });
       showToast(t('app.toastStatusUpdated'), 'success');
       await loadData();
     } catch (err: any) {
@@ -151,6 +169,7 @@ const AppContent: React.FC = () => {
   const handleDeleteJob = async (jobId: number) => {
     try {
       await api.deleteJob(jobId);
+      trackEvent('job_deleted');
       showToast(t('app.toastJobDeleted'), 'info');
       await loadData();
     } catch (err: any) {
@@ -198,7 +217,10 @@ const AppContent: React.FC = () => {
             stats={stats}
             recentJobs={jobs}
             onNavigateTab={(tab: string) => setActiveTab(tab as any)}
-            onOpenJobAI={(job: Job) => setSelectedJobForAI(job)}
+            onOpenJobAI={(job: Job) => {
+              trackEvent('ai_studio_opened', { source: job.source });
+              setSelectedJobForAI(job);
+            }}
           />
         )}
 
@@ -214,7 +236,10 @@ const AppContent: React.FC = () => {
             onExportJobs={handleExportJobs}
             onUpdateStatus={handleUpdateStatus}
             onDeleteJob={handleDeleteJob}
-            onOpenJobAI={(job: Job) => setSelectedJobForAI(job)}
+            onOpenJobAI={(job: Job) => {
+              trackEvent('ai_studio_opened', { source: job.source });
+              setSelectedJobForAI(job);
+            }}
             filterQuery={filterQuery}
             setFilterQuery={setFilterQuery}
             filterLocation={filterLocation}

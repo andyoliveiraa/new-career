@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { LANGUAGES, type LanguageCode } from '../i18n';
+import { trackEvent } from '../firebase';
 import {
   Sliders, Bell, Key, Sparkles, CheckCircle2, AlertCircle,
   Eye, EyeOff, Save, RefreshCw, ExternalLink, HelpCircle,
@@ -183,6 +184,10 @@ export const SettingsView: React.FC = () => {
       setSettings(updated);
       setSecretDrafts({});
       setClearedSecrets({});
+      trackEvent('settings_saved', {
+        primary_ai_provider: updated.primary_ai_provider,
+        has_discord_webhook: updated.has_discord_webhook,
+      });
       setSaveSuccessMsg(t('settings.saveSuccess'));
       showToast(t('settings.toastSaved'), 'success');
       setTimeout(() => setSaveSuccessMsg(''), 3500);

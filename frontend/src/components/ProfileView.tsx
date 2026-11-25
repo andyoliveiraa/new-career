@@ -3,6 +3,7 @@ import type { ProfileData } from '../types';
 import { api } from '../api';
 import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
+import { trackEvent } from '../firebase';
 import { SkillsTagEditor } from './SkillsTagEditor';
 import { ExperiencesEditor } from './ExperiencesEditor';
 import { EducationsEditor } from './EducationsEditor';
@@ -66,6 +67,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
     setSaving(true);
     try {
       await api.updateProfile(profile);
+      trackEvent('profile_saved', {
+        skills_count: (profile.skills || []).length,
+        experiences_count: (profile.experiences || []).length,
+        educations_count: (profile.educations || []).length,
+        languages_count: (profile.languages || []).length,
+      });
       setSavedSuccess(true);
       showToast(t('profile.toastSaved'), 'success');
       setTimeout(() => setSavedSuccess(false), 2500);

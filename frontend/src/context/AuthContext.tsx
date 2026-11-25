@@ -3,6 +3,7 @@ import type { User } from '../types';
 import { api } from '../api';
 import { useLanguage } from './LanguageContext';
 import { DEFAULT_LANGUAGE, isSupportedLanguage, type LanguageCode } from '../i18n';
+import { setAnalyticsUser, trackEvent } from '../firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -37,6 +38,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   const logout = useCallback(() => {
+    trackEvent('logout');
+    setAnalyticsUser(null);
     localStorage.removeItem('new_career_token');
     setToken(null);
     setUser(null);
@@ -55,6 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(me);
       setToken(savedToken);
       applyUserLanguage(me);
+      setAnalyticsUser(me.id, { preferred_language: me.preferred_language || DEFAULT_LANGUAGE });
     } catch (err) {
       console.warn('Session expired:', err);
       logout();
@@ -79,6 +83,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(res.access_token);
     setUser(res.user);
     applyUserLanguage(res.user);
+    setAnalyticsUser(res.user.id, { preferred_language: res.user.preferred_language || DEFAULT_LANGUAGE });
+    trackEvent('login', { method: 'email' });
   };
 
   const register = async (
@@ -92,6 +98,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(res.access_token);
     setUser(res.user);
     applyUserLanguage(res.user);
+    setAnalyticsUser(res.user.id, { preferred_language: preferredLanguage });
+    trackEvent('sign_up', { method: 'email', language: preferredLanguage });
     return res.user;
   };
 
@@ -113,10 +121,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updatePreferredLanguage = async (lang: LanguageCode) => {
     setLanguage(lang);
+    trackEvent('language_changed', { language: lang });
     if (!user) return;
     const updated = await api.updatePreferredLanguage(lang);
     setUser(updated);
     applyUserLanguage(updated);
+    setAnalyticsUser(updated.id, { preferred_language: lang });
   };
 
   return (

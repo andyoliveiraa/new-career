@@ -12,6 +12,7 @@
   "dependencies": {
     "autoprefixer": "^10.7.0",
     "clsx": "^2.1.1",
+    "firebase": "^13.4.0",
     "lucide-react": "^1.77.0",
     "postcss": "^8.5.33",
     "react": "^19.3.1",

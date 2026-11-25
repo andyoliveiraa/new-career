@@ -3,6 +3,7 @@ import type { ScanRecord } from '../types';
 import { api } from '../api';
 import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
+import { trackEvent } from '../firebase';
 import { Search, Play, Terminal } from 'lucide-react';
 
 interface ScraperViewProps {
@@ -84,6 +85,13 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
         maxPages,
         maxDistanceKm === '' ? undefined : maxDistanceKm
       );
+      trackEvent('scan_started', {
+        sources: sources.join(','),
+        has_query: Boolean(cleanQuery),
+        has_location: Boolean(cleanLocation),
+        max_pages: maxPages,
+        max_distance_km: maxDistanceKm === '' ? undefined : maxDistanceKm,
+      });
       setLogs((prev) => [...prev, res.message]);
 
       const scanId = res.scan_id;
@@ -101,9 +109,14 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
             setScanning(false);
             await loadHistory();
             if (statusRec.status === 'completed') {
+              trackEvent('scan_completed', {
+                total_found: statusRec.total_found,
+                total_new: statusRec.total_new,
+              });
               showToast(t('scraper.scanDoneToast', { count: statusRec.total_new }), 'success');
               if (onScanCompleted) onScanCompleted();
             } else {
+              trackEvent('scan_failed');
               showToast(statusRec.error_message || t('scraper.scanFailedToast'), 'error');
             }
           }

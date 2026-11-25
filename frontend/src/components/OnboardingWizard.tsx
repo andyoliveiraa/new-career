@@ -12,6 +12,7 @@ import { ExperiencesEditor } from './ExperiencesEditor';
 import { EducationsEditor } from './EducationsEditor';
 import { LanguagesEditor } from './LanguagesEditor';
 import { LANGUAGES } from '../i18n';
+import { trackEvent } from '../firebase';
 
 export const OnboardingWizard: React.FC = () => {
   const { user, setCompletedOnboarding, updatePreferredLanguage } = useAuth();
@@ -75,6 +76,7 @@ export const OnboardingWizard: React.FC = () => {
     setImportError(null);
     try {
       const res = await api.uploadCareerOpsZip(fullZipFile);
+      trackEvent('onboarding_career_ops_imported', { mode: 'full_zip', jobs_count: res.jobs_count });
       setImportResult(res);
     } catch (err: any) {
       setImportError(err.message || t('onboarding.zipImportError'));
@@ -98,6 +100,7 @@ export const OnboardingWizard: React.FC = () => {
         applicationsFile,
         outputZip: outputZipFile
       });
+      trackEvent('onboarding_career_ops_imported', { mode: 'privacy', jobs_count: res.jobs_count });
       setImportResult(res);
     } catch (err: any) {
       setImportError(err.message || t('onboarding.privacyImportError'));
@@ -116,6 +119,7 @@ export const OnboardingWizard: React.FC = () => {
     setManualError(null);
     try {
       const res = await api.parseCVUpload(attachedCvFile);
+      trackEvent('onboarding_cv_parsed', { used_ai: res.used_ai });
       const p = res.profile;
       setFullName(p.full_name || user?.full_name || '');
       setHeadline(p.headline || '');
@@ -166,6 +170,12 @@ export const OnboardingWizard: React.FC = () => {
         languages,
         verified_facts: verifiedFacts,
         initial_cv_text: initialCvText
+      });
+      trackEvent('onboarding_completed', {
+        mode: 'manual',
+        skills_count: skills.length,
+        experiences_count: experiences.length,
+        educations_count: educations.length,
       });
       setCompletedOnboarding();
     } catch (err: any) {

@@ -3,6 +3,7 @@ import type { CVTemplate, ATSAuditResult } from '../types';
 import { api } from '../api';
 import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
+import { trackEvent } from '../firebase';
 import {
   Palette, Layout, AlertTriangle, Eye, EyeOff,
   ArrowUp, ArrowDown, Sparkles, RefreshCw, Save, Trash2,
@@ -217,6 +218,7 @@ export const CVBuilderView: React.FC = () => {
 
         const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
         setSelectedTemplate((prev) => (prev ? { ...prev, has_photo: true, photo_url: dataUrl } : prev));
+        trackEvent('cv_photo_uploaded');
         showToast(t('cvBuilder.photoUploadSuccess'), 'success');
       };
       img.onerror = () => {
@@ -251,6 +253,7 @@ export const CVBuilderView: React.FC = () => {
       const saved = await api.updateCVTemplate(selectedTemplate.id, selectedTemplate);
       setSelectedTemplate(saved);
       setTemplates(prev => prev.map(tpl => tpl.id === saved.id ? saved : tpl));
+      trackEvent('cv_template_saved', { layout: saved.layout, has_photo: saved.has_photo });
       setSaveSuccessMsg(t('cvBuilder.saveSuccess'));
       showToast(t('cvBuilder.toastSaved'), 'success');
       setTimeout(() => setSaveSuccessMsg(''), 3000);
@@ -285,6 +288,7 @@ export const CVBuilderView: React.FC = () => {
       setCustomFontInput(created.font_family);
       setShowCreateModal(false);
       setNewTemplateName('');
+      trackEvent('cv_template_created', { layout: created.layout });
       showToast(t('cvBuilder.toastCreated'), 'success');
     } catch (err: any) {
       showToast(err.message || t('cvBuilder.toastCreateError'), 'error');
@@ -302,6 +306,7 @@ export const CVBuilderView: React.FC = () => {
       });
       setTemplates(prev => [duplicated, ...prev]);
       setSelectedTemplate(duplicated);
+      trackEvent('cv_template_duplicated', { layout: duplicated.layout });
       showToast(t('cvBuilder.toastDuplicated'), 'success');
     } catch (err: any) {
       showToast(err.message || t('cvBuilder.toastDuplicateError'), 'error');

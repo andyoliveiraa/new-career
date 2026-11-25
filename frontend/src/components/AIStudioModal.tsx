@@ -3,6 +3,7 @@ import type { Job, JDAnalysis, CVTailorResult, CoverLetterResult, InterviewPrepR
 import { api } from '../api';
 import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
+import { trackEvent } from '../firebase';
 import { X, Sparkles, FileText, Send, Download, Check, Copy, ExternalLink, HelpCircle, Layout } from 'lucide-react';
 
 interface AIStudioModalProps {
@@ -51,6 +52,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
     setLoading(true);
     try {
       const res = await api.analyzeJob(job.id);
+      trackEvent('ai_job_analyzed', { match_score: res.match_score });
       setAnalysis(res);
       onRefreshJob();
     } catch (err: any) {
@@ -64,6 +66,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
     setLoading(true);
     try {
       const res = await api.tailorCV(job.id, selectedTemplateId || undefined);
+      trackEvent('ai_cv_tailored');
       setTailorResult(res);
       showToast(t('aiStudio.cvToastSuccess'), 'success');
       onRefreshJob();
@@ -78,6 +81,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
     if (!tailorResult?.pdf_download_url) return;
     try {
       await api.downloadProtectedFile(tailorResult.pdf_download_url, `cv_job_${job.id}.pdf`);
+      trackEvent('ai_cv_pdf_downloaded');
     } catch (err: any) {
       showToast(err.message || t('aiStudio.cvDownloadError'), 'error');
     }
@@ -87,6 +91,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
     setLoading(true);
     try {
       const res = await api.generateCoverLetter(job.id);
+      trackEvent('ai_cover_letter_generated');
       setCoverResult(res);
       onRefreshJob();
     } catch (err: any) {
@@ -100,6 +105,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
     setLoading(true);
     try {
       const res = await api.generateInterviewPrep(job.id);
+      trackEvent('ai_interview_prep_generated', { questions_count: res.likely_questions.length });
       setInterviewPrep(res);
     } catch (err: any) {
       showToast(err.message || t('aiStudio.interviewError'), 'error');
