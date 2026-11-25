@@ -412,6 +412,7 @@ export const ar: TranslationDict = {
     locationLabel: 'الموقع',
     locationPlaceholder: 'مثال: London, Lisbon, Remote',
     limitLabel: 'الحد لكل مصدر',
+    maxPagesLabel: 'أقصى عدد صفحات',
     startScan: 'بدء المسح',
     scanning: 'جارٍ المسح...',
     liveConsole: 'وحدة التحكم المباشرة',

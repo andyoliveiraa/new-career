@@ -16,6 +16,7 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
   const [location, setLocation] = useState('Lisboa');
   const [sources, setSources] = useState<string[]>(['netempregos', 'ats']);
   const [limit, setLimit] = useState(25);
+  const [maxPages, setMaxPages] = useState(3);
   const [scanning, setScanning] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [history, setHistory] = useState<ScanRecord[]>([]);
@@ -74,7 +75,7 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
     ]);
 
     try {
-      const res = await api.triggerScan(sources, cleanQuery, cleanLocation, limit);
+      const res = await api.triggerScan(sources, cleanQuery, cleanLocation, limit, maxPages);
       setLogs((prev) => [...prev, res.message]);
 
       const scanId = res.scan_id;
@@ -166,7 +167,7 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="block text-xs font-medium text-txt-secondary mb-1">{t('scraper.queryLabel')}</label>
             <input
@@ -174,7 +175,7 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t('scraper.queryPlaceholder')}
-              className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-1.5 text-sm text-txt-primary focus:outline-none focus:border-accent"
+              className="w-full h-9 bg-surface-200 border border-surface-border rounded-lg px-3 text-sm text-txt-primary focus:outline-none focus:border-accent"
             />
           </div>
 
@@ -185,7 +186,7 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder={t('scraper.locationPlaceholder')}
-              className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-1.5 text-sm text-txt-primary focus:outline-none focus:border-accent"
+              className="w-full h-9 bg-surface-200 border border-surface-border rounded-lg px-3 text-sm text-txt-primary focus:outline-none focus:border-accent"
             />
           </div>
 
@@ -197,7 +198,19 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
               max={100}
               value={limit}
               onChange={(e) => setLimit(Math.max(1, Math.min(100, Number(e.target.value) || 20)))}
-              className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-1.5 text-sm text-txt-primary focus:outline-none focus:border-accent"
+              className="w-full h-9 bg-surface-200 border border-surface-border rounded-lg px-3 text-sm text-txt-primary focus:outline-none focus:border-accent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-txt-secondary mb-1">{t('scraper.maxPagesLabel')}</label>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={maxPages}
+              onChange={(e) => setMaxPages(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+              className="w-full h-9 bg-surface-200 border border-surface-border rounded-lg px-3 text-sm text-txt-primary focus:outline-none focus:border-accent"
             />
           </div>
         </div>

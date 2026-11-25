@@ -29,6 +29,68 @@ async def test_netempregos_scraper_location_only_without_query():
     assert len(lisboa_jobs) > 0
     assert all(not j["is_remote"] for j in lisboa_jobs)
 
+
+@pytest.mark.asyncio
+async def test_netempregos_html_pagination_respects_max_pages():
+    from unittest.mock import AsyncMock, MagicMock
+
+    scraper = NetEmpregosScraper()
+    url_p2 = scraper._build_search_page_url(
+        scraper.BASE_URL, "", "Covilhã", "covilha", page_num=2, use_search_asp=True
+    )
+    assert url_p2 == "https://www.net-empregos.com/pesquisa-empregos.asp?page=2&categoria=0&zona=0&tipo=0&cidade=Covilh%E3"
+
+    page1_html = """
+    <div class="job-item media">
+      <a class="oferta-link" href="/1001/vaga-um/">Vaga Um</a>
+      <span>25-11-2026</span><span>Covilhã</span><span>IT</span><span>Empresa A</span>
+    </div>
+    """
+    page2_html = """
+    <div class="job-item media">
+      <a class="oferta-link" href="/1002/vaga-dois/">Vaga Dois</a>
+      <span>24-11-2026</span><span>Covilhã</span><span>IT</span><span>Empresa B</span>
+    </div>
+    """
+    page3_html = """
+    <div class="job-item media">
+      <a class="oferta-link" href="/1003/vaga-tres/">Vaga Tres</a>
+      <span>23-11-2026</span><span>Covilhã</span><span>IT</span><span>Empresa C</span>
+    </div>
+    """
+
+    called_urls = []
+
+    async def fake_get(url, headers=None):
+        called_urls.append(url)
+        resp = MagicMock()
+        resp.status_code = 200
+        if "page=1" in url:
+            resp.text = page1_html
+        elif "page=2" in url:
+            resp.text = page2_html
+        else:
+            resp.text = page3_html
+        return resp
+
+    mock_client = MagicMock()
+    mock_client.get = AsyncMock(side_effect=fake_get)
+
+    jobs = await scraper._scrape_paginated_html(
+        client=mock_client,
+        raw_query="",
+        raw_location="Covilhã",
+        loc_slug="covilha",
+        is_remote_search=False,
+        query_terms=[],
+        limit=25,
+        max_pages=2,
+    )
+    assert len(jobs) == 2
+    assert len(called_urls) == 2
+    assert "page=1" in called_urls[0] and "cidade=Covilh%E3" in called_urls[0]
+    assert "page=2" in called_urls[1] and "cidade=Covilh%E3" in called_urls[1]
+
 @pytest.mark.asyncio
 async def test_ats_portals_scraper():
     scraper = ATSPortalsScraper()

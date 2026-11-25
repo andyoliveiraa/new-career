@@ -33,6 +33,7 @@ class ScanRequest(BaseModel):
     query: Optional[str] = Field(default="", max_length=120)
     location: Optional[str] = None
     limit: int = Field(default=20, ge=1, le=100)
+    max_pages: int = Field(default=3, ge=1, le=20)
 
 
 async def _append_scan_log(user_id: str, scan_id: int, logs: List[str], message: str) -> None:
@@ -47,7 +48,8 @@ async def run_scan_task(
     sources: List[str],
     query: str,
     location: Optional[str],
-    limit_per_source: int
+    limit_per_source: int,
+    max_pages: int = 3
 ):
     start_time = time.time()
     total_found = 0
@@ -88,6 +90,13 @@ async def run_scan_task(
                         limit=limit_per_source,
                         serpapi_key=serpapi_key,
                         jsearch_key=jsearch_key
+                    )
+                elif src_name == "netempregos":
+                    raw_jobs = await scraper.search(
+                        query=query,
+                        location=location,
+                        limit=limit_per_source,
+                        max_pages=max_pages
                     )
                 else:
                     raw_jobs = await scraper.search(query=query, location=location, limit=limit_per_source)
@@ -211,14 +220,15 @@ async def trigger_scan(
         selected_sources,
         clean_query,
         location_val,
-        request.limit
+        request.limit,
+        request.max_pages
     )
 
     search_desc = f"para '{clean_query}' em '{location_val}'" if clean_query else f"em '{location_val}' (todas as áreas)"
     return {
         "status": "started",
         "scan_id": scan_record["id"],
-        "message": f"Varredura iniciada {search_desc} nas fontes: {', '.join(selected_sources)}",
+        "message": f"Varredura iniciada {search_desc} (máx. {request.max_pages} pág.) nas fontes: {', '.join(selected_sources)}",
         "sources": selected_sources
     }
 

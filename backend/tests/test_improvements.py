@@ -66,10 +66,12 @@ async def test_scan_endpoint_accepts_json_body_and_tracks_status():
                 "sources": ["netempregos"],
                 "query": "",
                 "location": "Lisboa",
-                "limit": 10
+                "limit": 10,
+                "max_pages": 4
             }, headers=headers)
             assert loc_only_res.status_code == 200
             assert "Lisboa" in loc_only_res.json()["message"]
+            assert "4" in loc_only_res.json()["message"]
 
             # Reject when both query and location are empty
             empty_res = await client.post("/api/scrapers/scan", json={

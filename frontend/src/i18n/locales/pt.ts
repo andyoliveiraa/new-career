@@ -412,6 +412,7 @@ export const pt: TranslationDict = {
     locationLabel: 'Localização',
     locationPlaceholder: 'ex: Lisboa, Porto, Covilhã, Remoto',
     limitLabel: 'Limite por Fonte',
+    maxPagesLabel: 'Máximo de Páginas',
     startScan: 'Iniciar Varredura',
     scanning: 'Varredura em Execução...',
     liveConsole: 'Console de Execução em Tempo Real',

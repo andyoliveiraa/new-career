@@ -410,6 +410,7 @@ export const en = {
     locationLabel: 'Location',
     locationPlaceholder: 'e.g. Lisbon, London, Remote',
     limitLabel: 'Limit per Source',
+    maxPagesLabel: 'Max Pages',
     startScan: 'Start Scan',
     scanning: 'Scan Running...',
     liveConsole: 'Live Execution Console',

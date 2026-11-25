@@ -270,11 +270,11 @@ export const api = {
   },
 
   // Scrapers
-  async triggerScan(sources: string[], query: string, location: string, limit = 20): Promise<{ status: string; scan_id: number; message: string; sources: string[] }> {
+  async triggerScan(sources: string[], query: string, location: string, limit = 20, max_pages = 3): Promise<{ status: string; scan_id: number; message: string; sources: string[] }> {
     const res = await apiFetch('/scrapers/scan', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sources, query, location, limit })
+      body: JSON.stringify({ sources, query, location, limit, max_pages })
     }, 'Erro ao iniciar varredura');
     return res.json();
   },

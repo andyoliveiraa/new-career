@@ -412,6 +412,7 @@ export const zh: TranslationDict = {
     locationLabel: '地点',
     locationPlaceholder: '例如：Lisbon, London, Remote',
     limitLabel: '单源抓取上限',
+    maxPagesLabel: '最大页数',
     startScan: '开始抓取',
     scanning: '正在抓取...',
     liveConsole: '实时执行控制台',

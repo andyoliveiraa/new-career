@@ -412,6 +412,7 @@ export const de: TranslationDict = {
     locationLabel: 'Standort',
     locationPlaceholder: 'z. B. Berlin, München, Remote',
     limitLabel: 'Limit pro Quelle',
+    maxPagesLabel: 'Max. Seiten',
     startScan: 'Scan starten',
     scanning: 'Scan läuft...',
     liveConsole: 'Echtzeit-Ausführungskonsole',

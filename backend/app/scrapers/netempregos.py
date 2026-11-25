@@ -4,6 +4,7 @@ import html as html_lib
 import logging
 import re
 import unicodedata
+import urllib.parse
 import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional
 
@@ -55,13 +56,16 @@ class NetEmpregosScraper(BaseScraper):
         self,
         query: Optional[str] = "",
         location: Optional[str] = None,
-        limit: int = 25
+        limit: int = 25,
+        max_pages: int = 3
     ) -> List[Dict[str, Any]]:
         clean_query = _normalize_text(query or "")
+        raw_query = (query or "").strip()
         raw_location = (location or "").strip()
         clean_location = _normalize_text(raw_location)
         loc_slug = _slugify_location(raw_location)
         query_terms = [t for t in re.split(r"\s+", clean_query) if t]
+        safe_max_pages = max(1, min(20, int(max_pages or 3)))
 
         if clean_location in ("portugal", "todas", "todas as zonas", "all"):
             clean_location = ""
@@ -73,12 +77,21 @@ class NetEmpregosScraper(BaseScraper):
         seen_urls = set()
 
         async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
-            # 1. Try direct city slug URL (https://www.net-empregos.com/{cidade}/)
-            if loc_slug and not is_remote_search:
-                city_jobs = await self._scrape_city_slug(
-                    client, loc_slug, raw_location, query_terms, limit
+            # 1. Try direct Net-Empregos HTML pagination:
+            #    - pesquisa-empregos.asp?page={n}&categoria=0&zona=0&tipo=0&cidade={iso_city}
+            #    - /{cidade}/?page={n}
+            if raw_location or raw_query:
+                html_jobs = await self._scrape_paginated_html(
+                    client=client,
+                    raw_query=raw_query,
+                    raw_location=raw_location,
+                    loc_slug=loc_slug,
+                    is_remote_search=is_remote_search,
+                    query_terms=query_terms,
+                    limit=limit,
+                    max_pages=safe_max_pages,
                 )
-                for j in city_jobs:
+                for j in html_jobs:
                     if j["url"] not in seen_urls:
                         seen_urls.add(j["url"])
                         jobs.append(j)
@@ -86,6 +99,7 @@ class NetEmpregosScraper(BaseScraper):
                     return jobs[:limit]
 
             # 2. Fetch public RSS (1,000 latest jobs with full metadata) and Sitemap (5,000 job URLs)
+            effective_feed_limit = min(limit, safe_max_pages * 25)
             rss_jobs, sitemap_jobs = await self._fetch_feeds(
                 client=client,
                 raw_location=raw_location,
@@ -93,7 +107,7 @@ class NetEmpregosScraper(BaseScraper):
                 loc_slug=loc_slug,
                 is_remote_search=is_remote_search,
                 query_terms=query_terms,
-                limit=limit,
+                limit=effective_feed_limit,
             )
 
             for j in rss_jobs + sitemap_jobs:
@@ -105,13 +119,35 @@ class NetEmpregosScraper(BaseScraper):
 
         return jobs[:limit]
 
-    async def _scrape_city_slug(
+    @staticmethod
+    def _build_search_page_url(
+        base_url: str,
+        raw_query: str,
+        raw_location: str,
+        loc_slug: str,
+        page_num: int,
+        use_search_asp: bool,
+    ) -> str:
+        if use_search_asp:
+            # Net-Empregos classic ASP expects iso-8859-1 percent-encoding (e.g. Covilhã -> Covilh%E3)
+            parts = [f"page={page_num}", "categoria=0", "zona=0", "tipo=0"]
+            if raw_query:
+                parts.append("chaves=" + urllib.parse.quote(raw_query, encoding="iso-8859-1", errors="ignore"))
+            if raw_location:
+                parts.append("cidade=" + urllib.parse.quote(raw_location, encoding="iso-8859-1", errors="ignore"))
+            return f"{base_url}/pesquisa-empregos.asp?" + "&".join(parts)
+        return f"{base_url}/{loc_slug}/" if page_num == 1 else f"{base_url}/{loc_slug}/?page={page_num}"
+
+    async def _scrape_paginated_html(
         self,
         client: httpx.AsyncClient,
-        loc_slug: str,
+        raw_query: str,
         raw_location: str,
+        loc_slug: str,
+        is_remote_search: bool,
         query_terms: List[str],
         limit: int,
+        max_pages: int,
     ) -> List[Dict[str, Any]]:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -119,60 +155,79 @@ class NetEmpregosScraper(BaseScraper):
             "Accept-Language": "pt-PT,pt;q=0.9,en;q=0.8",
         }
         jobs: List[Dict[str, Any]] = []
-        for page_num in (1, 2):
-            url = f"{self.BASE_URL}/{loc_slug}/" if page_num == 1 else f"{self.BASE_URL}/{loc_slug}/?page={page_num}"
-            try:
-                resp = await client.get(url, headers=headers)
-                resp.encoding = "iso-8859-1"
-                if resp.status_code != 200:
-                    break
-                soup = BeautifulSoup(resp.text, "html.parser")
-                items = soup.select(".job-item.media")
-                if not items:
-                    break
+        seen_urls = set()
 
-                for item in items:
-                    title_el = item.select_one("a.oferta-link")
-                    if not title_el:
-                        continue
-                    title = title_el.text.strip()
-                    raw_href = title_el.get("href", "")
-                    job_url = raw_href if raw_href.startswith("http") else f"{self.BASE_URL}{raw_href}"
+        # Prefer pesquisa-empregos.asp (supports page=N, cidade, chaves); fallback to /{city_slug}/
+        modes = [True]
+        if loc_slug and not is_remote_search:
+            modes.append(False)
 
-                    text_parts = [p.strip() for p in item.get_text(separator="|").split("|") if p.strip()]
-                    job_date_str = text_parts[1] if len(text_parts) >= 5 else None
-                    job_location = text_parts[2] if len(text_parts) >= 5 else raw_location
-                    category = text_parts[3] if len(text_parts) >= 4 else None
-                    company = text_parts[4] if len(text_parts) >= 5 else "Confidencial"
+        for use_search_asp in modes:
+            mode_found = False
+            for page_num in range(1, max_pages + 1):
+                url = self._build_search_page_url(
+                    self.BASE_URL, raw_query, raw_location, loc_slug, page_num, use_search_asp
+                )
+                try:
+                    resp = await client.get(url, headers=headers)
+                    resp.encoding = "iso-8859-1"
+                    if resp.status_code != 200:
+                        break
+                    soup = BeautifulSoup(resp.text, "html.parser")
+                    items = soup.select(".job-item.media")
+                    if not items:
+                        break
 
-                    title_norm = _normalize_text(title)
-                    is_remote = "remot" in title_norm or "teletrabalho" in title_norm
-                    if is_remote:
-                        continue
-
-                    if query_terms:
-                        haystack = _normalize_text(f"{title} {company} {category or ''}")
-                        if not all(term in haystack for term in query_terms):
+                    mode_found = True
+                    for item in items:
+                        title_el = item.select_one("a.oferta-link")
+                        if not title_el:
+                            continue
+                        title = title_el.text.strip()
+                        raw_href = title_el.get("href", "")
+                        job_url = raw_href if raw_href.startswith("http") else f"{self.BASE_URL}{raw_href}"
+                        if job_url in seen_urls:
                             continue
 
-                    job_key = hashlib.sha256(f"netempregos:{job_url}".encode()).hexdigest()[:24]
-                    jobs.append({
-                        "job_key": job_key,
-                        "title": title,
-                        "company": company,
-                        "location": job_location,
-                        "is_remote": False,
-                        "salary": None,
-                        "description": None,
-                        "url": job_url,
-                        "source": self.source_name,
-                        "raw_metadata": {"date_text": job_date_str, "category": category},
-                    })
-                    if len(jobs) >= limit:
-                        return jobs
-            except Exception as e:
-                logger.debug(f"City slug scrape skipped for {url}: {e}")
+                        text_parts = [p.strip() for p in item.get_text(separator="|").split("|") if p.strip()]
+                        job_date_str = text_parts[1] if len(text_parts) >= 5 else None
+                        job_location = text_parts[2] if len(text_parts) >= 5 else (raw_location or "Portugal")
+                        category = text_parts[3] if len(text_parts) >= 4 else None
+                        company = text_parts[4] if len(text_parts) >= 5 else "Confidencial"
+
+                        title_norm = _normalize_text(title)
+                        is_remote = "remot" in title_norm or "teletrabalho" in title_norm
+                        if raw_location and not is_remote_search and is_remote:
+                            continue
+
+                        if query_terms:
+                            haystack = _normalize_text(f"{title} {company} {category or ''}")
+                            if not all(term in haystack for term in query_terms):
+                                continue
+
+                        seen_urls.add(job_url)
+                        job_key = hashlib.sha256(f"netempregos:{job_url}".encode()).hexdigest()[:24]
+                        jobs.append({
+                            "job_key": job_key,
+                            "title": title,
+                            "company": company,
+                            "location": job_location,
+                            "is_remote": is_remote,
+                            "salary": None,
+                            "description": None,
+                            "url": job_url,
+                            "source": self.source_name,
+                            "raw_metadata": {"date_text": job_date_str, "category": category, "page": page_num},
+                        })
+                        if len(jobs) >= limit:
+                            return jobs
+                except Exception as e:
+                    logger.debug(f"Paginated HTML scrape skipped for {url}: {e}")
+                    break
+
+            if mode_found:
                 break
+
         return jobs
 
     async def _fetch_feeds(
