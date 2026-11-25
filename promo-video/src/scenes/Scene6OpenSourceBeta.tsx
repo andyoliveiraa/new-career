@@ -1,9 +1,11 @@
 import React from 'react';
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion';
 import { Code2, ExternalLink, FlaskConical } from 'lucide-react';
+import { VIDEO_COPY, VideoLang } from '../copy';
 import { FONTS, THEME } from '../theme';
 
-export const Scene6OpenSourceBeta: React.FC = () => {
+export const Scene6OpenSourceBeta: React.FC<{ videoLang?: VideoLang }> = ({ videoLang = 'en' }) => {
+  const copy = VIDEO_COPY[videoLang].scene6;
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const isVertical = height > width;
@@ -74,7 +76,7 @@ export const Scene6OpenSourceBeta: React.FC = () => {
             }}
           >
             <FlaskConical className="w-4 h-4" />
-            <span>Public Beta</span>
+            <span>{copy.betaPill}</span>
           </div>
 
           <div
@@ -94,7 +96,7 @@ export const Scene6OpenSourceBeta: React.FC = () => {
             }}
           >
             <Code2 className="w-4 h-4" />
-            <span>Open Source</span>
+            <span>{copy.openSourcePill}</span>
           </div>
         </div>
 
@@ -112,7 +114,7 @@ export const Scene6OpenSourceBeta: React.FC = () => {
             transform: `translateY(${interpolate(titleSpring, [0, 1], [26, 0])}px)`,
           }}
         >
-          Open Source &amp; Currently in Beta.
+          {copy.headline}
         </h2>
 
         {/* Subtitle */}
@@ -127,7 +129,7 @@ export const Scene6OpenSourceBeta: React.FC = () => {
             transform: `translateY(${interpolate(titleSpring, [0, 1], [22, 0])}px)`,
           }}
         >
-          Built transparently in the open. Explore the full source code on GitHub:
+          {copy.subtitle}
         </p>
 
         {/* GitHub Repository Card */}
@@ -182,7 +184,7 @@ export const Scene6OpenSourceBeta: React.FC = () => {
             opacity: interpolate(subSpring, [0, 1], [0, 1]),
           }}
         >
-          Based on <span style={{ color: THEME.textSecondary, fontWeight: 600 }}>career-ops</span> concepts • Live at{' '}
+          {copy.footerPrefix} <span style={{ color: THEME.textSecondary, fontWeight: 600 }}>career-ops</span> {copy.footerMiddle}{' '}
           <span style={{ color: THEME.textSecondary, fontWeight: 600 }}>career.andydias.pt</span>
         </div>
       </div>

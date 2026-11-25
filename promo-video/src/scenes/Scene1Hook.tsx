@@ -1,8 +1,10 @@
 import React from 'react';
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion';
+import { VIDEO_COPY, VideoLang } from '../copy';
 import { FONTS, THEME } from '../theme';
 
-export const Scene1Hook: React.FC = () => {
+export const Scene1Hook: React.FC<{ videoLang?: VideoLang }> = ({ videoLang = 'en' }) => {
+  const copy = VIDEO_COPY[videoLang].scene1;
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const isVertical = height > width;
@@ -80,7 +82,7 @@ export const Scene1Hook: React.FC = () => {
           }}
         >
           <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: THEME.accentLight }} />
-          <span>CAREER AUTOMATION ENGINE</span>
+          <span>{copy.pill}</span>
         </div>
 
         <h1
@@ -100,7 +102,7 @@ export const Scene1Hook: React.FC = () => {
               transform: `translateY(${interpolate(line1Spring, [0, 1], [36, 0])}px)`,
             }}
           >
-            Stop hunting for jobs
+            {copy.line1}
           </span>
           <span
             style={{
@@ -110,7 +112,7 @@ export const Scene1Hook: React.FC = () => {
               transform: `translateY(${interpolate(line2Spring, [0, 1], [36, 0])}px)`,
             }}
           >
-            manually.
+            {copy.line2}
             <span
               style={{
                 position: 'absolute',
@@ -138,7 +140,7 @@ export const Scene1Hook: React.FC = () => {
             transform: `translateY(${interpolate(line3Spring, [0, 1], [30, 0])}px)`,
           }}
         >
-          Let automation work for you.
+          {copy.sub}
         </p>
       </div>
     </AbsoluteFill>

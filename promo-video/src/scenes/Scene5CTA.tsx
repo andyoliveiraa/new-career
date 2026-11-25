@@ -1,9 +1,11 @@
 import React from 'react';
 import { AbsoluteFill, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import { ArrowRight, GitBranch } from 'lucide-react';
+import { VIDEO_COPY, VideoLang } from '../copy';
 import { FONTS, THEME } from '../theme';
 
-export const Scene5CTA: React.FC = () => {
+export const Scene5CTA: React.FC<{ videoLang?: VideoLang }> = ({ videoLang = 'en' }) => {
+  const copy = VIDEO_COPY[videoLang].scene5;
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const isVertical = height > width;
@@ -87,7 +89,7 @@ export const Scene5CTA: React.FC = () => {
               color: '#fbbf24',
             }}
           >
-            Beta
+            {copy.betaBadge}
           </span>
         </div>
 
@@ -105,7 +107,7 @@ export const Scene5CTA: React.FC = () => {
             transform: `translateY(${interpolate(textSpring, [0, 1], [28, 0])}px)`,
           }}
         >
-          Upgrade your job search today.
+          {copy.headline}
         </h2>
 
         {/* Highlighted Domain */}
@@ -165,7 +167,7 @@ export const Scene5CTA: React.FC = () => {
               boxShadow: '0 18px 42px rgba(37, 99, 235, 0.45)',
             }}
           >
-            <span>Get Started</span>
+            <span>{copy.ctaButton}</span>
             <ArrowRight className="w-7 h-7" />
           </div>
         </div>
@@ -189,7 +191,7 @@ export const Scene5CTA: React.FC = () => {
         >
           <GitBranch className="w-4 h-4 text-blue-400 shrink-0" />
           <span>
-            Inspired by &amp; based on <strong style={{ color: THEME.textPrimary }}>career-ops</strong> on GitHub — independently built for the web
+            {copy.attributionPrefix} <strong style={{ color: THEME.textPrimary }}>career-ops</strong> {copy.attributionSuffix}
           </span>
         </div>
       </div>

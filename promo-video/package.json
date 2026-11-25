@@ -8,7 +8,9 @@
     "build": "remotion bundle",
     "typecheck": "tsc --noEmit",
     "render:horizontal": "remotion render src/index.ts PromoHorizontal out/new-career-promo-16x9.mp4 --codec=h264 --crf=16 --pixel-format=yuv420p",
-    "render:vertical": "remotion render src/index.ts PromoVertical out/new-career-promo-9x16.mp4 --codec=h264 --crf=16 --pixel-format=yuv420p"
+    "render:vertical": "remotion render src/index.ts PromoVertical out/new-career-promo-9x16.mp4 --codec=h264 --crf=16 --pixel-format=yuv420p",
+    "render:horizontal:pt": "remotion render src/index.ts PromoHorizontalPT out/new-career-promo-16x9-pt.mp4 --codec=h264 --crf=16 --pixel-format=yuv420p",
+    "render:vertical:pt": "remotion render src/index.ts PromoVerticalPT out/new-career-promo-9x16-pt.mp4 --codec=h264 --crf=16 --pixel-format=yuv420p"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.250",

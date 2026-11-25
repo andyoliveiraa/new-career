@@ -6,15 +6,8 @@ import {
 } from 'lucide-react';
 import { BrowserFrame, LangCode, NavTabId } from '../components/BrowserFrame';
 import { AnimatedCursor } from '../components/AnimatedCursor';
+import { VIDEO_COPY, VideoCopy, VideoLang } from '../copy';
 import { FONTS, THEME } from '../theme';
-
-const FEATURE_META = [
-  { step: '01', label: 'Automated Job Scraping', sub: 'Multi-source radar with zero duplicates' },
-  { step: '02', label: 'Jobs & Pipeline', sub: 'Drag-and-drop Kanban from Found to Interview' },
-  { step: '03', label: 'Discord Webhook Alerts', sub: 'Instant match embeds sent to your server' },
-  { step: '04', label: 'CV Templates & ATS Auditor', sub: 'Switch ATS-safe A4 layouts in one click' },
-  { step: '05', label: 'Multi-Language Support', sub: 'Seamless EN / PT / ES workspace switching' },
-];
 
 const LOCALIZED_DASHBOARD: Record<LangCode, {
   title: string;
@@ -46,7 +39,8 @@ const LOCALIZED_DASHBOARD: Record<LangCode, {
   },
 };
 
-export const Scene3FeatureShowcase: React.FC = () => {
+export const Scene3FeatureShowcase: React.FC<{ videoLang?: VideoLang }> = ({ videoLang = 'en' }) => {
+  const copy = VIDEO_COPY[videoLang].scene3;
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const isVertical = height > width;
@@ -100,11 +94,17 @@ export const Scene3FeatureShowcase: React.FC = () => {
   const tabMap: NavTabId[] = ['scrapers', 'jobs', 'settings', 'cv-builder', 'dashboard'];
   const activeTab = tabMap[featureIdx];
 
-  let currentLang: LangCode = 'EN';
+  let currentLang: LangCode = videoLang === 'pt' ? 'PT' : 'EN';
   if (featureIdx === 4) {
-    if (localFrame >= 38 && localFrame < 84) currentLang = 'PT';
-    else if (localFrame >= 84 && localFrame < 128) currentLang = 'ES';
-    else currentLang = 'EN';
+    if (videoLang === 'pt') {
+      if (localFrame >= 38 && localFrame < 84) currentLang = 'EN';
+      else if (localFrame >= 84 && localFrame < 128) currentLang = 'ES';
+      else currentLang = 'PT';
+    } else {
+      if (localFrame >= 38 && localFrame < 84) currentLang = 'PT';
+      else if (localFrame >= 84 && localFrame < 128) currentLang = 'ES';
+      else currentLang = 'EN';
+    }
   }
 
   // Animated Cursor Coordinates (relative to browser inner viewport)
@@ -169,22 +169,24 @@ export const Scene3FeatureShowcase: React.FC = () => {
     const esX = isVertical ? containerW - 64 : containerW - 96;
     const enX = isVertical ? containerW - 140 : containerW - 172;
     const topY = 72;
+    const firstX = videoLang === 'pt' ? enX : ptX;
+    const thirdX = videoLang === 'pt' ? ptX : enX;
     if (localFrame < 56) {
-      cursorX = interpolate(m1, [0, 1], [containerW * 0.5, ptX]);
+      cursorX = interpolate(m1, [0, 1], [containerW * 0.5, firstX]);
       cursorY = interpolate(m1, [0, 1], [containerH * 0.45, topY]);
       clickFrame = 36;
     } else if (localFrame < 102) {
-      cursorX = interpolate(m2, [0, 1], [ptX, esX]);
+      cursorX = interpolate(m2, [0, 1], [firstX, esX]);
       cursorY = topY;
       clickFrame = 82;
     } else {
-      cursorX = interpolate(m3, [0, 1], [esX, enX]);
+      cursorX = interpolate(m3, [0, 1], [esX, thirdX]);
       cursorY = topY;
       clickFrame = 126;
     }
   }
 
-  const meta = FEATURE_META[featureIdx];
+  const meta = copy.features[featureIdx];
 
   return (
     <AbsoluteFill
@@ -275,11 +277,11 @@ export const Scene3FeatureShowcase: React.FC = () => {
           highlightLang={featureIdx === 4}
           jobsCount={featureIdx === 0 && localFrame > 110 ? 42 : 24}
         >
-          {featureIdx === 0 && <Feature1Scraping localFrame={localFrame} isVertical={isVertical} />}
-          {featureIdx === 1 && <Feature2Pipeline localFrame={localFrame} isVertical={isVertical} />}
-          {featureIdx === 2 && <Feature3Discord localFrame={localFrame} isVertical={isVertical} />}
-          {featureIdx === 3 && <Feature4CVTemplates localFrame={localFrame} isVertical={isVertical} />}
-          {featureIdx === 4 && <Feature5Language lang={currentLang} isVertical={isVertical} />}
+          {featureIdx === 0 && <Feature1Scraping localFrame={localFrame} isVertical={isVertical} copy={copy.scraping} />}
+          {featureIdx === 1 && <Feature2Pipeline localFrame={localFrame} isVertical={isVertical} copy={copy.pipeline} />}
+          {featureIdx === 2 && <Feature3Discord localFrame={localFrame} isVertical={isVertical} copy={copy.discord} />}
+          {featureIdx === 3 && <Feature4CVTemplates localFrame={localFrame} isVertical={isVertical} copy={copy.cv} />}
+          {featureIdx === 4 && <Feature5Language lang={currentLang} isVertical={isVertical} instantBadge={copy.langSwitch.instantBadge} />}
         </BrowserFrame>
 
         <AnimatedCursor x={cursorX} y={cursorY} clicking={isDragging} clickFrame={clickFrame} />
@@ -296,7 +298,7 @@ export const Scene3FeatureShowcase: React.FC = () => {
           opacity: mockupOpacity,
         }}
       >
-        {FEATURE_META.map((f, idx) => {
+        {copy.features.map((f, idx) => {
           const isCurrent = idx === featureIdx;
           const pct = isCurrent ? Math.min(1, localFrame / SEGMENT) : idx < featureIdx ? 1 : 0;
           return (
@@ -327,7 +329,11 @@ export const Scene3FeatureShowcase: React.FC = () => {
 };
 
 /* ---------------- FEATURE 1: AUTOMATED JOB SCRAPING ---------------- */
-const Feature1Scraping: React.FC<{ localFrame: number; isVertical: boolean }> = ({ localFrame, isVertical }) => {
+const Feature1Scraping: React.FC<{ localFrame: number; isVertical: boolean; copy: VideoCopy['scene3']['scraping'] }> = ({
+  localFrame,
+  isVertical,
+  copy,
+}) => {
   const { fps } = useVideoConfig();
   const scanStarted = localFrame >= 42;
   const scanProgress = scanStarted
@@ -335,36 +341,23 @@ const Feature1Scraping: React.FC<{ localFrame: number; isVertical: boolean }> = 
     : 0;
   const radarAngle = scanStarted ? (localFrame - 42) * 8 : 0;
 
-  const sources = [
-    { name: 'Net-Empregos', tag: 'National Portal', active: true },
-    { name: 'Career-Ops ATS', tag: 'Greenhouse • Lever • Ashby', active: true },
-    { name: 'Google Jobs', tag: 'SerpApi / JSearch', active: true },
-    { name: 'JobSpy Engine', tag: 'LinkedIn & Indeed', active: true },
-  ];
-
-  const discovered = [
-    { title: 'Senior Full Stack Engineer', company: 'Acme Cloud', loc: 'Remote • EU', salary: '$95k - $120k', appearAt: 85 },
-    { title: 'Staff Backend Developer (Python)', company: 'Linear', loc: 'Remote • Global', salary: '$130k+', appearAt: 108 },
-    { title: 'Frontend Architect (React / TS)', company: 'Supabase', loc: 'Remote', salary: '$110k', appearAt: 130 },
-  ];
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, height: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontFamily: FONTS.display, fontSize: 22, fontWeight: 700, color: THEME.textPrimary, display: 'flex', alignItems: 'center', gap: 10 }}>
             <Search className="w-5 h-5 text-blue-400" />
-            Multi-Source Job Radar
+            {copy.title}
           </div>
           <div style={{ fontSize: 13, color: THEME.textSecondary, marginTop: 2 }}>
-            Simultaneous aggregation with deterministic deduplication & distance scoring
+            {copy.subtitle}
           </div>
         </div>
       </div>
 
       {/* Sources Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: isVertical ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 12 }}>
-        {sources.map((s) => (
+        {copy.sources.map((s) => (
           <div
             key={s.name}
             style={{
@@ -394,10 +387,10 @@ const Feature1Scraping: React.FC<{ localFrame: number; isVertical: boolean }> = 
         }}
       >
         <div style={{ flex: 1, padding: '10px 14px', borderRadius: 10, backgroundColor: THEME.surface200, border: `1px solid ${THEME.border}`, fontSize: 14, color: THEME.textPrimary }}>
-          Role: <strong>Full Stack Engineer</strong>
+          {copy.roleLabel} <strong>{copy.roleValue}</strong>
         </div>
         <div style={{ flex: 0.7, padding: '10px 14px', borderRadius: 10, backgroundColor: THEME.surface200, border: `1px solid ${THEME.border}`, fontSize: 14, color: THEME.textPrimary }}>
-          Location: <strong>Remote / Europe</strong>
+          {copy.locLabel} <strong>{copy.locValue}</strong>
         </div>
         <div
           style={{
@@ -416,7 +409,7 @@ const Feature1Scraping: React.FC<{ localFrame: number; isVertical: boolean }> = 
           }}
         >
           <Play className="w-4 h-4" />
-          <span>{scanStarted && scanProgress < 100 ? 'Scanning...' : 'Scan Jobs'}</span>
+          <span>{scanStarted && scanProgress < 100 ? copy.scanningBtn : copy.scanBtn}</span>
         </div>
       </div>
 
@@ -440,15 +433,15 @@ const Feature1Scraping: React.FC<{ localFrame: number; isVertical: boolean }> = 
             </div>
             <span>
               {!scanStarted
-                ? 'Ready to scan 4 job engines'
+                ? copy.readyStatus
                 : scanProgress < 100
-                ? `Scanning live endpoints... ${Math.round(scanProgress)}%`
-                : 'Scan Complete — 18 New Verified Jobs'}
+                ? `${copy.scanningStatus} ${Math.round(scanProgress)}%`
+                : copy.completeStatus}
             </span>
           </div>
           {scanProgress >= 100 && (
             <span style={{ fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 999, backgroundColor: 'rgba(16,185,129,0.14)', color: THEME.emeraldLight }}>
-              +18 New Matches
+              {copy.newMatchesBadge}
             </span>
           )}
         </div>
@@ -467,7 +460,7 @@ const Feature1Scraping: React.FC<{ localFrame: number; isVertical: boolean }> = 
 
         {/* Discovered Job Rows */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {discovered.map((job) => {
+          {copy.discovered.map((job) => {
             const s = spring({ frame: Math.max(0, localFrame - job.appearAt), fps, config: { damping: 14, stiffness: 150 } });
             if (localFrame < job.appearAt) return null;
             return (
@@ -492,7 +485,7 @@ const Feature1Scraping: React.FC<{ localFrame: number; isVertical: boolean }> = 
                   </div>
                 </div>
                 <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 6, backgroundColor: 'rgba(16,185,129,0.12)', color: THEME.emeraldLight }}>
-                  Active
+                  {copy.activeBadge}
                 </span>
               </div>
             );
@@ -504,7 +497,11 @@ const Feature1Scraping: React.FC<{ localFrame: number; isVertical: boolean }> = 
 };
 
 /* ---------------- FEATURE 2: JOBS & PIPELINE KANBAN ---------------- */
-const Feature2Pipeline: React.FC<{ localFrame: number; isVertical: boolean }> = ({ localFrame, isVertical }) => {
+const Feature2Pipeline: React.FC<{ localFrame: number; isVertical: boolean; copy: VideoCopy['scene3']['pipeline'] }> = ({
+  localFrame,
+  isVertical,
+  copy,
+}) => {
   const { fps } = useVideoConfig();
   const drag = spring({ frame: Math.max(0, localFrame - 42), fps, config: { damping: 16, stiffness: 90 } });
   const dropped = localFrame >= 125;
@@ -526,14 +523,14 @@ const Feature2Pipeline: React.FC<{ localFrame: number; isVertical: boolean }> = 
         <div>
           <div style={{ fontFamily: FONTS.display, fontSize: 22, fontWeight: 700, color: THEME.textPrimary, display: 'flex', alignItems: 'center', gap: 10 }}>
             <Columns className="w-5 h-5 text-blue-400" />
-            Jobs & Applications Pipeline
+            {copy.title}
           </div>
           <div style={{ fontSize: 13, color: THEME.textSecondary, marginTop: 2 }}>
-            Track every opportunity from discovery to final offer
+            {copy.subtitle}
           </div>
         </div>
         <div style={{ padding: '6px 14px', borderRadius: 8, backgroundColor: THEME.surface100, border: `1px solid ${THEME.border}`, fontSize: 12, color: THEME.textPrimary, fontWeight: 600 }}>
-          Kanban View
+          {copy.viewPill}
         </div>
       </div>
 
@@ -542,7 +539,7 @@ const Feature2Pipeline: React.FC<{ localFrame: number; isVertical: boolean }> = 
         {/* Column 1: Found */}
         <div style={{ backgroundColor: THEME.surface100, border: `1px solid ${THEME.border}`, borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${THEME.border}`, paddingBottom: 10 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: THEME.amber, textTransform: 'uppercase' }}>Found</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: THEME.amber, textTransform: 'uppercase' }}>{copy.cols.found}</span>
             <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 999, backgroundColor: THEME.surface200, color: THEME.textPrimary }}>{col1Count}</span>
           </div>
 
@@ -563,37 +560,37 @@ const Feature2Pipeline: React.FC<{ localFrame: number; isVertical: boolean }> = 
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 6, backgroundColor: THEME.accentMuted, color: THEME.accentLight }}>
-                94% Match
+                {copy.matchTag}
               </span>
-              <span style={{ fontSize: 11, color: THEME.emeraldLight, fontWeight: 600 }}>Active</span>
+              <span style={{ fontSize: 11, color: THEME.emeraldLight, fontWeight: 600 }}>{copy.activeBadge}</span>
             </div>
             <div style={{ fontSize: 14, fontWeight: 700, color: THEME.textPrimary }}>Senior Full Stack Engineer</div>
-            <div style={{ fontSize: 12, color: THEME.textSecondary, marginTop: 4 }}>Acme Cloud • Remote</div>
+            <div style={{ fontSize: 12, color: THEME.textSecondary, marginTop: 4 }}>Acme Cloud • {copy.remoteWord}</div>
           </div>
 
-          <PipelineStaticCard title="Backend Engineer (FastAPI)" company="GitLab" tag="89% Match" />
-          <PipelineStaticCard title="Platform Engineer" company="Stripe" tag="86% Match" />
+          <PipelineStaticCard title="Backend Engineer (FastAPI)" company="GitLab" tag={copy.staticCards.found1Tag} />
+          <PipelineStaticCard title="Platform Engineer" company="Stripe" tag={copy.staticCards.found2Tag} />
         </div>
 
         {/* Column 2: Applied */}
         <div style={{ backgroundColor: THEME.surface100, border: `1px solid ${THEME.border}`, borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${THEME.border}`, paddingBottom: 10 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: THEME.emeraldLight, textTransform: 'uppercase' }}>Applied</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: THEME.emeraldLight, textTransform: 'uppercase' }}>{copy.cols.applied}</span>
             <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 999, backgroundColor: THEME.surface200, color: THEME.textPrimary }}>{col2Count}</span>
           </div>
-          <PipelineStaticCard title="Product Engineer" company="Linear" tag="Tailored CV" />
-          <PipelineStaticCard title="Cloud Developer" company="Vercel" tag="Submitted" />
+          <PipelineStaticCard title="Product Engineer" company="Linear" tag={copy.staticCards.applied1Tag} />
+          <PipelineStaticCard title="Cloud Developer" company="Vercel" tag={copy.staticCards.applied2Tag} />
         </div>
 
         {/* Column 3: Interview */}
         <div style={{ backgroundColor: THEME.surface100, border: `1.5px solid ${dropped ? THEME.emerald : THEME.border}`, borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${THEME.border}`, paddingBottom: 10 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: THEME.accentLight, textTransform: 'uppercase' }}>Interview</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: THEME.accentLight, textTransform: 'uppercase' }}>{copy.cols.interview}</span>
             <span style={{ fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 999, backgroundColor: THEME.surface200, color: THEME.textPrimary }}>{col3Count}</span>
           </div>
           {spacerHeight > 1 && <div style={{ height: spacerHeight }} />}
-          <PipelineStaticCard title="Senior TypeScript Dev" company="Supabase" tag="Stage 2" />
-          <PipelineStaticCard title="AI Systems Engineer" company="Anthropic" tag="Technical" />
+          <PipelineStaticCard title="Senior TypeScript Dev" company="Supabase" tag={copy.staticCards.interview1Tag} />
+          <PipelineStaticCard title="AI Systems Engineer" company="Anthropic" tag={copy.staticCards.interview2Tag} />
         </div>
       </div>
 
@@ -614,7 +611,11 @@ const PipelineStaticCard: React.FC<{ title: string; company: string; tag: string
 );
 
 /* ---------------- FEATURE 3: DISCORD WEBHOOK ALERTS ---------------- */
-const Feature3Discord: React.FC<{ localFrame: number; isVertical: boolean }> = ({ localFrame, isVertical }) => {
+const Feature3Discord: React.FC<{ localFrame: number; isVertical: boolean; copy: VideoCopy['scene3']['discord'] }> = ({
+  localFrame,
+  isVertical,
+  copy,
+}) => {
   const { fps } = useVideoConfig();
   const sent = localFrame >= 36;
   const popupSpring = spring({ frame: Math.max(0, localFrame - 46), fps, config: { damping: 14, stiffness: 145 } });
@@ -637,8 +638,8 @@ const Feature3Discord: React.FC<{ localFrame: number; isVertical: boolean }> = (
             <Bell className="w-5 h-5" />
           </div>
           <div>
-            <div style={{ fontFamily: FONTS.display, fontSize: 18, fontWeight: 700, color: THEME.textPrimary }}>Discord Webhook</div>
-            <div style={{ fontSize: 12, color: THEME.textSecondary }}>Real-time alerts on new matches & interviews</div>
+            <div style={{ fontFamily: FONTS.display, fontSize: 18, fontWeight: 700, color: THEME.textPrimary }}>{copy.title}</div>
+            <div style={{ fontSize: 12, color: THEME.textSecondary }}>{copy.subtitle}</div>
           </div>
         </div>
 
@@ -649,7 +650,7 @@ const Feature3Discord: React.FC<{ localFrame: number; isVertical: boolean }> = (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 12, color: THEME.emeraldLight, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
             <CheckCircle2 className="w-4 h-4" />
-            {sent ? 'Event Dispatched (HTTP 204)' : 'Webhook Connected'}
+            {sent ? copy.sentStatus : copy.connectedStatus}
           </span>
           <div
             style={{
@@ -662,7 +663,7 @@ const Feature3Discord: React.FC<{ localFrame: number; isVertical: boolean }> = (
               transform: localFrame >= 34 && localFrame < 44 ? 'scale(0.95)' : 'scale(1)',
             }}
           >
-            Send Test Alert
+            {copy.sendTestBtn}
           </div>
         </div>
 
@@ -697,7 +698,7 @@ const Feature3Discord: React.FC<{ localFrame: number; isVertical: boolean }> = (
             <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4, backgroundColor: THEME.discord, color: '#fff' }}>
               APP
             </span>
-            <span style={{ fontSize: 11, color: '#949ba4' }}>Just now</span>
+            <span style={{ fontSize: 11, color: '#949ba4' }}>{copy.justNow}</span>
           </div>
         </div>
 
@@ -714,23 +715,23 @@ const Feature3Discord: React.FC<{ localFrame: number; isVertical: boolean }> = (
           }}
         >
           <div style={{ fontSize: 16, fontWeight: 700, color: '#ffffff' }}>
-            New Job Match sent via Discord Webhook
+            {copy.embedTitle}
           </div>
           <div style={{ fontSize: 13, color: '#dbdee1', lineHeight: 1.45 }}>
             <strong>Senior Full Stack Engineer</strong> — Acme Cloud
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, paddingTop: 4 }}>
             <div>
-              <div style={{ fontSize: 11, color: '#949ba4', fontWeight: 700 }}>ATS MATCH</div>
+              <div style={{ fontSize: 11, color: '#949ba4', fontWeight: 700 }}>{copy.atsMatchLabel}</div>
               <div style={{ fontSize: 14, color: THEME.emeraldLight, fontWeight: 700 }}>94%</div>
             </div>
             <div>
-              <div style={{ fontSize: 11, color: '#949ba4', fontWeight: 700 }}>LOCATION</div>
-              <div style={{ fontSize: 14, color: '#ffffff', fontWeight: 600 }}>Remote • EU</div>
+              <div style={{ fontSize: 11, color: '#949ba4', fontWeight: 700 }}>{copy.locationLabel}</div>
+              <div style={{ fontSize: 14, color: '#ffffff', fontWeight: 600 }}>{copy.locationVal}</div>
             </div>
             <div>
-              <div style={{ fontSize: 11, color: '#949ba4', fontWeight: 700 }}>LIVENESS</div>
-              <div style={{ fontSize: 14, color: THEME.emeraldLight, fontWeight: 600 }}>Verified Active</div>
+              <div style={{ fontSize: 11, color: '#949ba4', fontWeight: 700 }}>{copy.livenessLabel}</div>
+              <div style={{ fontSize: 14, color: THEME.emeraldLight, fontWeight: 600 }}>{copy.livenessVal}</div>
             </div>
           </div>
         </div>
@@ -740,14 +741,13 @@ const Feature3Discord: React.FC<{ localFrame: number; isVertical: boolean }> = (
 };
 
 /* ---------------- FEATURE 4: CV TEMPLATES & ATS AUDITOR ---------------- */
-const Feature4CVTemplates: React.FC<{ localFrame: number; isVertical: boolean }> = ({ localFrame, isVertical }) => {
+const Feature4CVTemplates: React.FC<{ localFrame: number; isVertical: boolean; copy: VideoCopy['scene3']['cv'] }> = ({
+  localFrame,
+  isVertical,
+  copy,
+}) => {
   const activeTemplate = localFrame < 48 ? 0 : localFrame < 114 ? 1 : 2;
-  const templates = [
-    { name: 'Classic ATS', tag: '1-Column Linear', accent: '#1e293b', score: 98 },
-    { name: 'Modern Split', tag: '2-Column Executive', accent: '#2563eb', score: 94 },
-    { name: 'Tech Minimal', tag: 'Engineering Focus', accent: '#0f766e', score: 96 },
-  ];
-  const current = templates[activeTemplate];
+  const current = copy.templates[activeTemplate];
 
   return (
     <div
@@ -762,11 +762,11 @@ const Feature4CVTemplates: React.FC<{ localFrame: number; isVertical: boolean }>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <div style={{ fontFamily: FONTS.display, fontSize: 20, fontWeight: 700, color: THEME.textPrimary, display: 'flex', alignItems: 'center', gap: 8 }}>
           <FileText className="w-5 h-5 text-blue-400" />
-          CV Template Studio
+          {copy.studioTitle}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {templates.map((tpl, idx) => {
+          {copy.templates.map((tpl, idx) => {
             const isSel = idx === activeTemplate;
             return (
               <div
@@ -798,7 +798,7 @@ const Feature4CVTemplates: React.FC<{ localFrame: number; isVertical: boolean }>
         <div style={{ padding: 14, borderRadius: 12, backgroundColor: THEME.surface100, border: `1px solid ${THEME.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Sparkles className="w-4 h-4 text-emerald-400" />
-            <span style={{ fontSize: 13, fontWeight: 600, color: THEME.textPrimary }}>Real-Time ATS Score</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: THEME.textPrimary }}>{copy.scoreLabel}</span>
           </div>
           <span style={{ fontFamily: FONTS.display, fontSize: 20, fontWeight: 700, color: THEME.emeraldLight }}>
             {current.score} / 100
@@ -826,10 +826,10 @@ const Feature4CVTemplates: React.FC<{ localFrame: number; isVertical: boolean }>
             {/* 2-Column Split Preview */}
             <div style={{ backgroundColor: '#f1f5f9', borderRadius: 8, padding: 14, borderRight: `3px solid ${current.accent}` }}>
               <div style={{ fontSize: 17, fontWeight: 800, color: '#0f172a' }}>Alex Morgan</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: current.accent, marginTop: 2 }}>Staff Full Stack Engineer</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: current.accent, marginTop: 2 }}>{copy.role2Col}</div>
               <div style={{ fontSize: 10, color: '#475569', marginTop: 10 }}>alex@example.com</div>
-              <div style={{ fontSize: 10, color: '#475569' }}>Remote • Europe</div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: current.accent, marginTop: 16, textTransform: 'uppercase' }}>Skills</div>
+              <div style={{ fontSize: 10, color: '#475569' }}>{copy.remoteEu}</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: current.accent, marginTop: 16, textTransform: 'uppercase' }}>{copy.skillsLabel}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
                 {['TypeScript', 'React', 'Python', 'FastAPI', 'AWS', 'Docker'].map(s => (
                   <span key={s} style={{ fontSize: 9, padding: '2px 6px', backgroundColor: '#fff', border: '1px solid #cbd5e1', borderRadius: 4 }}>{s}</span>
@@ -837,13 +837,13 @@ const Feature4CVTemplates: React.FC<{ localFrame: number; isVertical: boolean }>
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <CVSection title="Professional Summary" accent={current.accent}>
-                Architecting distributed web applications and high-throughput APIs with measurable latency reductions of 42%.
+              <CVSection title={copy.summaryLabel} accent={current.accent}>
+                {copy.summary2Col}
               </CVSection>
-              <CVSection title="Experience" accent={current.accent}>
-                <strong>Lead Software Engineer — CloudScale</strong>
-                <br />• Reduced p95 API latency by 42% across 100k+ active users.
-                <br />• Automated CI/CD pipelines saving 15 hours/week.
+              <CVSection title={copy.experienceLabel} accent={current.accent}>
+                <strong>{copy.exp2ColTitle}</strong>
+                <br />{copy.exp2ColB1}
+                <br />{copy.exp2ColB2}
               </CVSection>
             </div>
           </>
@@ -852,12 +852,12 @@ const Feature4CVTemplates: React.FC<{ localFrame: number; isVertical: boolean }>
             {/* Linear Classic ATS or Tech Minimal */}
             <div style={{ borderBottom: `2px ${activeTemplate === 2 ? 'dashed' : 'solid'} ${current.accent}`, paddingBottom: 12 }}>
               <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>Alex Morgan</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: current.accent }}>Senior Full Stack Engineer • alex@example.com • Remote</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: current.accent }}>{copy.role1Col}</div>
             </div>
-            <CVSection title="Summary" accent={current.accent}>
-              Software engineer with 7+ years building scalable React, TypeScript, and Python FastAPI systems in cloud-native teams.
+            <CVSection title={copy.summaryShortLabel} accent={current.accent}>
+              {copy.summary1Col}
             </CVSection>
-            <CVSection title="Core Stack" accent={current.accent}>
+            <CVSection title={copy.coreStackLabel} accent={current.accent}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
                 {['TypeScript', 'React', 'Python', 'FastAPI', 'PostgreSQL', 'Docker', 'Kubernetes'].map(s => (
                   <span
@@ -878,9 +878,9 @@ const Feature4CVTemplates: React.FC<{ localFrame: number; isVertical: boolean }>
                 ))}
               </div>
             </CVSection>
-            <CVSection title="Experience" accent={current.accent}>
-              <strong>Lead Full Stack Engineer — CloudScale (2022 – Present)</strong>
-              <br />• Cut API response time by 42% and scaled throughput for 100k+ users.
+            <CVSection title={copy.experienceLabel} accent={current.accent}>
+              <strong>{copy.exp1ColTitle}</strong>
+              <br />{copy.exp1ColB1}
             </CVSection>
           </>
         )}
@@ -899,7 +899,7 @@ const CVSection: React.FC<{ title: string; accent: string; children: React.React
 );
 
 /* ---------------- FEATURE 5: MULTI-LANGUAGE SUPPORT ---------------- */
-const Feature5Language: React.FC<{ lang: LangCode; isVertical: boolean }> = ({ lang, isVertical }) => {
+const Feature5Language: React.FC<{ lang: LangCode; isVertical: boolean; instantBadge: string }> = ({ lang, isVertical, instantBadge }) => {
   const copy = LOCALIZED_DASHBOARD[lang];
   const values = ['42', '14', '5'];
 
@@ -959,7 +959,7 @@ const Feature5Language: React.FC<{ lang: LangCode; isVertical: boolean }> = ({ l
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: THEME.emeraldLight, fontWeight: 600 }}>
           <TrendingUp className="w-4 h-4" />
-          <span>Instant UI Switch</span>
+          <span>{instantBadge}</span>
         </div>
       </div>
     </div>

@@ -1,17 +1,19 @@
 import React from 'react';
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion';
 import { Bell, Columns, FileText, Globe, Radar } from 'lucide-react';
+import { VIDEO_COPY, VideoLang } from '../copy';
 import { FONTS, THEME } from '../theme';
 
-const HIGHLIGHTS = [
-  { label: 'Smart Scraping', icon: Radar, color: '#3b82f6' },
-  { label: 'Job Pipeline', icon: Columns, color: '#10b981' },
-  { label: 'Discord Webhooks', icon: Bell, color: '#818cf8' },
-  { label: 'CV Templates', icon: FileText, color: '#f59e0b' },
-  { label: 'Multi-Language', icon: Globe, color: '#38bdf8' },
+const HIGHLIGHT_STYLE = [
+  { icon: Radar, color: '#3b82f6' },
+  { icon: Columns, color: '#10b981' },
+  { icon: Bell, color: '#818cf8' },
+  { icon: FileText, color: '#f59e0b' },
+  { icon: Globe, color: '#38bdf8' },
 ];
 
-export const Scene4Highlights: React.FC = () => {
+export const Scene4Highlights: React.FC<{ videoLang?: VideoLang }> = ({ videoLang = 'en' }) => {
+  const copy = VIDEO_COPY[videoLang].scene4;
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const isVertical = height > width;
@@ -66,7 +68,7 @@ export const Scene4Highlights: React.FC = () => {
           }}
         >
           <div style={{ fontSize: 16, fontWeight: 700, color: THEME.accentLight, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 12 }}>
-            Built for Speed & Precision
+            {copy.eyebrow}
           </div>
           <h2
             style={{
@@ -78,7 +80,7 @@ export const Scene4Highlights: React.FC = () => {
               color: THEME.textPrimary,
             }}
           >
-            Everything you need to land faster.
+            {copy.title}
           </h2>
         </div>
 
@@ -92,7 +94,8 @@ export const Scene4Highlights: React.FC = () => {
             width: '100%',
           }}
         >
-          {HIGHLIGHTS.map((item, idx) => {
+          {copy.highlights.map((label, idx) => {
+            const item = HIGHLIGHT_STYLE[idx];
             const Icon = item.icon;
             const badgeSpring = spring({
               frame: Math.max(0, frame - (16 + idx * 10)),
@@ -102,7 +105,7 @@ export const Scene4Highlights: React.FC = () => {
 
             return (
               <div
-                key={item.label}
+                key={label}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -143,7 +146,7 @@ export const Scene4Highlights: React.FC = () => {
                     letterSpacing: '-0.015em',
                   }}
                 >
-                  {item.label}
+                  {label}
                 </span>
               </div>
             );

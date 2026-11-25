@@ -2,7 +2,7 @@
 
 [![New Career — 30s Commercial Demo (16:9)](assets/new-career-promo-16x9.gif)](https://github.com/andyoliveiraa/new-career/raw/main/assets/new-career-promo-16x9.mp4)
 
-**[Download / Play Full 1080p 60fps MP4](https://github.com/andyoliveiraa/new-career/raw/main/assets/new-career-promo-16x9.mp4)** · **[Live Platform (career.andydias.pt)](https://career.andydias.pt)**
+**[Download / Play 1080p 60fps MP4 (EN)](https://github.com/andyoliveiraa/new-career/raw/main/assets/new-career-promo-16x9.mp4)** · **[Versão em Português (PT)](https://github.com/andyoliveiraa/new-career/raw/main/assets/new-career-promo-16x9-pt.mp4)** · **[Live Platform (career.andydias.pt)](https://career.andydias.pt)**
 
 </div>
 

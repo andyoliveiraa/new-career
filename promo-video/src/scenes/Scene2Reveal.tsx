@@ -1,8 +1,10 @@
 import React from 'react';
 import { AbsoluteFill, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
+import { VIDEO_COPY, VideoLang } from '../copy';
 import { FONTS, THEME } from '../theme';
 
-export const Scene2Reveal: React.FC = () => {
+export const Scene2Reveal: React.FC<{ videoLang?: VideoLang }> = ({ videoLang = 'en' }) => {
+  const copy = VIDEO_COPY[videoLang].scene2;
   const frame = useCurrentFrame();
   const { fps, width, height, durationInFrames } = useVideoConfig();
   const isVertical = height > width;
@@ -145,7 +147,7 @@ export const Scene2Reveal: React.FC = () => {
             transform: `translateY(${interpolate(subSpring, [0, 1], [18, 0])}px)`,
           }}
         >
-          Your All-in-One Career Automation Platform.
+          {copy.subtitle}
         </p>
       </div>
     </AbsoluteFill>
