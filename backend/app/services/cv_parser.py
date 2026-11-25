@@ -77,7 +77,9 @@ SECTION_ALIASES: Dict[str, Tuple[str, ...]] = {
 }
 
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
-PHONE_RE = re.compile(r"(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3,4}[\s.-]?\d{3,4}(?:[\s.-]?\d{2,4})?")
+PHONE_RE = re.compile(
+    r"(?:\(?\+\d{1,3}\)?[\s.-]?)?(?:\(?\d{2,4}\)?[\s.-]?)?\d{3,5}[\s.-]?\d{3,6}(?:[\s.-]?\d{1,4})?"
+)
 URL_RE = re.compile(
     r"https?://[^\s<>()\"']+|(?:www\.)?[a-z0-9.-]+\.(?:com|io|dev|org|net|pt|de|es|ai|eu)/[^\s<>()\"']*",
     re.IGNORECASE,
@@ -135,31 +137,60 @@ BOILERPLATE_HEADER_RE = re.compile(
 )
 
 PERSONAL_LABEL_RE = re.compile(
-    r"^(?:data de nascimento|date of birth|nacionalidade|nationality|sexo|gender|"
-    r"telem[oó]vel|telefone|phone|mobile|e-?mail|endere[cç]o de correio eletr[oó]nico|"
-    r"morada|address|localidade|cidade|city|pa[ií]s|country|website|site|linkedin|github|portfolio)\s*:",
+    r"^(?:autoriza[cç][aã]o de trabalho|work permit|local de nascimento|place of birth|"
+    r"data de nascimento|date of birth|nacionalidade|nationality|sexo|gender|"
+    r"telem[oó]vel|telefone|phone|mobile|e-?mail|endere[cç]o de (?:correio eletr[oó]nico|email)|"
+    r"email address|morada|address|localidade|cidade|city|pa[ií]s|country|"
+    r"s[ií]tio web|website|site|linkedin|github|portfolio)\s*:",
     re.IGNORECASE,
 )
 
 ENTRY_META_PREFIX_RE = re.compile(
-    r"^(?:cidade|localidade|pa[ií]s|city|country|website|site|endere[cç]o|address|"
-    r"empresa ou setor|atividade ou setor|setor de atividade|sector|"
-    r"principais atividades e responsabilidades|main activities and responsibilities|"
-    r"[aá]rea(?:\(s\))? de estudo|dom[ií]nio(?:\(s\))? de estudo|field(?:\(s\))? of study|"
+    r"^(?:(?:atividade ou setor|empresa ou setor|setor de atividade|"
+    r"principais atividades e responsabilidades|main activities and responsibilities)\b(?:\s*:)?|"
+    r"(?:cidade|localidade|pa[ií]s|city|country|departamento|department|"
+    r"s[ií]tio web|website|site|endere[cç]o(?:\s+de\s+(?:correio\s+eletr[oó]nico|email))?|address|"
+    r"sector|[aá]rea(?:\(s\))? de estudo|dom[ií]nio(?:\(s\))? de estudo|field(?:\(s\))? of study|"
     r"classifica[cç][aã]o(?:\s+final)?|final grade|nota|gpa|"
-    r"n[ií]vel\s+no\s+qeq|eqf\s+level|level in eqf|n[ií]vel\s+qeq)\s*:",
+    r"n[ií]vel\s+no\s+qeq|eqf\s+level|level in eqf|n[ií]vel\s+qeq)\s*:)",
+    re.IGNORECASE,
+)
+
+EXPERIENCE_SUBHEADER_RE = re.compile(
+    r"^(?:fun[çc][õo]es e responsabilidades|habilidades desenvolvidas|"
+    r"compet[êe]ncias adquiridas|principais atividades|atividades desenvolvidas|"
+    r"responsabilidades|key responsibilities|skills developed)\s*:?$",
+    re.IGNORECASE,
+)
+
+DEGREE_START_RE = re.compile(
+    r"^(?:licenciatura|mestrado|doutoramento|p[oó]s-gradua[cç][aã]o|curso|t[eé]cnico|ctesp|"
+    r"bachelor|master|bsc|msc|phd|mba|diploma|b\.?sc|m\.?sc|formação)\b",
     re.IGNORECASE,
 )
 
 CEFR_NOISE_TOKENS = {
     "autoavaliação", "autoavaliacao", "self-assessment", "nivelamento",
+    "compreender", "falar", "escrita", "understanding", "speaking", "writing",
     "compreensão oral", "compreensao oral", "compreensão escrita", "compreensao escrita",
-    "leitura", "interação oral", "interacao oral", "produção oral", "producao oral", "escrita",
-    "listening", "reading", "spoken interaction", "spoken production", "writing",
+    "leitura", "interação oral", "interacao oral", "produção oral", "producao oral",
+    "listening", "reading", "spoken interaction", "spoken production",
     "utilizador básico", "utilizador basico", "utilizador independente", "utilizador avançado", "utilizador avancado",
     "basic user", "independent user", "proficient user",
     "tratamento da informação", "comunicação", "criação de conteúdos", "segurança", "resolução de problemas",
 }
+
+SKILL_PROSE_FILTER_RE = re.compile(
+    r"^(?:compreender\s+|comunicar\s+(?:verbalmente\s+)?em\s+|escrever\s+em\s+|"
+    r"trabalhar\s+em\s+condi[çc][õo]es|computer science$|marketing,?\s+rela[çc][õo]es)",
+    re.IGNORECASE,
+)
+
+SKILL_PREFIX_STRIP_RE = re.compile(
+    r"^(?:conhecimentos\s+(?:de\s+linguagem|em\s+cria[çc][aã]o\s+de|em|de)|"
+    r"gest[aã]o\s+das\s+redes\s+sociais)\s*:?\s*",
+    re.IGNORECASE,
+)
 
 INSTITUTION_HINTS = (
     "universidade", "university", "instituto", "institute", "escola", "school",
@@ -216,7 +247,79 @@ class CVParserService:
     """Extracts text from uploaded CV files, converts to Markdown, and parses structured profile fields."""
 
     @staticmethod
-    def _group_words_into_lines(words: List[Dict[str, Any]], gap_join_token: str = " | ") -> List[Dict[str, Any]]:
+    def _is_bold_font(fontname: str) -> bool:
+        fname = str(fontname or "").lower()
+        return any(k in fname for k in ("bold", "heavy", "black", "semibold", "demi"))
+
+    @classmethod
+    def _extract_words_from_page(cls, page: Any) -> List[Dict[str, Any]]:
+        """Build word tokens from pdfplumber chars, preserving exact font-boldness boundaries."""
+        chars = getattr(page, "chars", None) or []
+        if not chars:
+            return page.extract_words(
+                x_tolerance=2.0,
+                y_tolerance=3.0,
+                keep_blank_chars=False,
+                use_text_flow=False,
+                extra_attrs=["fontname", "size"],
+            )
+
+        sorted_chars = sorted(chars, key=lambda c: (c["top"], c["x0"]))
+        char_rows: List[List[Dict[str, Any]]] = []
+        for ch in sorted_chars:
+            if not char_rows:
+                char_rows.append([ch])
+                continue
+            ref_top = statistics.median(item["top"] for item in char_rows[-1])
+            ref_size = statistics.median(float(item.get("size") or 10.0) for item in char_rows[-1])
+            if abs(ch["top"] - ref_top) <= max(3.0, min(6.0, ref_size * 0.45)):
+                char_rows[-1].append(ch)
+            else:
+                char_rows.append([ch])
+
+        words: List[Dict[str, Any]] = []
+        for row in char_rows:
+            row.sort(key=lambda c: c["x0"])
+            cur_chars: List[Dict[str, Any]] = []
+
+            def _flush_word():
+                if not cur_chars:
+                    return
+                txt = "".join(c.get("text", "") for c in cur_chars).strip()
+                if txt:
+                    first = cur_chars[0]
+                    words.append({
+                        "text": txt,
+                        "x0": min(c["x0"] for c in cur_chars),
+                        "x1": max(c["x1"] for c in cur_chars),
+                        "top": min(c["top"] for c in cur_chars),
+                        "bottom": max(c["bottom"] for c in cur_chars),
+                        "fontname": first.get("fontname", ""),
+                        "size": statistics.median(float(c.get("size") or 10.0) for c in cur_chars),
+                        "is_bold": cls._is_bold_font(first.get("fontname", "")),
+                    })
+                cur_chars.clear()
+
+            for ch in row:
+                raw_ch = ch.get("text", "")
+                if not raw_ch or raw_ch in (" ", "\t", "\r", "\n", "\u00a0", "\u202f", "\u2009"):
+                    _flush_word()
+                    continue
+                if cur_chars:
+                    prev = cur_chars[-1]
+                    prev_size = float(prev.get("size") or 10.0)
+                    gap = ch["x0"] - prev["x1"]
+                    bold_changed = cls._is_bold_font(ch.get("fontname", "")) != cls._is_bold_font(prev.get("fontname", ""))
+                    if gap > max(1.0, prev_size * 0.14):
+                        _flush_word()
+                    elif bold_changed and prev.get("text", "").isalnum() and raw_ch.isalnum():
+                        _flush_word()
+                cur_chars.append(ch)
+            _flush_word()
+        return words
+
+    @classmethod
+    def _group_words_into_lines(cls, words: List[Dict[str, Any]], gap_join_token: str = " | ") -> List[Dict[str, Any]]:
         """Cluster spatially close words into ordered visual lines with font metadata."""
         if not words:
             return []
@@ -255,22 +358,34 @@ class CVParserService:
                 txt = _clean_pdf_text(w.get("text", ""))
                 if not txt:
                     continue
+                is_w_bold = bool(w.get("is_bold")) if "is_bold" in w else cls._is_bold_font(w.get("fontname", ""))
                 if prev_word is not None:
                     gap = w["x0"] - prev_word["x1"]
                     prev_txt = parts[-1].strip() if parts else ""
+                    prev_bold = bool(prev_word.get("is_bold")) if "is_bold" in prev_word else cls._is_bold_font(prev_word.get("fontname", ""))
                     w_size = float(w.get("size") or 10.0)
                     is_prev_bullet = len(prev_txt) <= 2 and any(ch in BULLET_CHARS + "-" for ch in prev_txt)
+                    bold_to_regular = (
+                        prev_bold
+                        and not is_w_bold
+                        and not is_bullet_row
+                        and not prev_txt.endswith((":", "(", "[", "/"))
+                        and not txt.startswith((",", ".", ";", ":", ")", "]", "-"))
+                        and len(row) <= 18
+                        and bool(re.match(r"^[A-ZÀ-ÿ0-9]", txt))
+                        and not PERSONAL_LABEL_RE.match("".join(parts).strip())
+                    )
                     if allow_column_join and not is_prev_bullet and gap > max(26.0, w_size * 2.6):
                         parts.append(gap_join_token)
+                    elif bold_to_regular and gap <= max(15.0, w_size * 1.5):
+                        parts.append(" — ")
                     elif gap > max(4.5, w_size * 0.55):
                         parts.append("  ")
-                    elif gap > max(1.0, w_size * 0.12):
+                    elif gap > max(1.0, w_size * 0.12) or (prev_bold != is_w_bold and not txt.startswith((",", ".", ";", ":"))):
                         parts.append(" ")
                 parts.append(txt)
                 prev_word = w
 
-                fname = str(w.get("fontname") or "").lower()
-                is_w_bold = any(k in fname for k in ("bold", "heavy", "black", "semibold", "demi", "medi"))
                 total_chars += len(txt)
                 if is_w_bold:
                     bold_chars += len(txt)
@@ -279,6 +394,8 @@ class CVParserService:
 
             line_text = _collapse_spaced_letters("".join(parts).strip())
             line_text = re.sub(r"[ \t]+", " ", line_text).strip()
+            line_text = re.sub(r"\s*[-–—]\s*—\s*", " — ", line_text)
+            line_text = re.sub(r"\s+,", ",", line_text)
             line_text = re.sub(r"\s*\|\s*\|+\s*", " | ", line_text).strip(" |")
             line_text = re.sub(rf"^([{re.escape(BULLET_CHARS)}])(\S)", r"\1 \2", line_text)
             if line_text:
@@ -339,13 +456,7 @@ class CVParserService:
         all_pages_lines: List[List[Dict[str, Any]]] = []
         with pdfplumber.open(io.BytesIO(content)) as pdf:
             for page_idx, page in enumerate(pdf.pages):
-                words = page.extract_words(
-                    x_tolerance=2.0,
-                    y_tolerance=3.0,
-                    keep_blank_chars=False,
-                    use_text_flow=False,
-                    extra_attrs=["fontname", "size"],
-                )
+                words = cls._extract_words_from_page(page)
                 if not words:
                     continue
 
@@ -717,16 +828,29 @@ class CVParserService:
     @classmethod
     def _extract_contact_fields(cls, lines: List[str], full_text: str, user_doc: Dict[str, Any]) -> Dict[str, Any]:
         """Extract name, headline, email, phone, location, and URLs cleanly across languages."""
-        email_match = EMAIL_RE.search(full_text)
+        header_lines: List[str] = []
+        for ln in lines[:22]:
+            sec = cls._match_section(ln)
+            if sec and sec != "personal_info":
+                break
+            header_lines.append(ln)
+        header_text = "\n".join(header_lines)
+
+        email_match = EMAIL_RE.search(header_text) or EMAIL_RE.search(full_text)
         email = email_match.group(0) if email_match else user_doc.get("email", "")
 
         phone = ""
-        for ln in lines[:20]:
-            cleaned_ln = EMAIL_RE.sub("", DATE_RANGE_RE.sub("", ln))
+        header_cleaned = EMAIL_RE.sub("", DATE_RANGE_RE.sub("", header_text))
+        for cand in [" ".join(header_lines), *header_lines]:
+            cleaned_ln = EMAIL_RE.sub("", DATE_RANGE_RE.sub("", cand))
             pm = PHONE_RE.search(cleaned_ln)
             if pm and 8 <= sum(c.isdigit() for c in pm.group(0)) <= 15:
                 phone = pm.group(0).strip()
                 break
+        if not phone:
+            pm = PHONE_RE.search(header_cleaned)
+            if pm and 8 <= sum(c.isdigit() for c in pm.group(0)) <= 15:
+                phone = pm.group(0).strip()
 
         linkedin_url = None
         github_url = None
@@ -742,19 +866,18 @@ class CVParserService:
                 linkedin_url = u
             elif "github.com" in low_u and not github_url:
                 github_url = u
-            elif not portfolio_url and "linkedin.com" not in low_u and "github.com" not in low_u:
+        for um in URL_RE.finditer(header_text):
+            u = um.group(0).rstrip(".,;)")
+            if not u.lower().startswith("http"):
+                u = f"https://{u}"
+            low_u = u.lower()
+            if "linkedin.com" not in low_u and "github.com" not in low_u and "europass" not in low_u and "europa.eu" not in low_u:
                 portfolio_url = u
+                break
 
         full_name = user_doc.get("full_name", "")
         headline = ""
         location = ""
-
-        header_lines: List[str] = []
-        for ln in lines[:18]:
-            sec = cls._match_section(ln)
-            if sec and sec != "personal_info":
-                break
-            header_lines.append(ln)
 
         for hl in header_lines:
             plain = hl.lstrip("#").strip()
@@ -766,11 +889,16 @@ class CVParserService:
                 continue
 
             if PERSONAL_LABEL_RE.match(plain):
-                label, _, val = plain.partition(":")
-                low_lbl = label.strip().lower()
-                val_clean = val.strip()
-                if any(k in low_lbl for k in ("localidade", "cidade", "city", "morada", "address", "location")) and not location and val_clean:
-                    location = val_clean.split("|")[0].strip()[:80]
+                for seg in re.split(r"\s*[|•]\s*", plain):
+                    if ":" not in seg:
+                        continue
+                    label, _, val = seg.partition(":")
+                    low_lbl = label.strip().lower()
+                    val_clean = val.strip()
+                    if any(k in low_lbl for k in ("localidade", "cidade", "city", "morada", "address", "location", "local de nascimento")) and not location and val_clean:
+                        location = val_clean[:80]
+                    elif "autorização de trabalho" in low_lbl and not location and val_clean:
+                        location = val_clean[:80]
                 continue
 
             if not location and cls._looks_like_location(plain):
@@ -782,6 +910,10 @@ class CVParserService:
                     if cls._looks_like_location(seg):
                         location = seg.strip()[:80]
                         break
+
+            # Skip wrapped phone/contact continuation fragments like "965398851 (Telemóvel) | Endereço de email: ..."
+            if PHONE_RE.search(plain) and ("telemóvel" in plain.lower() or "mobile" in plain.lower() or "@" in plain):
+                continue
 
             if (
                 not full_name
@@ -849,9 +981,14 @@ class CVParserService:
                 cur_exp["bullets"].append(ln[2:].strip())
                 continue
 
-            # Europass sub-metadata inside an entry (e.g. Cidade: Covilhã | País: Portugal)
-            if ENTRY_META_PREFIX_RE.match(ln):
-                if cur_exp is not None and not cur_exp["location"]:
+            # Europass sub-metadata & section subheaders inside an entry (skip cleanly instead of creating fake entries)
+            if (
+                ENTRY_META_PREFIX_RE.match(ln)
+                or EXPERIENCE_SUBHEADER_RE.match(ln)
+                or EMAIL_RE.match(ln.lstrip("#-*• "))
+                or ln.lstrip("#-*• ").lower().startswith(("http://", "https://"))
+            ):
+                if ENTRY_META_PREFIX_RE.match(ln) and cur_exp is not None and not cur_exp["location"]:
                     for part in ln.split("|"):
                         if re.match(r"^\s*(?:cidade|localidade|city)\s*:", part, re.IGNORECASE):
                             cur_exp["location"] = part.split(":", 1)[1].strip()[:80]
@@ -902,8 +1039,9 @@ class CVParserService:
                 cur_exp["bullets"][-1] = f"{cur_exp['bullets'][-1]} {ln}".strip()
                 continue
 
-            has_sep = any(sep in ln for sep in (" — ", " | ", " @ ", " - "))
-            if ln.startswith("## ") or ln.startswith("### ") or date_m or (len(ln) < 120 and has_sep) or pending_period or (next_has_date and prev_bullet_complete):
+            has_sep = any(sep in ln for sep in (" — ", " – ", " | ", " @ ", " - "))
+            can_open_from_sep = has_sep and len(ln) < 130 and (cur_exp is None or len(cur_exp["bullets"]) > 0 or not cur_exp.get("company"))
+            if ln.startswith("## ") or ln.startswith("### ") or date_m or can_open_from_sep or pending_period or (next_has_date and prev_bullet_complete):
                 if cur_exp and not cur_exp["company"] and not cur_exp["bullets"] and not date_m and not has_sep:
                     cur_exp["company"] = ln.lstrip("#").strip()[:90]
                     continue
@@ -923,7 +1061,7 @@ class CVParserService:
 
                 role = heading
                 company = ""
-                for sep in (" — ", " @ ", " | ", " - "):
+                for sep in (" — ", " | ", " @ ", " - ", " – "):
                     if sep in heading:
                         parts = [p.strip() for p in heading.split(sep) if p.strip()]
                         if len(parts) >= 2:
@@ -977,6 +1115,7 @@ class CVParserService:
         """Parse education entries cleanly while filtering Europass metadata/grade lines."""
         educations: List[Dict[str, Any]] = []
         pending_edu_period = ""
+        just_added_edu = False
 
         def _make_edu(deg: str, inst: str, per: str, extra: str = "") -> Dict[str, Any]:
             in_prog, st_year = cls._infer_education_status(per, f"{deg} {extra}")
@@ -994,7 +1133,12 @@ class CVParserService:
             if not clean:
                 continue
 
-            if ENTRY_META_PREFIX_RE.match(clean):
+            if (
+                ENTRY_META_PREFIX_RE.match(clean)
+                or EMAIL_RE.match(clean)
+                or clean.lower().startswith(("http://", "https://"))
+            ):
+                just_added_edu = False
                 continue
 
             dm = DATE_RANGE_RE.search(clean)
@@ -1013,23 +1157,27 @@ class CVParserService:
                     educations[-1]["start_year"] = st_year
                 else:
                     pending_edu_period = period
+                just_added_edu = False
                 continue
 
             # Ignore thesis/description bullet notes under a degree once degree+institution exist
             if is_bullet and educations and educations[-1]["institution"] and not dm:
+                just_added_edu = False
                 continue
 
             resolved_period = period or pending_edu_period
             pending_edu_period = ""
 
             split_done = False
-            for sep in (" — ", " | ", " - "):
-                if sep in txt:
-                    deg, inst = [p.strip() for p in txt.split(sep, 1)]
+            for sep_re in (r"\s+—\s+", r"\s+\|\s+", r"\s*-\s+(?=[A-ZÀ-ÿ])", r"\s+–\s+"):
+                parts = re.split(sep_re, txt, maxsplit=1)
+                if len(parts) == 2 and parts[0].strip() and parts[1].strip():
+                    deg, inst = parts[0].strip(), parts[1].strip()
                     if cls._looks_like_location(inst):
                         educations.append(_make_edu(deg, "", resolved_period, clean))
                     else:
                         educations.append(_make_edu(deg, inst, resolved_period, clean))
+                    just_added_edu = True
                     split_done = True
                     break
 
@@ -1040,6 +1188,7 @@ class CVParserService:
                 left, right = [p.strip() for p in txt.split(", ", 1)]
                 if cls._looks_like_institution(right):
                     educations.append(_make_edu(left, right, resolved_period, clean))
+                    just_added_edu = True
                     continue
 
             if educations and not educations[-1]["institution"] and not dm and not ln.startswith("##"):
@@ -1049,10 +1198,25 @@ class CVParserService:
                     in_prog, st_year = cls._infer_education_status(resolved_period, educations[-1]["degree"])
                     educations[-1]["in_progress"] = in_prog
                     educations[-1]["start_year"] = st_year
+                just_added_edu = True
+            elif (
+                just_added_edu
+                and educations
+                and educations[-1]["institution"]
+                and not dm
+                and not ln.startswith("##")
+                and not DEGREE_START_RE.match(txt)
+                and not cls._looks_like_location(txt)
+            ):
+                # Merge wrapped institution line like "ESCOLA\nPROFISSIONAL DE MURÇA"
+                educations[-1]["institution"] = f"{educations[-1]['institution']} {txt}".strip()
+                just_added_edu = False
             elif educations and cls._looks_like_location(txt) and not dm:
+                just_added_edu = False
                 continue
             else:
                 educations.append(_make_edu(txt, "", resolved_period, clean))
+                just_added_edu = True
 
         return educations
 
@@ -1086,21 +1250,31 @@ class CVParserService:
         for ln in sections["skills"]:
             clean_ln = re.sub(r"^[-*•●▪◦]\s*", "", ln)
             clean_ln = re.sub(r"^[A-Za-zÀ-ÿ\s/&]+:\s*", "", clean_ln)
-            if clean_ln.lower() in CEFR_NOISE_TOKENS:
+            if clean_ln.lower() in CEFR_NOISE_TOKENS or SKILL_PROSE_FILTER_RE.match(clean_ln):
                 continue
-            for tok in re.split(r"[,;|•·●▪/]", clean_ln):
-                skill = tok.strip(" .:-")
-                low_skill = skill.lower()
-                if (
-                    skill
-                    and (len(skill) > 1 or skill.upper() in {"C", "R"})
-                    and len(skill) <= 45
-                    and len(skill.split()) <= 5
-                    and low_skill not in CEFR_NOISE_TOKENS
-                    and not skill.endswith((".", ","))
-                    and skill not in skills
-                ):
-                    skills.append(skill)
+            for raw_tok in re.split(r"[;|•·●▪/]", clean_ln):
+                sub_tok = SKILL_PREFIX_STRIP_RE.sub("", raw_tok.strip())
+                if SKILL_PROSE_FILTER_RE.match(sub_tok):
+                    continue
+                # Split comma lists (and final " e " inside comma lists like "HTML, JavaScript, PHP, MySQL e CSS")
+                pieces = [sub_tok]
+                if "," in sub_tok:
+                    sub_tok_normalized = re.sub(r"\s+\be\b\s+(?=[A-Za-zÀ-ÿ0-9])", ", ", sub_tok)
+                    pieces = sub_tok_normalized.split(",")
+                for piece in pieces:
+                    skill = piece.strip(" .:-;")
+                    low_skill = skill.lower()
+                    if (
+                        skill
+                        and (len(skill) > 1 or skill.upper() in {"C", "R"})
+                        and len(skill) <= 45
+                        and len(skill.split()) <= 5
+                        and low_skill not in CEFR_NOISE_TOKENS
+                        and not SKILL_PROSE_FILTER_RE.match(skill)
+                        and not skill.endswith((".", ","))
+                        and skill not in skills
+                    ):
+                        skills.append(skill)
 
         experiences = cls._parse_experiences(sections["experience"])
         educations = cls._parse_educations(sections["education"])
@@ -1142,6 +1316,8 @@ class CVParserService:
                         languages.append({"name": n, "level": "Nativo"})
                 continue
             clean = re.sub(r"^outra\(s\)\s+l[ií]ngua\(s\)\s*:\s*", "", clean, flags=re.IGNORECASE)
+            # Collapse pipe separators between CEFR table cells: "INGLÊS | B1 | B1 | A2" -> "INGLÊS B1 B1 A2"
+            clean = re.sub(r"\s*\|\s*(?=[ABC][12]\b)", " ", clean)
             for item in re.split(r"[,;|]", clean):
                 part = item.strip()
                 if not part or part.lower() in CEFR_NOISE_TOKENS:

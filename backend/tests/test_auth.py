@@ -564,3 +564,105 @@ async def test_pdf_classic_europass_timeline_table_layout():
         assert prof["educations"][0]["institution"] == "Universidade do Porto"
         assert prof["educations"][0]["period"] == "15/09/2018 - 30/06/2021"
         assert "SQL" in prof["skills"] and "Figma" in prof["skills"]
+
+
+@pytest.mark.asyncio
+async def test_pdf_europass_bold_glued_company_and_metadata_filtering():
+    await init_db()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        reg = await client.post("/api/auth/register", json={
+            "full_name": "Andre Dias",
+            "email": "andre.europass@example.com",
+            "password": "Password123!",
+            "preferred_language": "pt",
+        })
+        assert reg.status_code == 200
+        headers = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+
+        # Reproduce real Europass PDF quirks: bold role + regular company glued on same baseline,
+        # wrapped phone, "Atividade ou setor" without colon, wrapped email/website, wrapped institution, CEFR table
+        p1 = "".join([
+            _pdf_text_cmd(40, 800, "Andre Filipe Oliveira Dias", "F2", 16),
+            _pdf_text_cmd(40, 778, "Autorizacao de trabalho:", "F2", 9),
+            _pdf_text_cmd(152, 778, "Portugal | Local de nascimento: Mirandela | Telefone: (+351)", "F1", 9),
+            _pdf_text_cmd(40, 764, "965398851 (Telemovel) | Endereco de email: andrexxdias@hotmail.com", "F1", 9),
+            _pdf_text_cmd(40, 736, "EXPERIENCIA PROFISSIONAL", "F2", 12),
+            _pdf_text_cmd(40, 714, "10/09/2025 - 10/09/2026 - COVILHA, PORTUGAL", "F1", 9),
+            _pdf_text_cmd(40, 696, "DIRIGENTE ASSOCIATIVO", "F2", 11),
+            _pdf_text_cmd(182, 696, "CEUINQUIETO - ASSOCIACAO CRIATIVA", "F1", 11),
+            _pdf_text_cmd(40, 678, "\x95 Coordenacao direta da equipa criativa.", "F1", 9),
+            _pdf_text_cmd(40, 660, "Atividade ou setor Informacao E Comunicacao | Departamento: Direcao | Endereco de correio eletronico:", "F1", 9),
+            _pdf_text_cmd(40, 646, "criacovilha@gmail.com | Sitio Web: criaportal.pt", "F1", 9),
+            _pdf_text_cmd(40, 622, "14/10/2025 - 07/08/2026 - COVILHA, PORTUGAL", "F1", 9),
+            _pdf_text_cmd(40, 604, "OUTBOUND SALES REPRESENTATIVE", "F2", 11),
+            _pdf_text_cmd(240, 604, "TELEPERFORMANCE PORTUGAL", "F1", 11),
+            _pdf_text_cmd(40, 588, "Funcoes e Responsabilidades:", "F2", 9),
+            _pdf_text_cmd(40, 574, "\x95 Responsavel pela comercializacao de servicos por telefone.", "F1", 9),
+            _pdf_text_cmd(40, 558, "Habilidades Desenvolvidas:", "F2", 9),
+            _pdf_text_cmd(40, 544, "\x95 Comunicacao persuasiva e vendas.", "F1", 9),
+        ])
+        p2 = "".join([
+            _pdf_text_cmd(40, 790, "01/05/2022 - 25/07/2022 - MIRANDELA, PORTUGAL", "F1", 9),
+            _pdf_text_cmd(40, 772, "ESTAGIO EXTRACURRICULAR - ASSISTENTE DE LOJA", "F2", 10),
+            _pdf_text_cmd(312, 772, "POWER PC", "F1", 10),
+            _pdf_text_cmd(40, 756, "Estagio extracurricular - POWERPC (300 horas)", "F2", 9),
+            _pdf_text_cmd(40, 742, "\x95 Atendimento a clientes e apoio tecnico.", "F1", 9),
+            _pdf_text_cmd(40, 710, "HABILITACOES E FORMACAO", "F2", 12),
+            _pdf_text_cmd(40, 690, "13/09/2020 - 20/06/2022 - MIRANDELA, PORTUGAL", "F1", 9),
+            _pdf_text_cmd(40, 672, "TECNICO DE COMUNICACAO, MARKETING E PUBLICIDADE-", "F2", 10),
+            _pdf_text_cmd(345, 672, "ESCOLA", "F1", 10),
+            _pdf_text_cmd(40, 658, "PROFISSIONAL DE MURCA", "F1", 10),
+            _pdf_text_cmd(40, 642, "Nivel no QEQ: 4 | Sitio Web: https://epmurca.edu.pt/", "F1", 9),
+            _pdf_text_cmd(40, 620, "15/09/2023 - Atual - COVILHA, PORTUGAL", "F1", 9),
+            _pdf_text_cmd(40, 602, "INFORMATICA WEB, MOVEL E NA NUVEM", "F2", 10),
+            _pdf_text_cmd(258, 602, "- UNIVERSIDADE BEIRA INTERIOR", "F1", 10),
+            _pdf_text_cmd(40, 586, "Area(s) de estudo: Tecnologias TIC | Sitio Web:", "F1", 9),
+            _pdf_text_cmd(40, 572, "https://www.ubi.pt/curso/969", "F1", 9),
+            _pdf_text_cmd(40, 540, "COMPETENCIAS LINGUISTICAS", "F2", 12),
+            _pdf_text_cmd(40, 520, "Lingua(s) materna(s): PORTUGUES", "F1", 9),
+            _pdf_text_cmd(40, 504, "COMPREENDER | FALAR | ESCRITA", "F2", 9),
+            _pdf_text_cmd(40, 488, "INGLES | B1 | B1 | A2 | A2 | B1", "F1", 9),
+            _pdf_text_cmd(40, 456, "COMPETENCIAS", "F2", 12),
+            _pdf_text_cmd(40, 438, "compreender ingles escrito | trabalhar em condicoes adversas", "F1", 9),
+            _pdf_text_cmd(40, 422, "Python | Conhecimentos de Linguagem HTML, JavaScript, PHP, MySQL e CSS", "F1", 9),
+        ])
+
+        pdf_bytes = _build_minimal_pdf([p1, p2])
+        res = await client.post(
+            "/api/auth/onboarding/parse-cv",
+            headers=headers,
+            files={"cv_file": ("europass_real.pdf", pdf_bytes, "application/pdf")},
+        )
+        assert res.status_code == 200
+        prof = res.json()["profile"]
+
+        assert prof["email"] == "andrexxdias@hotmail.com"
+        assert "(+351) 965398851" in prof["phone"]
+        assert prof["portfolio_url"] is None
+
+        # Exact 3 real experiences, no fake "Atividade ou setor" / "criacovilha@gmail.com" cards
+        assert len(prof["experiences"]) == 3
+        assert prof["experiences"][0]["role"] == "DIRIGENTE ASSOCIATIVO"
+        assert "CEUINQUIETO" in prof["experiences"][0]["company"]
+        assert prof["experiences"][1]["role"] == "OUTBOUND SALES REPRESENTATIVE"
+        assert prof["experiences"][1]["company"] == "TELEPERFORMANCE PORTUGAL"
+        assert len(prof["experiences"][1]["bullets"]) == 2
+        assert prof["experiences"][2]["role"] == "ESTAGIO EXTRACURRICULAR - ASSISTENTE DE LOJA"
+        assert prof["experiences"][2]["company"] == "POWER PC"
+
+        # Exact 2 educations cleanly split & merged, second one detected as ongoing
+        assert len(prof["educations"]) == 2
+        assert prof["educations"][0]["institution"] == "ESCOLA PROFISSIONAL DE MURCA"
+        assert prof["educations"][0]["in_progress"] is False
+        assert prof["educations"][1]["degree"] == "INFORMATICA WEB, MOVEL E NA NUVEM"
+        assert prof["educations"][1]["institution"] == "UNIVERSIDADE BEIRA INTERIOR"
+        assert prof["educations"][1]["in_progress"] is True
+        assert prof["educations"][1]["start_year"] == "2023"
+
+        # Skills and Languages clean without CEFR header noise
+        assert "Python" in prof["skills"] and "JavaScript" in prof["skills"] and "CSS" in prof["skills"]
+        assert not any("compreender" in s.lower() for s in prof["skills"])
+        lang_names = [l["name"].upper() for l in prof["languages"]]
+        assert "PORTUGUES" in lang_names and "INGLES" in lang_names
+        assert not any("COMPREENDER" in n for n in lang_names)
