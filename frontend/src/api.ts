@@ -2,7 +2,7 @@ import type {
   Job, ApplicationStats, ProfileData, JDAnalysis, CVTailorResult,
   CoverLetterResult, InterviewPrepResult, ScanRecord, AuthResponse, User, OnboardingResult,
   ParsedCVResponse, CVTemplate, ATSAuditResult, UserSettings, TestKeyResult, TestWebhookResult,
-  ManualJobPayload, BatchLivenessResult
+  ManualJobPayload, BatchLivenessResult, AnalyticsSummary
 } from './types';
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') || '/api';
@@ -420,6 +420,11 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ webhook_url: webhookUrl || undefined })
     }, 'Erro ao testar webhook do Discord');
+    return res.json();
+  },
+
+  async getAnalyticsSummary(): Promise<AnalyticsSummary> {
+    const res = await apiFetch('/analytics/summary', {}, 'Erro ao carregar métricas de atividade');
     return res.json();
   }
 };

@@ -38,6 +38,7 @@ const AppContent: React.FC = () => {
     negativa: 0,
     descartada: 0
   });
+  const [analyticsSummary, setAnalyticsSummary] = useState<import('./types').AnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedJobForAI, setSelectedJobForAI] = useState<Job | null>(null);
 
@@ -53,7 +54,7 @@ const AppContent: React.FC = () => {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [jobsData, statsData] = await Promise.all([
+      const [jobsData, statsData, summaryData] = await Promise.all([
         api.getJobs({
           query: filterQuery || undefined,
           location: filterLocation || undefined,
@@ -64,10 +65,12 @@ const AppContent: React.FC = () => {
           sort_by: sortBy,
           limit: 150
         }),
-        api.getStats()
+        api.getStats(),
+        api.getAnalyticsSummary().catch(() => null),
       ]);
       setJobs(jobsData);
       setStats(statsData);
+      if (summaryData) setAnalyticsSummary(summaryData);
     } catch (err) {
       console.error('Erro ao carregar dados:', err);
     } finally {
@@ -253,6 +256,7 @@ const AppContent: React.FC = () => {
           <DashboardView
             stats={stats}
             recentJobs={jobs}
+            analyticsSummary={analyticsSummary}
             onNavigateTab={(tab: string) => setActiveTab(tab as any)}
             onOpenJobAI={(job: Job) => {
               trackEvent('ai_studio_opened', { source: job.source });

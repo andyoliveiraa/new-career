@@ -62,8 +62,45 @@ export function trackEvent(
   });
 }
 
+const FIRST_PARTY_API_BASE =
+  (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') || '/api';
+
+const FIRST_PARTY_PAGE_EVENTS = new Set([
+  'page_view_login',
+  'page_view_register',
+  'page_view_rgpd',
+  'page_view_privacy',
+  'page_view_onboarding',
+  'page_view_dashboard',
+  'page_view_jobs',
+  'page_view_cv_builder',
+  'page_view_scrapers',
+  'page_view_profile',
+  'page_view_settings',
+]);
+
 export function trackPageView(screenName: string, pageTitle?: string): void {
-  if (typeof window === 'undefined' || !firebaseApp) return;
+  if (typeof window === 'undefined') return;
+
+  const normalized = `page_view_${screenName.replace(/-/g, '_')}`;
+  if (FIRST_PARTY_PAGE_EVENTS.has(normalized)) {
+    try {
+      const token = localStorage.getItem('new_career_token');
+      void fetch(`${FIRST_PARTY_API_BASE}/analytics/event`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ event: normalized }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {
+      // Ignore storage or network errors for non-blocking telemetry
+    }
+  }
+
+  if (!firebaseApp) return;
   trackEvent('page_view', {
     page_title: pageTitle || screenName,
     page_path: `/${screenName}`,

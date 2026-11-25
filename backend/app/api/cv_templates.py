@@ -29,6 +29,7 @@ async def create_template(request: CVTemplateCreate, current_user: Dict[str, Any
     user_id = current_user["id"]
     template_data = request.model_dump()
     saved = await firebase_manager.save_cv_template(user_id, template_data)
+    await firebase_manager.record_metric("cv_templates_saved", user_id)
     return CVTemplateResponse(**saved)
 
 @router.get("/{template_id}", response_model=CVTemplateResponse)
@@ -49,6 +50,7 @@ async def update_template(template_id: str, request: CVTemplateUpdate, current_u
     update_dict = request.model_dump(exclude_unset=True)
     template.update(update_dict)
     saved = await firebase_manager.save_cv_template(user_id, template)
+    await firebase_manager.record_metric("cv_templates_saved", user_id)
     return CVTemplateResponse(**saved)
 
 @router.delete("/{template_id}")

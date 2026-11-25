@@ -199,6 +199,12 @@ export const ko: TranslationDict = {
     emptyRecent: '아직 등록된 공고가 없습니다. "채용 스크래퍼" 탭에서 스캔을 실행해 보세요!',
     openJob: '공고 열기',
     aiStudio: 'AI Studio',
+    activityTitle: '플랫폼 활동 (프라이버시 우선)',
+    activityBadge: '퍼스트파티 · 트래커 없음',
+    activityScans: '스캔 실행',
+    activityFit: 'AI 적합도 분석',
+    activityCv: '맞춤형 이력서',
+    activityPrep: '커버레터 및 면접 준비',
   },
   jobs: {
     title: '채용 및 지원 파이프라인',

@@ -44,6 +44,7 @@ async def register(req: UserRegister):
     )
 
     token = create_access_token({"sub": user["id"], "email": user["email"]})
+    await firebase_manager.record_metric("registers", user["id"])
     return TokenResponse(
         access_token=token,
         token_type="bearer",
@@ -61,6 +62,7 @@ async def login(req: UserLogin):
         )
 
     token = create_access_token({"sub": user["id"], "email": user["email"]})
+    await firebase_manager.record_metric("logins", user["id"])
     return TokenResponse(
         access_token=token,
         token_type="bearer",
@@ -98,6 +100,7 @@ async def onboarding_career_ops(
             detail="Importação direta de diretórios do servidor está desativada por segurança. Utilize o upload de ZIP ou o Modo Privacidade."
         )
     result = await CareerOpsImporter.import_from_directory(req.directory_path, current_user["id"])
+    await firebase_manager.record_metric("onboarding_completed", current_user["id"])
     return OnboardingResultResponse(**result)
 
 
@@ -113,6 +116,7 @@ async def onboarding_upload_zip(
 
     content = await zip_file.read()
     result = await CareerOpsImporter.import_from_zip(content, current_user["id"])
+    await firebase_manager.record_metric("onboarding_completed", current_user["id"])
     return OnboardingResultResponse(**result)
 
 
@@ -149,6 +153,7 @@ async def onboarding_upload_privacy(
         applications_content=applications_content,
         output_zip_bytes=output_zip_bytes
     )
+    await firebase_manager.record_metric("onboarding_completed", current_user["id"])
     return OnboardingResultResponse(**result)
 
 
@@ -206,6 +211,7 @@ async def onboarding_manual(
     }
     await firebase_manager.save_profile(user_id, profile_dict)
     await firebase_manager.update_user(user_id, {"has_completed_onboarding": True})
+    await firebase_manager.record_metric("onboarding_completed", user_id)
 
     return OnboardingResultResponse(
         success=True,

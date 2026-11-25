@@ -197,6 +197,12 @@ export const en = {
     emptyRecent: 'No jobs recorded yet. Run a scan in the "Job Scraper" tab to get started!',
     openJob: 'Open Job',
     aiStudio: 'AI Studio',
+    activityTitle: 'Platform Activity (Privacy-First)',
+    activityBadge: 'First-Party · No Trackers',
+    activityScans: 'Scans Run',
+    activityFit: 'AI Fit Analyses',
+    activityCv: 'Tailored CVs',
+    activityPrep: 'Letters & Interview Prep',
   },
   jobs: {
     title: 'Jobs & Applications Pipeline',

@@ -75,4 +75,5 @@ async def update_profile(profile_data: ProfileUpdate, current_user: Dict[str, An
     if existing.get("master_cv_text") and "master_cv_text" not in data:
         data["master_cv_text"] = existing["master_cv_text"]
     saved = await firebase_manager.save_profile(user_id, data)
+    await firebase_manager.record_metric("profile_updates", user_id)
     return _to_profile_response(saved, current_user)

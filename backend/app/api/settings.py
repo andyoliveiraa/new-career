@@ -78,6 +78,7 @@ async def update_settings(request: UserSettingsUpdate, current_user: Dict[str, A
             cleaned_payload[key] = val
 
     saved = await firebase_manager.save_user_settings(user_id, cleaned_payload)
+    await firebase_manager.record_metric("settings_updates", user_id)
     return _to_settings_response(user_id, saved)
 
 

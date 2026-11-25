@@ -1,11 +1,12 @@
 import React from 'react';
-import type { ApplicationStats, Job } from '../types';
-import { Briefcase, Send, Users, CheckCircle2, XCircle, Search, ArrowRight, ShieldCheck, Clock } from 'lucide-react';
+import type { AnalyticsSummary, ApplicationStats, Job } from '../types';
+import { Activity, Briefcase, Send, Users, CheckCircle2, XCircle, Search, ArrowRight, ShieldCheck, Clock, Sparkles, FileText, MessageSquare } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
 interface DashboardViewProps {
   stats: ApplicationStats;
   recentJobs: Job[];
+  analyticsSummary?: AnalyticsSummary | null;
   onNavigateTab: (tab: string) => void;
   onOpenJobAI: (job: Job) => void;
 }
@@ -13,6 +14,7 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = ({
   stats,
   recentJobs,
+  analyticsSummary,
   onNavigateTab,
   onOpenJobAI,
 }) => {
@@ -132,6 +134,54 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
       </div>
+
+      {/* First-Party Activity Summary */}
+      {(() => {
+        const um = analyticsSummary?.user_metrics || {};
+        const scansCount = um.scans_completed ?? um.scans_started ?? 0;
+        const fitCount = um.ai_fit_analyses ?? 0;
+        const cvCount = um.ai_cv_tailors ?? 0;
+        const prepCount = (um.ai_cover_letters ?? 0) + (um.ai_interview_preps ?? 0);
+        const items = [
+          { label: t('dashboard.activityScans'), value: scansCount, icon: Search },
+          { label: t('dashboard.activityFit'), value: fitCount, icon: Sparkles },
+          { label: t('dashboard.activityCv'), value: cvCount, icon: FileText },
+          { label: t('dashboard.activityPrep'), value: prepCount, icon: MessageSquare },
+        ];
+        return (
+          <div className="bg-surface-100 border border-surface-border rounded-xl p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-accent-blue" />
+                <h2 className="text-sm font-semibold text-txt-primary">{t('dashboard.activityTitle')}</h2>
+              </div>
+              <span className="inline-flex items-center gap-1.5 text-xs text-txt-secondary bg-surface-200 border border-surface-border px-2.5 py-1 rounded-md">
+                <ShieldCheck className="w-3.5 h-3.5 text-accent-blue" />
+                {t('dashboard.activityBadge')}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div
+                    key={item.label}
+                    className="bg-surface-200/50 border border-surface-border rounded-lg p-3.5 flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs text-txt-secondary truncate">{item.label}</p>
+                      <p className="text-xl font-bold text-txt-primary tabular-nums mt-1">{item.value}</p>
+                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-surface-300/60 border border-surface-border flex items-center justify-center shrink-0">
+                      <Icon className="w-4 h-4 text-accent-blue" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Recent Discovered Jobs */}
       <div className="bg-surface-100 border border-surface-border rounded-xl p-5">

@@ -199,6 +199,12 @@ export const ar: TranslationDict = {
     emptyRecent: 'لا توجد وظائف مسجلة بعد. شغّل فحصاً من تبويب "الباحث الآلي" للبدء!',
     openJob: 'فتح الوظيفة',
     aiStudio: 'AI Studio',
+    activityTitle: 'نشاط المنصة (خصوصية تامة)',
+    activityBadge: 'إحصاءات مباشرة · بدون متتبعات',
+    activityScans: 'عمليات الفحص',
+    activityFit: 'تحليلات الملاءمة بالذكاء الاصطناعي',
+    activityCv: 'السير الذاتية المخصصة',
+    activityPrep: 'الرسائل والتحضير للمقابلات',
   },
   jobs: {
     title: 'مسار الوظائف وطلبات التوظيف',

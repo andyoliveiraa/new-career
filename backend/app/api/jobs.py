@@ -134,6 +134,7 @@ async def create_manual_job(
     }
     saved = await firebase_manager.save_job(user_id, job_record)
     await firebase_manager.save_application(user_id, new_id, {"status": "disponivel"})
+    await firebase_manager.record_metric("manual_jobs_created", user_id)
     return _to_job_response(saved, fallback_id=new_id)
 
 
@@ -169,6 +170,7 @@ async def export_jobs(
 
     if format == "json":
         payload = json.dumps(rows, indent=2, ensure_ascii=False, default=str)
+        await firebase_manager.record_metric("jobs_exported", user_id)
         return Response(
             content=payload,
             media_type="application/json",
@@ -185,6 +187,7 @@ async def export_jobs(
     writer.writeheader()
     writer.writerows(rows)
     output.seek(0)
+    await firebase_manager.record_metric("jobs_exported", user_id)
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv; charset=utf-8",

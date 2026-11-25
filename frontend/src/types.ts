@@ -265,3 +265,10 @@ export interface TestWebhookResult {
   message: string;
   latency_ms?: number | null;
 }
+
+export interface AnalyticsSummary {
+  user_metrics: Record<string, number>;
+  today_metrics: Record<string, number>;
+  platform_totals: Record<string, number>;
+  date: string;
+}

@@ -167,6 +167,9 @@ async def run_scan_task(
             "duration_seconds": duration,
             "logs": logs
         })
+        await firebase_manager.record_metric("scans_completed", user_id)
+        if total_found > 0:
+            await firebase_manager.record_metric("jobs_scraped", user_id, amount=total_found)
 
         if total_new > 0:
             try:
@@ -235,6 +238,7 @@ async def trigger_scan(
         request.max_pages,
         request.max_distance_km
     )
+    await firebase_manager.record_metric("scans_started", user_id)
 
     search_desc = f"para '{clean_query}' em '{location_val}'" if clean_query else f"em '{location_val}' (todas as áreas)"
     dist_desc = f", até {request.max_distance_km} km" if request.max_distance_km else ""

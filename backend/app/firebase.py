@@ -22,7 +22,8 @@ class FirebaseManager:
     _is_live = False
     _local_data: Dict[str, Any] = {
         "users": {},
-        "user_data": {}
+        "user_data": {},
+        "metrics": {"global": {}, "daily": {}},
     }
 
     def __init__(self):
@@ -87,7 +88,8 @@ class FirebaseManager:
                         data = json.load(f)
                         self._local_data = {
                             "users": data.get("users", {}),
-                            "user_data": data.get("user_data", {})
+                            "user_data": data.get("user_data", {}),
+                            "metrics": data.get("metrics", {"global": {}, "daily": {}}),
                         }
                 except Exception as e:
                     logger.warning(f"Erro ao carregar store local Firestore: {e}")
@@ -128,10 +130,11 @@ class FirebaseManager:
                     "applications": {},
                     "scan_history": {},
                     "cv_templates": {},
-                    "settings": {}
+                    "settings": {},
+                    "analytics": {},
                 }
             partition = self._local_data["user_data"][user_id]
-            for key in ("profile", "jobs", "applications", "scan_history", "cv_templates", "settings"):
+            for key in ("profile", "jobs", "applications", "scan_history", "cv_templates", "settings", "analytics"):
                 if key not in partition:
                     partition[key] = {}
             return partition
@@ -840,6 +843,107 @@ class FirebaseManager:
             partition["settings"].update(settings_copy)
             self._save_local_store()
             return dict(partition["settings"])
+
+    # ==================== FIRST-PARTY ANALYTICS ====================
+    async def record_metric(
+        self,
+        event_name: str,
+        user_id: Optional[str] = None,
+        amount: int = 1,
+    ) -> None:
+        import re
+
+        clean_event = (event_name or "").strip().lower()
+        if not re.match(r"^[a-z0-9_]{1,64}$", clean_event) or amount <= 0:
+            return
+
+        now = datetime.now(timezone.utc).isoformat()
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        with self._lock:
+            metrics_root = self._local_data.setdefault("metrics", {"global": {}, "daily": {}})
+            global_map = metrics_root.setdefault("global", {})
+            daily_root = metrics_root.setdefault("daily", {})
+            day_map = daily_root.setdefault(today, {})
+
+            global_map[clean_event] = int(global_map.get(clean_event, 0)) + amount
+            global_map["updated_at"] = now
+            day_map[clean_event] = int(day_map.get(clean_event, 0)) + amount
+            day_map["updated_at"] = now
+
+            if user_id:
+                partition = self._get_user_partition(user_id)
+                user_map = partition.setdefault("analytics", {})
+                user_map[clean_event] = int(user_map.get(clean_event, 0)) + amount
+                user_map["updated_at"] = now
+
+            self._save_local_store()
+
+        if self._is_live and self._db:
+            try:
+                inc = firestore.Increment(amount)
+                await self._run_cloud(
+                    lambda: self._db.collection("system_metrics").document("aggregated").set(
+                        {clean_event: inc, "updated_at": now},
+                        merge=True,
+                    )
+                )
+                await self._run_cloud(
+                    lambda: self._db.collection("system_metrics").document(f"daily_{today}").set(
+                        {clean_event: inc, "date": today, "updated_at": now},
+                        merge=True,
+                    )
+                )
+                if user_id:
+                    await self._run_cloud(
+                        lambda: self._db.collection("users")
+                        .document(user_id)
+                        .collection("analytics")
+                        .document("summary")
+                        .set({clean_event: inc, "updated_at": now}, merge=True)
+                    )
+            except Exception as e:
+                logger.warning(f"Aviso ao gravar métrica first-party no Firestore: {e}")
+
+    async def get_metrics_summary(self, user_id: str) -> Dict[str, Any]:
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        partition = self._get_user_partition(user_id)
+
+        user_metrics: Dict[str, Any] = dict(partition.get("analytics", {}))
+        with self._lock:
+            metrics_root = self._local_data.get("metrics", {})
+            global_metrics: Dict[str, Any] = dict(metrics_root.get("global", {}))
+            daily_metrics: Dict[str, Any] = dict(metrics_root.get("daily", {}).get(today, {}))
+
+        if self._is_live and self._db:
+            try:
+                u_doc = await self._run_cloud(
+                    lambda: self._db.collection("users").document(user_id).collection("analytics").document("summary").get()
+                )
+                if u_doc.exists:
+                    user_metrics = u_doc.to_dict() or user_metrics
+                g_doc = await self._run_cloud(
+                    lambda: self._db.collection("system_metrics").document("aggregated").get()
+                )
+                if g_doc.exists:
+                    global_metrics = g_doc.to_dict() or global_metrics
+                d_doc = await self._run_cloud(
+                    lambda: self._db.collection("system_metrics").document(f"daily_{today}").get()
+                )
+                if d_doc.exists:
+                    daily_metrics = d_doc.to_dict() or daily_metrics
+            except Exception as e:
+                logger.warning(f"Aviso ao ler métricas first-party no Firestore: {e}")
+
+        def _int_only(raw: Dict[str, Any]) -> Dict[str, int]:
+            return {k: int(v) for k, v in raw.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
+
+        return {
+            "user_metrics": _int_only(user_metrics),
+            "today_metrics": _int_only(daily_metrics),
+            "platform_totals": _int_only(global_metrics),
+            "date": today,
+        }
 
 
 firebase_manager = FirebaseManager.get_instance()

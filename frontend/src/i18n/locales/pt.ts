@@ -199,6 +199,12 @@ export const pt: TranslationDict = {
     emptyRecent: 'Nenhuma vaga registrada ainda. Execute uma varredura na aba "Varredura" para começar!',
     openJob: 'Abrir Vaga',
     aiStudio: 'AI Studio',
+    activityTitle: 'Atividade na Plataforma (Privacidade Nativa)',
+    activityBadge: 'First-Party · Sem Rastreadores',
+    activityScans: 'Varreduras Feitas',
+    activityFit: 'Análises IA de Fit',
+    activityCv: 'CVs Adaptados',
+    activityPrep: 'Cartas & Entrevistas',
   },
   jobs: {
     title: 'Pipeline de Vagas & Candidaturas',

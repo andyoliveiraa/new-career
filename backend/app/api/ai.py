@@ -61,6 +61,7 @@ async def analyze_job(job_id: int, current_user: Dict[str, Any] = Depends(get_cu
     if app.get("status", "disponivel") == "disponivel":
         app["status"] = "avaliada"
     await firebase_manager.save_application(user_id, job_id, app)
+    await firebase_manager.record_metric("ai_fit_analyses", user_id)
 
     return JDAnalysisResponse(
         job_id=job_id,
@@ -129,6 +130,7 @@ async def tailor_cv(request: CVTailorRequest, current_user: Dict[str, Any] = Dep
     if app.get("status", "disponivel") in ("disponivel", "avaliada"):
         app["status"] = "em_preparacao"
     await firebase_manager.save_application(user_id, request.job_id, app)
+    await firebase_manager.record_metric("ai_cv_tailors", user_id)
 
     return CVTailorResponse(
         job_id=request.job_id,
@@ -167,6 +169,7 @@ async def generate_cover_letter(request: CoverLetterRequest, current_user: Dict[
     app = await firebase_manager.get_application(user_id, request.job_id) or {}
     app["custom_cover_letter"] = cl_res.get("cover_letter_text", "")
     await firebase_manager.save_application(user_id, request.job_id, app)
+    await firebase_manager.record_metric("ai_cover_letters", user_id)
 
     return CoverLetterResponse(
         job_id=request.job_id,
@@ -198,6 +201,7 @@ async def generate_interview_prep(request: InterviewPrepRequest, current_user: D
         provider=request.provider,
         user_keys=user_settings
     )
+    await firebase_manager.record_metric("ai_interview_preps", user_id)
     return InterviewPrepResponse(
         job_id=request.job_id,
         likely_questions=prep.get("likely_questions", []),
@@ -216,11 +220,13 @@ async def download_pdf(filename: str, current_user: Dict[str, Any] = Depends(get
     user_path = safe_join_within(user_cv_dir, clean_name)
 
     if os.path.exists(user_path):
+        await firebase_manager.record_metric("ai_pdf_downloads", user_id)
         media = "text/html" if clean_name.lower().endswith(".html") else "application/pdf"
         return FileResponse(user_path, filename=clean_name, media_type=media)
 
     html_fallback = user_path.replace(".pdf", ".html")
     if html_fallback != user_path and os.path.exists(html_fallback):
+        await firebase_manager.record_metric("ai_pdf_downloads", user_id)
         return FileResponse(
             html_fallback,
             filename=clean_name.replace(".pdf", ".html"),

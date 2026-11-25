@@ -199,6 +199,12 @@ export const es: TranslationDict = {
     emptyRecent: 'No hay vacantes registradas aún. ¡Ejecuta un rastreo en la pestaña "Rastreador" para empezar!',
     openJob: 'Abrir Vacante',
     aiStudio: 'AI Studio',
+    activityTitle: 'Actividad de la Plataforma (Privacidad Nativa)',
+    activityBadge: 'First-Party · Sin Rastreadores',
+    activityScans: 'Rastreos Realizados',
+    activityFit: 'Análisis IA de Ajuste',
+    activityCv: 'CVs Adaptados',
+    activityPrep: 'Cartas y Entrevistas',
   },
   jobs: {
     title: 'Pipeline de Vacantes y Candidaturas',

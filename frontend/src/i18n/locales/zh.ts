@@ -199,6 +199,12 @@ export const zh: TranslationDict = {
     emptyRecent: '暂无职位记录。请在“职位抓取”页面运行一次扫描！',
     openJob: '打开职位',
     aiStudio: 'AI Studio',
+    activityTitle: '平台活动统计（隐私优先）',
+    activityBadge: '第一方统计 · 无追踪器',
+    activityScans: '已执行抓取',
+    activityFit: 'AI 匹配度分析',
+    activityCv: '定制简历数',
+    activityPrep: '求职信与面试准备',
   },
   jobs: {
     title: '职位与求职管道',

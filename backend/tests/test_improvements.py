@@ -279,3 +279,49 @@ def test_cv_template_security_validators():
 
     tpl = CVTemplateBase(name="Safe Fallback Color", accent_color="red;background:url(x)")
     assert tpl.accent_color == "#2563eb"
+
+
+@pytest.mark.asyncio
+async def test_first_party_analytics_events_and_summary():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # Summary requires authentication
+        unauth_summary = await client.get("/api/analytics/summary")
+        assert unauth_summary.status_code == 401
+
+        # Public allowlisted navigation event succeeds without auth
+        pub_ev = await client.post("/api/analytics/event", json={"event": "page_view_login"})
+        assert pub_ev.status_code == 200
+        assert pub_ev.json() == {"recorded": True, "event": "page_view_login"}
+
+        # Disallowed or arbitrary payload is rejected by strict schema
+        bad_ev = await client.post("/api/analytics/event", json={"event": "custom_leak_email@example.com"})
+        assert bad_ev.status_code == 422
+
+        # Register, login, log page view, and create manual job
+        _, headers = await _register_user(client, "analytics_user@example.com")
+        login_res = await client.post("/api/auth/login", json={
+            "email": "analytics_user@example.com",
+            "password": "Password123!"
+        })
+        assert login_res.status_code == 200
+
+        dash_ev = await client.post("/api/analytics/event", json={"event": "page_view_dashboard"}, headers=headers)
+        assert dash_ev.status_code == 200
+
+        job_res = await client.post("/api/jobs", json={
+            "title": "Backend Engineer",
+            "company": "Porto Tech",
+            "url": "https://example.com/jobs/backend-1",
+            "source": "manual"
+        }, headers=headers)
+        assert job_res.status_code == 200
+
+        summary_res = await client.get("/api/analytics/summary", headers=headers)
+        assert summary_res.status_code == 200
+        body = summary_res.json()
+        assert body["user_metrics"]["registers"] == 1
+        assert body["user_metrics"]["logins"] == 1
+        assert body["user_metrics"]["page_view_dashboard"] == 1
+        assert body["user_metrics"]["manual_jobs_created"] == 1
+        assert body["today_metrics"]["page_view_login"] >= 1
+        assert body["platform_totals"]["registers"] >= 1

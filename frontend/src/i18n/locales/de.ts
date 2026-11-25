@@ -199,6 +199,12 @@ export const de: TranslationDict = {
     emptyRecent: 'Noch keine Stellen erfasst. Starten Sie einen Scan im Tab "Job-Scanner"!',
     openJob: 'Stelle öffnen',
     aiStudio: 'AI Studio',
+    activityTitle: 'Plattformaktivität (Datenschutzkonform)',
+    activityBadge: 'First-Party · Ohne Tracker',
+    activityScans: 'Scans gestartet',
+    activityFit: 'KI-Passungsanalysen',
+    activityCv: 'Angepasste Lebensläufe',
+    activityPrep: 'Anschreiben & Gesprächs-Prep',
   },
   jobs: {
     title: 'Stellen- & Bewerbungspipeline',
