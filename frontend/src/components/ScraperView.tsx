@@ -17,6 +17,7 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
   const [sources, setSources] = useState<string[]>(['netempregos', 'ats']);
   const [limit, setLimit] = useState(25);
   const [maxPages, setMaxPages] = useState(3);
+  const [maxDistanceKm, setMaxDistanceKm] = useState<number | ''>('');
   const [scanning, setScanning] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [history, setHistory] = useState<ScanRecord[]>([]);
@@ -75,7 +76,14 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
     ]);
 
     try {
-      const res = await api.triggerScan(sources, cleanQuery, cleanLocation, limit, maxPages);
+      const res = await api.triggerScan(
+        sources,
+        cleanQuery,
+        cleanLocation,
+        limit,
+        maxPages,
+        maxDistanceKm === '' ? undefined : maxDistanceKm
+      );
       setLogs((prev) => [...prev, res.message]);
 
       const scanId = res.scan_id;
@@ -167,7 +175,7 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
           </div>
         </div>
 
-        <div className={`grid grid-cols-1 gap-4 ${sources.includes('netempregos') ? 'sm:grid-cols-2 lg:grid-cols-4' : 'md:grid-cols-3'}`}>
+        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${sources.includes('netempregos') ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
           <div>
             <label className="block text-xs font-medium text-txt-secondary mb-1">{t('scraper.queryLabel')}</label>
             <input
@@ -188,6 +196,22 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
               placeholder={t('scraper.locationPlaceholder')}
               className="w-full h-9 bg-surface-200 border border-surface-border rounded-lg px-3 text-sm text-txt-primary focus:outline-none focus:border-accent"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-txt-secondary mb-1">{t('scraper.distanceLabel')}</label>
+            <select
+              value={maxDistanceKm}
+              onChange={(e) => setMaxDistanceKm(e.target.value ? Number(e.target.value) : '')}
+              className="w-full h-9 bg-surface-200 border border-surface-border rounded-lg px-3 text-sm text-txt-primary focus:outline-none focus:border-accent cursor-pointer"
+            >
+              <option value="">{t('scraper.distanceAny')}</option>
+              {[10, 20, 30, 40, 50, 60].map((km) => (
+                <option key={km} value={km}>
+                  {km} km
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

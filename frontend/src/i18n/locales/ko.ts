@@ -412,6 +412,8 @@ export const ko: TranslationDict = {
     locationLabel: '위치',
     locationPlaceholder: '예: Lisbon, London, Remote',
     limitLabel: '소스당 최대 건수',
+    distanceLabel: '거리 (KM)',
+    distanceAny: '거리 제한 없음',
     maxPagesLabel: '최대 페이지 수',
     startScan: '스캔 시작',
     scanning: '스캔 진행 중...',

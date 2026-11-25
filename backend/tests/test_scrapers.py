@@ -91,6 +91,20 @@ async def test_netempregos_html_pagination_respects_max_pages():
     assert "page=1" in called_urls[0] and "cidade=Covilh%E3" in called_urls[0]
     assert "page=2" in called_urls[1] and "cidade=Covilh%E3" in called_urls[1]
 
+
+def test_get_nearby_cities_within_km_radius():
+    from backend.app.services.geo_filter import get_nearby_cities
+
+    within_20 = get_nearby_cities("Covilhã", 20)
+    assert "tortosendo" in within_20
+    assert "fundao" in within_20
+    assert "lisboa" not in within_20
+
+    within_60 = get_nearby_cities("Covilhã", 60)
+    assert "guarda" in within_60
+    assert "castelo branco" in within_60
+    assert "porto" not in within_60
+
 @pytest.mark.asyncio
 async def test_ats_portals_scraper():
     scraper = ATSPortalsScraper()

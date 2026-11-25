@@ -12,6 +12,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from backend.app.scrapers.base import BaseScraper
+from backend.app.services.geo_filter import get_nearby_cities
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +109,8 @@ class NetEmpregosScraper(BaseScraper):
         query: Optional[str] = "",
         location: Optional[str] = None,
         limit: int = 25,
-        max_pages: int = 3
+        max_pages: int = 3,
+        max_distance_km: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         clean_query = _normalize_text(query or "")
         raw_query = (query or "").strip()
@@ -168,10 +170,16 @@ class NetEmpregosScraper(BaseScraper):
                     if len(jobs) >= limit:
                         break
 
-            # 3. If exact city matches < limit, expand to the same Portuguese district / nearby hubs
+            # 3. Expand to nearby cities within max_distance_km (or default regional district) when < limit
             if len(jobs) < limit and clean_location and not is_remote_search:
-                region_terms = PT_CITY_TO_REGION.get(clean_location, ())
-                if region_terms:
+                nearby_by_km = get_nearby_cities(raw_location, float(max_distance_km)) if max_distance_km else []
+                district_fallback = PT_CITY_TO_REGION.get(clean_location, ()) if (not max_distance_km or max_distance_km >= 30) else ()
+                merged_region: List[str] = []
+                for term in list(nearby_by_km) + list(district_fallback):
+                    if term not in merged_region and term != clean_location:
+                        merged_region.append(term)
+
+                if merged_region:
                     remaining = min(limit - len(jobs), effective_feed_limit - len(jobs))
                     if remaining > 0:
                         reg_rss, reg_sm = await self._fetch_feeds(
@@ -182,7 +190,7 @@ class NetEmpregosScraper(BaseScraper):
                             is_remote_search=False,
                             query_terms=query_terms,
                             limit=remaining + len(seen_urls),
-                            extra_locations=region_terms,
+                            extra_locations=tuple(merged_region),
                         )
                         for j in reg_rss + reg_sm:
                             if j["url"] not in seen_urls:

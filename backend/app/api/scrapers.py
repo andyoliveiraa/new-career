@@ -34,6 +34,7 @@ class ScanRequest(BaseModel):
     location: Optional[str] = None
     limit: int = Field(default=20, ge=1, le=100)
     max_pages: int = Field(default=3, ge=1, le=20)
+    max_distance_km: Optional[int] = Field(default=None, ge=1, le=200)
 
 
 async def _append_scan_log(user_id: str, scan_id: int, logs: List[str], message: str) -> None:
@@ -49,7 +50,8 @@ async def run_scan_task(
     query: str,
     location: Optional[str],
     limit_per_source: int,
-    max_pages: int = 3
+    max_pages: int = 3,
+    max_distance_km: Optional[int] = None
 ):
     start_time = time.time()
     total_found = 0
@@ -96,18 +98,25 @@ async def run_scan_task(
                         query=query,
                         location=location,
                         limit=limit_per_source,
-                        max_pages=max_pages
+                        max_pages=max_pages,
+                        max_distance_km=max_distance_km,
                     )
                 else:
                     raw_jobs = await scraper.search(query=query, location=location, limit=limit_per_source)
 
-                total_found += len(raw_jobs)
                 src_new = 0
+                src_kept = 0
+                is_remote_req = (location or "").strip().lower() in ("remoto", "remote", "teletrabalho")
 
                 for rj in raw_jobs:
+                    dist = await calculate_job_distance(rj.get("location"), target_city)
+                    if max_distance_km and not is_remote_req:
+                        if dist is not None and dist > max_distance_km:
+                            continue
+
+                    src_kept += 1
                     key = rj.get("job_key")
                     if key and key not in existing_keys:
-                        dist = await calculate_job_distance(rj.get("location"), target_city)
                         new_id = firebase_manager.allocate_next_job_id(user_id)
 
                         job_record = {
@@ -135,9 +144,11 @@ async def run_scan_task(
                         total_new += 1
                         src_new += 1
 
+                total_found += src_kept
+
                 await _append_scan_log(
                     user_id, scan_id, logs,
-                    f"[{src_name}] Concluído: {len(raw_jobs)} encontradas, {src_new} novas."
+                    f"[{src_name}] Concluído: {src_kept} encontradas, {src_new} novas."
                 )
 
             except Exception as e:
@@ -221,14 +232,16 @@ async def trigger_scan(
         clean_query,
         location_val,
         request.limit,
-        request.max_pages
+        request.max_pages,
+        request.max_distance_km
     )
 
     search_desc = f"para '{clean_query}' em '{location_val}'" if clean_query else f"em '{location_val}' (todas as áreas)"
+    dist_desc = f", até {request.max_distance_km} km" if request.max_distance_km else ""
     return {
         "status": "started",
         "scan_id": scan_record["id"],
-        "message": f"Varredura iniciada {search_desc} (máx. {request.max_pages} pág.) nas fontes: {', '.join(selected_sources)}",
+        "message": f"Varredura iniciada {search_desc} (máx. {request.max_pages} pág.{dist_desc}) nas fontes: {', '.join(selected_sources)}",
         "sources": selected_sources
     }
 

@@ -412,6 +412,8 @@ export const de: TranslationDict = {
     locationLabel: 'Standort',
     locationPlaceholder: 'z. B. Berlin, München, Remote',
     limitLabel: 'Limit pro Quelle',
+    distanceLabel: 'Entfernung (KM)',
+    distanceAny: 'Beliebige Entfernung',
     maxPagesLabel: 'Max. Seiten',
     startScan: 'Scan starten',
     scanning: 'Scan läuft...',

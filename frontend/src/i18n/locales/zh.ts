@@ -412,6 +412,8 @@ export const zh: TranslationDict = {
     locationLabel: '地点',
     locationPlaceholder: '例如：Lisbon, London, Remote',
     limitLabel: '单源抓取上限',
+    distanceLabel: '距离范围 (KM)',
+    distanceAny: '不限距离',
     maxPagesLabel: '最大页数',
     startScan: '开始抓取',
     scanning: '正在抓取...',
