@@ -19,11 +19,15 @@ async def test_netempregos_scraper_search():
 @pytest.mark.asyncio
 async def test_netempregos_scraper_location_only_without_query():
     scraper = NetEmpregosScraper()
-    jobs = await scraper.search(query="", location="Lisboa", limit=5)
+    jobs = await scraper.search(query="", location="Covilhã", limit=5)
     assert isinstance(jobs, list)
     assert len(jobs) > 0
-    assert jobs[0]["source"] == "netempregos"
-    assert jobs[0]["description"]
+    assert all(j["source"] == "netempregos" for j in jobs)
+    assert all(not j["is_remote"] for j in jobs)
+
+    lisboa_jobs = await scraper.search(query="", location="Lisboa", limit=5)
+    assert len(lisboa_jobs) > 0
+    assert all(not j["is_remote"] for j in lisboa_jobs)
 
 @pytest.mark.asyncio
 async def test_ats_portals_scraper():

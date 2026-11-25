@@ -41,14 +41,13 @@ class ATSPortalsScraper(BaseScraper):
                 all_jobs.extend(res)
 
         if loc_lower and loc_lower not in ("portugal", "global", ""):
-            filtered = [
-                j for j in all_jobs
-                if loc_lower in (j.get("location") or "").lower()
-                or j.get("is_remote")
-                or (loc_lower in ("remoto", "remote") and j.get("is_remote"))
-            ]
-            if filtered:
-                all_jobs = filtered
+            if loc_lower in ("remoto", "remote", "teletrabalho"):
+                all_jobs = [j for j in all_jobs if j.get("is_remote")]
+            else:
+                all_jobs = [
+                    j for j in all_jobs
+                    if loc_lower in (j.get("location") or "").lower()
+                ]
 
         return all_jobs[:limit]
 
