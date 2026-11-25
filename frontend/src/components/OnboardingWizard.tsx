@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import type { OnboardingResult, ProfileExperience, ProfileEducation, ProfileLanguage, ProfileCertification, ProfileProject } from '../types';
 import { LanguageSelector } from './LanguageSelector';
+import { SkillsTagEditor } from './SkillsTagEditor';
 import type { LanguageCode } from '../i18n';
 
 export const OnboardingWizard: React.FC = () => {
@@ -50,7 +51,7 @@ export const OnboardingWizard: React.FC = () => {
   const [githubUrl, setGithubUrl] = useState('');
   const [portfolioUrl, setPortfolioUrl] = useState('');
   const [summary, setSummary] = useState('');
-  const [initialSkills, setInitialSkills] = useState('');
+  const [skills, setSkills] = useState<string[]>([]);
   const [experiences, setExperiences] = useState<ProfileExperience[]>([]);
   const [educations, setEducations] = useState<ProfileEducation[]>([]);
   const [certifications, setCertifications] = useState<ProfileCertification[]>([]);
@@ -130,7 +131,7 @@ export const OnboardingWizard: React.FC = () => {
       setGithubUrl(p.github_url || '');
       setPortfolioUrl(p.portfolio_url || '');
       setSummary(p.summary || '');
-      setInitialSkills((p.skills || []).join(', '));
+      setSkills(p.skills || []);
       setExperiences(p.experiences || []);
       setEducations(p.educations || []);
       setCertifications(p.certifications || []);
@@ -152,11 +153,6 @@ export const OnboardingWizard: React.FC = () => {
     setManualLoading(true);
     setManualError(null);
     try {
-      const skillsArray = initialSkills
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-
       await api.onboardingManual({
         full_name: fullName.trim() || undefined,
         headline: headline.trim() || undefined,
@@ -167,7 +163,7 @@ export const OnboardingWizard: React.FC = () => {
         github_url: githubUrl.trim() || undefined,
         portfolio_url: portfolioUrl.trim() || undefined,
         summary: summary.trim() || undefined,
-        initial_skills: skillsArray,
+        initial_skills: skills,
         experiences,
         educations,
         certifications,
@@ -880,18 +876,11 @@ export const OnboardingWizard: React.FC = () => {
                         />
                       </div>
 
-                      <div>
-                        <label className="block text-xs font-medium text-slate-400 mb-1">
-                          {t('onboarding.skillsLabel')}
-                        </label>
-                        <input
-                          type="text"
-                          value={initialSkills}
-                          onChange={(e) => setInitialSkills(e.target.value)}
-                          placeholder={t('onboarding.skillsPlaceholder')}
-                          className="w-full px-3 py-2 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-200 text-xs focus:outline-none focus:border-blue-500"
-                        />
-                      </div>
+                      <SkillsTagEditor
+                        skills={skills}
+                        onChange={setSkills}
+                        compact
+                      />
 
                       {experiences.length > 0 && (
                         <div className="p-3 rounded-lg bg-slate-950/50 border border-slate-800 space-y-2">

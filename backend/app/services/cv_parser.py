@@ -254,11 +254,11 @@ class CVParserService:
 
         skills: List[str] = []
         for ln in sections["skills"]:
-            clean_ln = re.sub(r"^[-*•]\s*", "", ln)
-            clean_ln = re.sub(r"^[A-Za-zÀ-ÿ\s/]+:\s*", "", clean_ln)
-            for tok in re.split(r"[,;|•·]", clean_ln):
+            clean_ln = re.sub(r"^[-*•●▪◦]\s*", "", ln)
+            clean_ln = re.sub(r"^[A-Za-zÀ-ÿ\s/&]+:\s*", "", clean_ln)
+            for tok in re.split(r"[,;|•·●▪]", clean_ln):
                 skill = tok.strip(" .")
-                if skill and 1 < len(skill) <= 50 and skill not in skills:
+                if skill and (len(skill) > 1 or skill.upper() in {"C", "R"}) and len(skill) <= 50 and skill not in skills:
                     skills.append(skill)
 
         experiences: List[Dict[str, Any]] = []

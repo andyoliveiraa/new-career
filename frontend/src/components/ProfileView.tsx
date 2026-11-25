@@ -3,6 +3,7 @@ import type { ProfileData } from '../types';
 import { api } from '../api';
 import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
+import { SkillsTagEditor } from './SkillsTagEditor';
 import {
   User, Save, Plus, Trash2, CheckCircle2, GraduationCap,
   Briefcase, FolderGit2, Award, Globe, ShieldCheck
@@ -20,7 +21,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  const [newSkill, setNewSkill] = useState('');
   const [newFact, setNewFact] = useState('');
 
   const [showAddEdu, setShowAddEdu] = useState(false);
@@ -85,19 +85,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
     } finally {
       setSaving(false);
     }
-  };
-
-  const addSkill = () => {
-    if (!newSkill.trim() || !profile) return;
-    if (!profile.skills.includes(newSkill.trim())) {
-      setProfile({ ...profile, skills: [...profile.skills, newSkill.trim()] });
-    }
-    setNewSkill('');
-  };
-
-  const removeSkill = (skillToRemove: string) => {
-    if (!profile) return;
-    setProfile({ ...profile, skills: profile.skills.filter((s) => s !== skillToRemove) });
   };
 
   const addExperience = () => {
@@ -366,44 +353,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
         </div>
 
         {/* Skills Tag Cloud */}
-        <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-3">
-          <label className="block text-xs font-semibold text-txt-primary uppercase tracking-wider">
-            {t('profile.skillsTitle')}
-          </label>
-
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder={t('profile.skillPlaceholder')}
-              value={newSkill}
-              onChange={(e) => setNewSkill(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSkill(); } }}
-              className="flex-1 bg-surface-200 border border-surface-border rounded-lg px-3 py-1.5 text-sm text-txt-primary focus:outline-none focus:border-accent"
-            />
-            <button
-              type="button"
-              onClick={addSkill}
-              className="px-3 py-1.5 bg-surface-200 hover:bg-surface-300 text-txt-primary border border-surface-border rounded-lg text-xs font-medium flex items-center gap-1"
-            >
-              <Plus className="w-3.5 h-3.5" /> {t('common.add')}
-            </button>
-          </div>
-
-          <div className="flex flex-wrap gap-2 pt-2">
-            {profile.skills.map((s, idx) => (
-              <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-200 border border-surface-border text-xs text-txt-primary">
-                {s}
-                <button
-                  type="button"
-                  onClick={() => removeSkill(s)}
-                  className="hover:text-red-400"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
+        <SkillsTagEditor
+          skills={profile.skills}
+          onChange={(nextSkills) => setProfile({ ...profile, skills: nextSkills })}
+        />
 
         {/* Experiences Editor */}
         <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-4">
