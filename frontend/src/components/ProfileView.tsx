@@ -6,9 +6,10 @@ import { useLanguage } from '../context/LanguageContext';
 import { SkillsTagEditor } from './SkillsTagEditor';
 import { ExperiencesEditor } from './ExperiencesEditor';
 import { EducationsEditor } from './EducationsEditor';
+import { LanguagesEditor } from './LanguagesEditor';
 import {
   User, Save, Plus, Trash2, CheckCircle2,
-  FolderGit2, Award, Globe, ShieldCheck
+  FolderGit2, Award, ShieldCheck
 } from 'lucide-react';
 
 interface ProfileViewProps {
@@ -32,8 +33,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
 
   const [certName, setCertName] = useState('');
   const [certIssuer, setCertIssuer] = useState('');
-  const [langName, setLangName] = useState('');
-  const [langLevel, setLangLevel] = useState('');
+
 
   useEffect(() => {
     loadProfile();
@@ -118,23 +118,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
     });
   };
 
-  const addLanguage = () => {
-    if (!langName.trim() || !profile) return;
-    setProfile({
-      ...profile,
-      languages: [...(profile.languages || []), { name: langName.trim(), level: langLevel.trim() || t('profile.profLevelDefault') }]
-    });
-    setLangName('');
-    setLangLevel('');
-  };
-
-  const removeLanguage = (index: number) => {
-    if (!profile) return;
-    setProfile({
-      ...profile,
-      languages: (profile.languages || []).filter((_, idx) => idx !== index)
-    });
-  };
 
   const addFact = () => {
     if (!newFact.trim() || !profile) return;
@@ -423,48 +406,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
             </div>
           </div>
 
-          <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-3">
-            <h3 className="font-semibold text-xs text-txt-primary uppercase tracking-wider flex items-center gap-2">
-              <Globe className="w-4 h-4 text-accent-light" />
-              {t('profile.languagesTitle')}
-            </h3>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder={t('profile.langNamePlaceholder')}
-                value={langName}
-                onChange={(e) => setLangName(e.target.value)}
-                className="flex-1 bg-surface-200 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
-              />
-              <input
-                type="text"
-                placeholder={t('profile.langLevelPlaceholder')}
-                value={langLevel}
-                onChange={(e) => setLangLevel(e.target.value)}
-                className="w-28 bg-surface-200 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
-              />
-              <button
-                type="button"
-                onClick={addLanguage}
-                className="px-2.5 py-1.5 bg-surface-200 hover:bg-surface-300 text-txt-primary border border-surface-border rounded-lg text-xs"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <div className="space-y-1.5">
-              {(profile.languages || []).map((l, idx) => (
-                <div key={idx} className="flex items-center justify-between text-xs p-2 rounded bg-surface-200/50 border border-surface-border">
-                  <span>
-                    <strong className="text-txt-primary">{l.name}</strong>
-                    {l.level && <span className="text-txt-muted"> ({l.level})</span>}
-                  </span>
-                  <button type="button" onClick={() => removeLanguage(idx)} className="text-txt-muted hover:text-rose-400">
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
+          <LanguagesEditor
+              languages={profile.languages || []}
+              onChange={(next) => setProfile({ ...profile!, languages: next })}
+            />
         </div>
 
         {/* Verified Facts */}

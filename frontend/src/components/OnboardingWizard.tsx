@@ -11,6 +11,7 @@ import { LanguageSelector } from './LanguageSelector';
 import { SkillsTagEditor } from './SkillsTagEditor';
 import { ExperiencesEditor } from './ExperiencesEditor';
 import { EducationsEditor } from './EducationsEditor';
+import { LanguagesEditor } from './LanguagesEditor';
 import type { LanguageCode } from '../i18n';
 
 export const OnboardingWizard: React.FC = () => {
@@ -896,20 +897,11 @@ export const OnboardingWizard: React.FC = () => {
                         compact
                       />
 
-                      {languages.length > 0 && (
-                        <div className="p-3 rounded-lg bg-slate-950/50 border border-slate-800 space-y-1.5">
-                          <div className="text-xs font-semibold text-slate-300">
-                            {t('profile.languagesTitle')} ({languages.length})
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {languages.map((l, idx) => (
-                              <span key={idx} className="text-[11px] px-2 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300">
-                                {l.name}{l.level ? ` (${l.level})` : ''}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                      <LanguagesEditor
+                        languages={languages}
+                        onChange={setLanguages}
+                        compact
+                      />
                     </div>
                   ) : (
                     <div>
