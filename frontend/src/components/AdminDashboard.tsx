@@ -105,7 +105,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ token, onLogout 
       label: 'Total de Utilizadores',
       value: metrics?.total_users ?? users.length,
       icon: Users,
-      color: 'text-accent-blue',
+      color: 'text-accent',
     },
     {
       label: 'Onboarding Concluído',
@@ -128,12 +128,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ token, onLogout 
   ];
 
   return (
-    <div className="min-h-screen bg-surface-50 flex flex-col">
+    <div className="min-h-screen bg-[#090d16] flex flex-col">
       {/* Top bar */}
       <header className="border-b border-surface-border bg-surface-100/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <ShieldCheck className="w-5 h-5 text-accent-blue" />
+            <ShieldCheck className="w-5 h-5 text-accent" />
             <span className="font-semibold text-txt-primary text-sm">Admin</span>
             <span className="text-surface-border text-sm">·</span>
             <span className="text-txt-secondary text-sm">New Career</span>
@@ -190,7 +190,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ token, onLogout 
           {/* Table header */}
           <div className="px-4 py-3 border-b border-surface-border flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-accent-blue" />
+              <Users className="w-4 h-4 text-accent" />
               <h2 className="text-sm font-semibold text-txt-primary">Utilizadores Registados</h2>
               <span className="text-xs text-txt-muted bg-surface-200 border border-surface-border rounded-md px-2 py-0.5 tabular-nums">
                 {filtered.length}
@@ -203,7 +203,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ token, onLogout 
                 placeholder="Nome ou email..."
                 value={search}
                 onChange={e => { setSearch(e.target.value); setPage(1); }}
-                className="pl-8 pr-3 py-1.5 text-xs bg-surface-200 border border-surface-border rounded-lg text-txt-primary placeholder-txt-muted focus:outline-none focus:ring-2 focus:ring-accent-blue/40 focus:border-accent-blue transition-colors w-52"
+                className="pl-8 pr-3 py-1.5 text-xs bg-surface-200 border border-surface-border rounded-lg text-txt-primary placeholder-txt-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-colors w-52"
               />
             </div>
           </div>
@@ -303,20 +303,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ token, onLogout 
         {metrics && (
           <div className="bg-surface-100 border border-surface-border rounded-xl p-4">
             <div className="flex items-center gap-2 mb-3">
-              <ShieldCheck className="w-4 h-4 text-accent-blue" />
+              <ShieldCheck className="w-4 h-4 text-accent" />
               <h2 className="text-sm font-semibold text-txt-primary">Métricas da Plataforma (acumulado)</h2>
             </div>
-            <div className="flex flex-wrap gap-x-6 gap-y-2">
-              {Object.entries(metrics.platform_totals)
+            {(() => {
+              const LABELS: Record<string, string> = {
+                registers: 'Registos', logins: 'Logins',
+                scans_started: 'Varreduras iniciadas', scans_completed: 'Varreduras concluídas',
+                jobs_scraped: 'Vagas encontradas', manual_jobs_created: 'Vagas manuais',
+                jobs_exported: 'Exportações', ai_fit_analyses: 'Análises de fit IA',
+                ai_cv_tailors: 'CVs adaptados', ai_cover_letters: 'Cartas de motivação',
+                ai_interview_preps: 'Preps entrevista', ai_pdf_downloads: 'Downloads PDF',
+                cv_templates_saved: 'Templates CV', profile_updates: 'Perfis atualizados',
+                settings_updates: 'Config atualizadas', onboarding_completed: 'Onboardings concluídos',
+              };
+              const entries = Object.entries(metrics.platform_totals)
                 .filter(([k]) => !k.startsWith('page_view_') && k !== 'updated_at')
-                .sort(([, a], [, b]) => b - a)
-                .map(([key, val]) => (
-                  <div key={key} className="flex items-center gap-2">
-                    <span className="text-xs text-txt-muted">{key.replace(/_/g, ' ')}</span>
-                    <span className="text-sm font-semibold text-txt-primary tabular-nums">{val}</span>
-                  </div>
-                ))}
-            </div>
+                .sort(([, a], [, b]) => b - a);
+
+              if (entries.length === 0) {
+                return (
+                  <p className="text-xs text-txt-muted py-2">
+                    Os contadores acumulados aparecerão aqui à medida que os utilizadores usarem a plataforma.
+                    O registo de métricas está ativo desde 25/11/2026.
+                  </p>
+                );
+              }
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {entries.map(([key, val]) => (
+                    <div key={key} className="bg-surface-200/50 border border-surface-border rounded-lg px-3 py-2.5">
+                      <p className="text-xs text-txt-muted truncate">{LABELS[key] ?? key.replace(/_/g, ' ')}</p>
+                      <p className="text-lg font-bold text-txt-primary tabular-nums mt-0.5">{val}</p>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         )}
       </main>

@@ -44,12 +44,12 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-surface-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#090d16] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-surface-200 border border-surface-border mb-4">
-            <ShieldCheck className="w-6 h-6 text-accent-blue" />
+            <ShieldCheck className="w-6 h-6 text-accent" />
           </div>
           <h1 className="text-xl font-semibold text-txt-primary">Painel de Administração</h1>
           <p className="text-sm text-txt-secondary mt-1">New Career — Acesso restrito</p>
@@ -64,7 +64,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
               value={email}
               onChange={e => setEmail(e.target.value)}
               autoComplete="username"
-              className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-2.5 text-sm text-txt-primary placeholder-txt-muted focus:outline-none focus:ring-2 focus:ring-accent-blue/40 focus:border-accent-blue transition-colors"
+              className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-2.5 text-sm text-txt-primary placeholder-txt-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-colors"
               placeholder="admin@exemplo.com"
             />
           </div>
@@ -76,7 +76,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 autoComplete="current-password"
-                className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-2.5 pr-10 text-sm text-txt-primary placeholder-txt-muted focus:outline-none focus:ring-2 focus:ring-accent-blue/40 focus:border-accent-blue transition-colors"
+                className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-2.5 pr-10 text-sm text-txt-primary placeholder-txt-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-colors"
                 placeholder="••••••••"
               />
               <button
@@ -99,7 +99,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 bg-accent-blue hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium text-sm rounded-lg px-4 py-2.5 transition-colors"
+            className="w-full flex items-center justify-center gap-2 bg-accent hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium text-sm rounded-lg px-4 py-2.5 transition-colors"
           >
             {loading ? (
               <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
