@@ -149,31 +149,6 @@ export const EducationsEditor: React.FC<EducationsEditorProps> = ({
     setEditDraft(null);
   };
 
-  const toggleQuickInProgress = (index: number) => {
-    const target = educations[index];
-    const nextInProgress = !isEducationInProgress(target);
-    const year = resolveStartYear(target);
-    if (nextInProgress && !year) {
-      setEditingIndex(index);
-      setEditDraft({ ...target });
-      setEditInProgress(true);
-      setEditStartYear('');
-      return;
-    }
-    const next = [...educations];
-    next[index] = {
-      ...target,
-      in_progress: nextInProgress,
-      start_year: year || undefined,
-      period: nextInProgress
-        ? year
-          ? `${year} - ${t('profile.presentDefault')}`
-          : t('profile.presentDefault')
-        : target.period.replace(/\s*[-–—]\s*(?:present(?:e)?|atual(?:mente)?|current(?:ly)?|ongoing|heute|actual|至今|현재|الحاضر)$/i, '').trim() || year,
-    };
-    onChange(next);
-  };
-
   return (
     <div
       className={
@@ -399,28 +374,23 @@ export const EducationsEditor: React.FC<EducationsEditorProps> = ({
                       </>
                     ) : null}
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-txt-muted break-words">
-                    {inProgress ? (
-                      <span>
-                        {startYear ? t('profile.eduSinceYear', { year: startYear }) : edu.period}
-                      </span>
-                    ) : (
-                      edu.period && <span>{edu.period}</span>
-                    )}
-                    <button
-                      type="button"
-                      aria-pressed={inProgress}
-                      onClick={() => toggleQuickInProgress(idx)}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border transition-colors ${
-                        inProgress
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                          : 'bg-surface-100/60 border-surface-border text-txt-muted hover:text-txt-primary'
-                      }`}
-                    >
-                      <Clock className="w-3 h-3" />
-                      <span>{inProgress ? t('profile.eduInProgressBadge') : t('profile.eduInProgress')}</span>
-                    </button>
-                  </div>
+                  {(inProgress || edu.period) && (
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-txt-muted break-words">
+                      {inProgress ? (
+                        <>
+                          <span>
+                            {startYear ? t('profile.eduSinceYear', { year: startYear }) : edu.period}
+                          </span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                            <Clock className="w-3 h-3" />
+                            <span>{t('profile.eduInProgressBadge')}</span>
+                          </span>
+                        </>
+                      ) : (
+                        <span>{edu.period}</span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
