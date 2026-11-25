@@ -1,10 +1,8 @@
 <div align="center">
 
-<video src="assets/new-career-promo-16x9.mp4" poster="assets/promo-cover.png" controls muted autoplay loop playsinline width="100%"></video>
+[![New Career — 30s Commercial Demo (16:9)](assets/new-career-promo-16x9.gif)](https://github.com/andyoliveiraa/new-career/raw/main/assets/new-career-promo-16x9.mp4)
 
-[![New Career — 30s Commercial Demo (16:9 • 1080p 60fps)](assets/promo-cover.png)](assets/new-career-promo-16x9.mp4)
-
-**[Watch 16:9 Commercial Demo (1080p 60fps MP4)](assets/new-career-promo-16x9.mp4)** · **[Live Platform (career.andydias.pt)](https://career.andydias.pt)**
+**[Download / Play Full 1080p 60fps MP4](https://github.com/andyoliveiraa/new-career/raw/main/assets/new-career-promo-16x9.mp4)** · **[Live Platform (career.andydias.pt)](https://career.andydias.pt)**
 
 </div>
 
