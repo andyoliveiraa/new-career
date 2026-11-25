@@ -1,0 +1,23 @@
+career.andydias.pt {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	# Backend FastAPI (uvicorn em 127.0.0.1:8000)
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	# Frontend estático (React/Vite build em frontend/dist)
+	# Caso use Vite dev server em vez do build, substitua este bloco por:
+	# reverse_proxy 127.0.0.1:5173
+	handle {
+		root * /home/ubuntu/new-career/frontend/dist
+		try_files {path} /index.html
+		file_server
+	}
+}

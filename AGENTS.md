@@ -20,3 +20,19 @@ All frontend and user interface development in this project must adhere to high-
 3. **Workspace Skills Reference:**
    - UI audits and refactoring follow the workflow in [`.agents/skills/unslop/SKILL.md`](.agents/skills/unslop/SKILL.md).
    - Component tokens follow [`.agents/skills/ui-design-tokens/SKILL.md`](.agents/skills/ui-design-tokens/SKILL.md).
+
+## Mandatory GitHub Sync & Auto-Deploy Workflow
+
+Whenever **any** change or update is made to this project (code, configuration, assets, `Caddyfile`, or documentation), you **MUST** complete all of the following steps before finishing:
+
+1. **Test & Verify:**
+   - Run the backend test suite (`PYTHONPATH=. backend/.venv/bin/pytest backend/tests/ -v`) and ensure all tests pass.
+2. **Rebuild & Relaunch the Website (`https://career.andydias.pt`):**
+   - Run `./deploy.sh` from the repository root (`/home/ubuntu/new-career`), which:
+     - Installs/updates frontend dependencies if needed and runs `npm run build` (`frontend/dist/`).
+     - Syncs `Caddyfile` to `/etc/caddy/Caddyfile` (validating syntax) and reloads `caddy` when changed.
+     - Restarts `new-career-backend` (`systemd`) and verifies both `http://127.0.0.1:8000/api/health` and `https://career.andydias.pt/` respond with HTTP 200.
+3. **Push All Updates to GitHub (`origin main`):**
+   - Never stage or commit secrets or local runtime data (`.env`, `firebase-credentials.json`, `storage/`, `*.db`).
+   - Stage all project changes (`git add`), create a clear commit (`git commit -m "..."`), and push to GitHub (`git push origin main`).
+   - If `git push` cannot authenticate (missing token/SSH key or git identity), stop and report the exact blocker to the user instead of skipping the push silently.
