@@ -8,7 +8,7 @@ import {
   ArrowUp, ArrowDown, Sparkles, RefreshCw, Save, Trash2,
   Copy, Star, HelpCircle, User, Type, CheckCircle2,
   AlertCircle, ChevronDown, ChevronUp, Sliders, X,
-  ZoomIn, ZoomOut, Maximize2, MoveHorizontal, Lightbulb
+  ZoomIn, ZoomOut, Maximize2, MoveHorizontal, Lightbulb, Upload
 } from 'lucide-react';
 
 const A4_WIDTH_PX = 794;
@@ -34,6 +34,8 @@ export const CVBuilderView: React.FC = () => {
   // A4 Preview scaling state
   const previewStageRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [isDraggingPhoto, setIsDraggingPhoto] = useState(false);
   const [stageSize, setStageSize] = useState<{ width: number; height: number }>({ width: 640, height: 740 });
   const [zoomMode, setZoomMode] = useState<'fitPage' | 'fitWidth' | 'manual'>('fitPage');
   const [manualZoom, setManualZoom] = useState<number>(0.7);
@@ -182,6 +184,53 @@ export const CVBuilderView: React.FC = () => {
     const currentVis = selectedTemplate.block_visibility || {};
     updateTemplateField('block_visibility', { ...currentVis, [blockKey]: !currentVis[blockKey] });
   };
+
+  const processPhotoFile = useCallback((file: File) => {
+    if (!selectedTemplate) return;
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+      showToast(t('cvBuilder.photoUploadInvalid'), 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 480;
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          const ratio = Math.min(maxDim / width, maxDim / height);
+          width = Math.max(1, Math.round(width * ratio));
+          height = Math.max(1, Math.round(height * ratio));
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+        setSelectedTemplate((prev) => (prev ? { ...prev, has_photo: true, photo_url: dataUrl } : prev));
+        showToast(t('cvBuilder.photoUploadSuccess'), 'success');
+      };
+      img.onerror = () => {
+        showToast(t('cvBuilder.photoUploadInvalid'), 'error');
+      };
+      if (typeof reader.result === 'string') {
+        img.src = reader.result;
+      }
+    };
+    reader.onerror = () => {
+      showToast(t('cvBuilder.photoUploadInvalid'), 'error');
+    };
+    reader.readAsDataURL(file);
+  }, [selectedTemplate, showToast, t]);
 
   const handleMoveBlock = (index: number, direction: 'up' | 'down') => {
     if (!selectedTemplate) return;
@@ -422,7 +471,7 @@ export const CVBuilderView: React.FC = () => {
       )}
 
       {/* Main 3-Column Studio Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 xl:grid-cols-[312px_minmax(0,1fr)_344px] gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 xl:grid-cols-[336px_minmax(0,1fr)_344px] gap-4 items-start">
         <div className="lg:col-span-5 xl:col-span-1 space-y-4">
           <div className="bg-surface-100 border border-surface-border rounded-xl p-4 space-y-4">
             <div>
@@ -438,46 +487,46 @@ export const CVBuilderView: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-4 gap-1 p-1 bg-surface-200/70 border border-surface-border rounded-lg text-[11px]">
+            <div className="flex flex-wrap gap-1 p-1 bg-surface-200/70 border border-surface-border rounded-lg text-xs">
               <button
                 type="button"
                 onClick={() => setActiveConfigTab('layout')}
-                className={`flex items-center justify-center gap-1 h-8 px-1.5 rounded-md font-medium transition-colors whitespace-nowrap ${
+                className={`flex-1 flex items-center justify-center gap-1.5 h-8 px-2.5 rounded-md font-medium transition-colors whitespace-nowrap ${
                   activeConfigTab === 'layout' ? 'bg-surface-300 text-txt-primary border border-surface-border' : 'text-txt-muted hover:text-txt-primary'
                 }`}
               >
                 <Layout className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{t('cvBuilder.tabLayout')}</span>
+                <span>{t('cvBuilder.tabLayout')}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setActiveConfigTab('blocks')}
-                className={`flex items-center justify-center gap-1 h-8 px-1.5 rounded-md font-medium transition-colors whitespace-nowrap ${
+                className={`flex-1 flex items-center justify-center gap-1.5 h-8 px-2.5 rounded-md font-medium transition-colors whitespace-nowrap ${
                   activeConfigTab === 'blocks' ? 'bg-surface-300 text-txt-primary border border-surface-border' : 'text-txt-muted hover:text-txt-primary'
                 }`}
               >
                 <Sliders className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{t('cvBuilder.tabBlocks')}</span>
+                <span>{t('cvBuilder.tabBlocks')}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setActiveConfigTab('typography')}
-                className={`flex items-center justify-center gap-1 h-8 px-1.5 rounded-md font-medium transition-colors whitespace-nowrap ${
+                className={`flex-1 flex items-center justify-center gap-1.5 h-8 px-2.5 rounded-md font-medium transition-colors whitespace-nowrap ${
                   activeConfigTab === 'typography' ? 'bg-surface-300 text-txt-primary border border-surface-border' : 'text-txt-muted hover:text-txt-primary'
                 }`}
               >
                 <Type className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{t('cvBuilder.tabTypography')}</span>
+                <span>{t('cvBuilder.tabTypography')}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setActiveConfigTab('photo')}
-                className={`flex items-center justify-center gap-1 h-8 px-1.5 rounded-md font-medium transition-colors whitespace-nowrap ${
+                className={`flex-1 flex items-center justify-center gap-1.5 h-8 px-2.5 rounded-md font-medium transition-colors whitespace-nowrap ${
                   activeConfigTab === 'photo' ? 'bg-surface-300 text-txt-primary border border-surface-border' : 'text-txt-muted hover:text-txt-primary'
                 }`}
               >
                 <User className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{t('cvBuilder.tabPhoto')}</span>
+                <span>{t('cvBuilder.tabPhoto')}</span>
               </button>
             </div>
 
@@ -766,15 +815,79 @@ export const CVBuilderView: React.FC = () => {
                   <div className="space-y-3">
                     <div>
                       <label className="block text-xs font-medium text-txt-secondary mb-1.5">
-                        {t('cvBuilder.photoUrlLabel')}
+                        {t('cvBuilder.photoUploadTitle')}
                       </label>
+
                       <input
-                        type="text"
-                        value={selectedTemplate?.photo_url || ''}
-                        onChange={(e) => updateTemplateField('photo_url', e.target.value)}
-                        placeholder="https://example.com/photo.jpg"
-                        className="w-full h-9 bg-surface-200 border border-surface-border rounded-lg px-3 text-xs text-txt-primary focus:outline-none focus:border-accent"
+                        ref={photoInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) processPhotoFile(file);
+                          e.target.value = '';
+                        }}
                       />
+
+                      {selectedTemplate.photo_url ? (
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-surface-200 border border-surface-border">
+                          <img
+                            src={selectedTemplate.photo_url}
+                            alt={selectedTemplate.name}
+                            className="w-14 h-14 rounded-full object-cover border border-surface-border shrink-0 bg-white"
+                          />
+                          <div className="flex-1 min-w-0 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => photoInputRef.current?.click()}
+                              className="h-8 px-3 rounded-lg bg-surface-300 hover:bg-surface-border text-xs font-medium text-txt-primary transition-colors flex items-center gap-1.5"
+                            >
+                              <Upload className="w-3.5 h-3.5" />
+                              {t('cvBuilder.photoChangeBtn')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => updateTemplateField('photo_url', '')}
+                              className="h-8 px-3 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-xs font-medium text-rose-400 transition-colors flex items-center gap-1.5"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              {t('cvBuilder.photoRemoveBtn')}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => photoInputRef.current?.click()}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setIsDraggingPhoto(true);
+                          }}
+                          onDragLeave={() => setIsDraggingPhoto(false)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setIsDraggingPhoto(false);
+                            const file = e.dataTransfer.files?.[0];
+                            if (file) processPhotoFile(file);
+                          }}
+                          className={`w-full p-5 rounded-lg border border-dashed text-center transition-colors flex flex-col items-center gap-2 ${
+                            isDraggingPhoto
+                              ? 'border-accent bg-accent/10 text-txt-primary'
+                              : 'border-surface-border bg-surface-200/50 hover:bg-surface-200 text-txt-secondary hover:text-txt-primary'
+                          }`}
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-surface-300 border border-surface-border flex items-center justify-center text-accent-light">
+                            <Upload className="w-4 h-4" />
+                          </div>
+                          <span className="text-xs font-medium text-txt-primary">
+                            {t('cvBuilder.photoUploadCta')}
+                          </span>
+                          <span className="text-[11px] text-txt-muted leading-snug">
+                            {t('cvBuilder.photoDropHint')}
+                          </span>
+                        </button>
+                      )}
                     </div>
 
                     <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs space-y-1">
