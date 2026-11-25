@@ -1,23 +1,32 @@
+import argparse
 import asyncio
-import os
-import json
+import sys
 from sqlalchemy import select
-from backend.app.database import AsyncSessionLocal, init_db
-from backend.app.models.job import Job
-from backend.app.models.application import Application
-from backend.app.models.profile import Profile
-from backend.app.firebase import firebase_manager
 
-async def migrate_data():
-    print("--> Migrando dados para Firebase Firestore...")
+from backend.app.database import AsyncSessionLocal, init_db
+from backend.app.firebase import firebase_manager
+from backend.app.models.application import Application
+from backend.app.models.job import Job
+from backend.app.models.profile import Profile
+
+
+async def migrate_data(email: str) -> None:
+    print("--> Migrando dados SQLite para Firebase Firestore multi-tenant...")
     await init_db()
 
+    user = await firebase_manager.get_user_by_email(email)
+    if not user:
+        print(f"ERRO: Utilizador '{email}' não encontrado no sistema.")
+        sys.exit(1)
+
+    user_id = user["id"]
+
     async with AsyncSessionLocal() as session:
-        # 1. Migrate Profile
         prof = (await session.execute(select(Profile))).scalar_one_or_none()
         if prof:
             prof_dict = {
                 "id": prof.id,
+                "user_id": user_id,
                 "full_name": prof.full_name,
                 "headline": prof.headline,
                 "email": prof.email,
@@ -31,18 +40,17 @@ async def migrate_data():
                 "experiences": prof.experiences or [],
                 "educations": prof.educations or [],
                 "certifications": prof.certifications or [],
+                "projects": [],
+                "languages": [],
                 "verified_facts": prof.verified_facts or [],
                 "updated_at": str(prof.updated_at)
             }
-            await firebase_manager.save_profile(prof_dict)
-            print(f"--> Perfil de '{prof.full_name}' migrado para Firebase com sucesso!")
+            await firebase_manager.save_profile(user_id, prof_dict)
+            print(f"--> Perfil de '{prof.full_name}' migrado para utilizador '{user_id}'.")
 
-        # 2. Migrate Jobs and Applications
         jobs = (await session.execute(select(Job))).scalars().all()
         for j in jobs:
-            # Get linked application
             app = (await session.execute(select(Application).where(Application.job_id == j.id))).scalar_one_or_none()
-            
             job_dict = {
                 "id": j.id,
                 "job_key": j.job_key,
@@ -63,7 +71,7 @@ async def migrate_data():
                 "application_status": app.status if app else "disponivel",
                 "match_score": app.match_score if app else None
             }
-            await firebase_manager.save_job(job_dict)
+            await firebase_manager.save_job(user_id, job_dict)
 
             if app:
                 app_dict = {
@@ -81,9 +89,13 @@ async def migrate_data():
                     "notes": app.notes,
                     "created_at": str(app.created_at) if app.created_at else None
                 }
-                await firebase_manager.save_application(j.id, app_dict)
+                await firebase_manager.save_application(user_id, j.id, app_dict)
 
-        print(f"--> {len(jobs)} vagas e candidaturas migradas com sucesso para Firebase Firestore!")
+        print(f"--> {len(jobs)} vagas migradas para o utilizador '{user_id}'.")
+
 
 if __name__ == "__main__":
-    asyncio.run(migrate_data())
+    parser = argparse.ArgumentParser(description="Migrar SQLite legado para Firestore multi-tenant.")
+    parser.add_argument("--email", required=True, help="Email da conta destino")
+    args = parser.parse_args()
+    asyncio.run(migrate_data(args.email))

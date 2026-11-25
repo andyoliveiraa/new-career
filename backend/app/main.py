@@ -1,10 +1,10 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.config import settings
-from backend.app.database import init_db
+from backend.app.firebase import firebase_manager
 from backend.app.api.auth import router as auth_router
 from backend.app.api.jobs import router as jobs_router
 from backend.app.api.applications import router as applications_router
@@ -17,26 +17,28 @@ from backend.app.api.settings import router as settings_router
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("new_career")
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Initializing database schema...")
-    await init_db()
-    logger.info("New Career backend ready!")
+    storage_mode = "cloud_firestore" if firebase_manager._is_live else "local_firestore"
+    logger.info(f"New Career backend pronto (modo de armazenamento: {storage_mode}).")
     yield
     logger.info("Shutting down New Career backend...")
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Plataforma de alta precisão para monitoramento de vagas, liveness check em tempo real, CVs ATS e tracking de candidaturas.",
-    version="1.0.0",
+    version="1.1.0",
     lifespan=lifespan
 )
 
-# Enable CORS for Next.js / frontend
+origins = settings.cors_origins_list
+allow_wildcard = "*" in origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=origins,
+    allow_credentials=not allow_wildcard,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -51,15 +53,18 @@ app.include_router(ai_router, prefix="/api")
 app.include_router(cv_templates_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 
+
 @app.get("/api/health")
 async def health_check():
     return {
         "status": "online",
         "project": settings.PROJECT_NAME,
-        "database": "sqlite_async",
+        "environment": settings.APP_ENV,
+        "database": "cloud_firestore" if firebase_manager._is_live else "local_firestore",
         "scrapers": ["netempregos", "google", "jobspy", "careerops_ats"],
         "liveness_checker": "active"
     }
+
 
 if __name__ == "__main__":
     import uvicorn

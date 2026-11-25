@@ -1,38 +1,16 @@
-from fastapi import APIRouter, Depends
-from typing import Dict, Any
 from datetime import datetime, timezone
-from backend.app.schemas.profile import ProfileUpdate, ProfileResponse
-from backend.app.firebase import firebase_manager
+from typing import Any, Dict
+from fastapi import APIRouter, Depends
+
 from backend.app.auth_utils import get_current_user
+from backend.app.config import settings
+from backend.app.firebase import firebase_manager
+from backend.app.schemas.profile import ProfileResponse, ProfileUpdate
 
 router = APIRouter(prefix="/profile", tags=["Profile"])
 
-@router.get("", response_model=ProfileResponse)
-async def get_profile(current_user: Dict[str, Any] = Depends(get_current_user)):
-    user_id = current_user["id"]
-    prof = await firebase_manager.get_profile(user_id)
-    if not prof:
-        prof = {
-            "id": 1,
-            "user_id": user_id,
-            "full_name": current_user.get("full_name", ""),
-            "headline": "Profissional em Transição / Procura Ativa",
-            "email": current_user.get("email", ""),
-            "phone": "",
-            "location": "Portugal",
-            "linkedin_url": None,
-            "github_url": None,
-            "portfolio_url": None,
-            "summary": "Perfil mestre criado na plataforma New Career.",
-            "skills": [],
-            "experiences": [],
-            "educations": [],
-            "certifications": [],
-            "verified_facts": [],
-            "master_cv_text": ""
-        }
-        await firebase_manager.save_profile(user_id, prof)
 
+def _to_profile_response(prof: Dict[str, Any], current_user: Dict[str, Any]) -> ProfileResponse:
     now = datetime.now(timezone.utc)
     return ProfileResponse(
         id=int(prof.get("id", 1)),
@@ -49,32 +27,52 @@ async def get_profile(current_user: Dict[str, Any] = Depends(get_current_user)):
         experiences=prof.get("experiences") or [],
         educations=prof.get("educations") or [],
         certifications=prof.get("certifications") or [],
+        projects=prof.get("projects") or [],
+        languages=prof.get("languages") or [],
         verified_facts=prof.get("verified_facts") or [],
         updated_at=prof.get("updated_at") or now
     )
 
+
+@router.get("", response_model=ProfileResponse)
+async def get_profile(current_user: Dict[str, Any] = Depends(get_current_user)):
+    user_id = current_user["id"]
+    prof = await firebase_manager.get_profile(user_id)
+    if not prof:
+        prof = {
+            "id": 1,
+            "user_id": user_id,
+            "full_name": current_user.get("full_name", ""),
+            "headline": "Profissional em Transição / Procura Ativa",
+            "email": current_user.get("email", ""),
+            "phone": "",
+            "location": settings.DEFAULT_COUNTRY,
+            "linkedin_url": None,
+            "github_url": None,
+            "portfolio_url": None,
+            "summary": "Perfil mestre criado na plataforma New Career.",
+            "skills": [],
+            "experiences": [],
+            "educations": [],
+            "certifications": [],
+            "projects": [],
+            "languages": [],
+            "verified_facts": [],
+            "master_cv_text": ""
+        }
+        await firebase_manager.save_profile(user_id, prof)
+
+    return _to_profile_response(prof, current_user)
+
+
 @router.put("", response_model=ProfileResponse)
 async def update_profile(profile_data: ProfileUpdate, current_user: Dict[str, Any] = Depends(get_current_user)):
     user_id = current_user["id"]
+    existing = await firebase_manager.get_profile(user_id)
     data = profile_data.model_dump()
+    data["id"] = existing.get("id", 1)
     data["user_id"] = user_id
+    if existing.get("master_cv_text") and "master_cv_text" not in data:
+        data["master_cv_text"] = existing["master_cv_text"]
     saved = await firebase_manager.save_profile(user_id, data)
-    now = datetime.now(timezone.utc)
-    return ProfileResponse(
-        id=int(saved.get("id", 1)),
-        full_name=saved.get("full_name", ""),
-        headline=saved.get("headline"),
-        email=saved.get("email"),
-        phone=saved.get("phone"),
-        location=saved.get("location"),
-        linkedin_url=saved.get("linkedin_url"),
-        github_url=saved.get("github_url"),
-        portfolio_url=saved.get("portfolio_url"),
-        summary=saved.get("summary"),
-        skills=saved.get("skills") or [],
-        experiences=saved.get("experiences") or [],
-        educations=saved.get("educations") or [],
-        certifications=saved.get("certifications") or [],
-        verified_facts=saved.get("verified_facts") or [],
-        updated_at=saved.get("updated_at") or now
-    )
+    return _to_profile_response(saved, current_user)

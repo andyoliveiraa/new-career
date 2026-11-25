@@ -2,6 +2,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
+
 class ProfileBase(BaseModel):
     full_name: str
     headline: Optional[str] = None
@@ -16,10 +17,14 @@ class ProfileBase(BaseModel):
     experiences: Optional[List[Dict[str, Any]]] = []
     educations: Optional[List[Dict[str, Any]]] = []
     certifications: Optional[List[Dict[str, Any]]] = []
+    projects: Optional[List[Dict[str, Any]]] = []
+    languages: Optional[List[Dict[str, Any]]] = []
     verified_facts: Optional[List[str]] = []
+
 
 class ProfileUpdate(ProfileBase):
     pass
+
 
 class ProfileResponse(ProfileBase):
     id: int

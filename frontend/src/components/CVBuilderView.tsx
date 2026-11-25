@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { CVTemplate, ATSAuditResult } from '../types';
 import { api } from '../api';
+import { useToast } from '../context/ToastContext';
 import {
   Palette, Layout, AlertTriangle, Eye, EyeOff,
   ArrowUp, ArrowDown, Sparkles, RefreshCw, Save, Trash2,
   Copy, Star, HelpCircle, User, Type, CheckCircle2,
-  AlertCircle, ChevronDown, ChevronUp, Sliders
+  AlertCircle, ChevronDown, ChevronUp, Sliders, X
 } from 'lucide-react';
 
 const PRESET_COLORS = [
@@ -48,6 +49,7 @@ const BLOCK_DEFINITIONS: Record<string, { label: string; desc: string }> = {
 };
 
 export const CVBuilderView: React.FC = () => {
+  const { showToast } = useToast();
   const [templates, setTemplates] = useState<CVTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<CVTemplate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,14 +63,17 @@ export const CVBuilderView: React.FC = () => {
   const [customFontInput, setCustomFontInput] = useState('');
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
 
-  // 1. Load Templates
+  // Inline modals instead of window.prompt / window.confirm
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('Meu Modelo Personalizado');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
   const loadTemplates = useCallback(async () => {
     setLoading(true);
     try {
       const list = await api.getCVTemplates();
       setTemplates(list);
       if (list.length > 0) {
-        // Pick default or first
         const def = list.find(t => t.is_default) || list[0];
         setSelectedTemplate(def);
         setCustomFontInput(def.font_family);
@@ -84,7 +89,6 @@ export const CVBuilderView: React.FC = () => {
     loadTemplates();
   }, [loadTemplates]);
 
-  // 2. Fetch Preview and ATS Audit whenever selectedTemplate changes
   const refreshPreviewAndAudit = useCallback(async (tpl: CVTemplate) => {
     setLoadingPreview(true);
     setLoadingAudit(true);
@@ -112,18 +116,15 @@ export const CVBuilderView: React.FC = () => {
     }
   }, [selectedTemplate, refreshPreviewAndAudit]);
 
-  // Template modifications
   const updateTemplateField = <K extends keyof CVTemplate>(field: K, value: CVTemplate[K]) => {
     if (!selectedTemplate) return;
-    const updated = { ...selectedTemplate, [field]: value };
-    setSelectedTemplate(updated);
+    setSelectedTemplate({ ...selectedTemplate, [field]: value });
   };
 
   const handleToggleBlock = (blockKey: string) => {
     if (!selectedTemplate) return;
     const currentVis = selectedTemplate.block_visibility || {};
-    const updatedVis = { ...currentVis, [blockKey]: !currentVis[blockKey] };
-    updateTemplateField('block_visibility', updatedVis);
+    updateTemplateField('block_visibility', { ...currentVis, [blockKey]: !currentVis[blockKey] });
   };
 
   const handleMoveBlock = (index: number, direction: 'up' | 'down') => {
@@ -135,7 +136,6 @@ export const CVBuilderView: React.FC = () => {
     const temp = order[index];
     order[index] = order[targetIndex];
     order[targetIndex] = temp;
-
     updateTemplateField('blocks_order', order);
   };
 
@@ -147,21 +147,23 @@ export const CVBuilderView: React.FC = () => {
       setSelectedTemplate(saved);
       setTemplates(prev => prev.map(t => t.id === saved.id ? saved : t));
       setSaveSuccessMsg('Modelo guardado com sucesso!');
+      showToast('Modelo de CV guardado.', 'success');
       setTimeout(() => setSaveSuccessMsg(''), 3000);
-    } catch (err) {
-      alert('Erro ao guardar modelo de CV');
+    } catch (err: any) {
+      showToast(err.message || 'Erro ao guardar modelo de CV', 'error');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleCreateNewTemplate = async () => {
-    const name = prompt('Nome do novo modelo de CV:', 'Meu Modelo Personalizado');
-    if (!name) return;
+  const handleCreateNewTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanName = newTemplateName.trim();
+    if (!cleanName) return;
 
     try {
       const created = await api.createCVTemplate({
-        name,
+        name: cleanName,
         layout: 'classic_ats',
         accent_color: '#2563eb',
         font_family: 'Inter',
@@ -176,8 +178,12 @@ export const CVBuilderView: React.FC = () => {
       });
       setTemplates(prev => [created, ...prev]);
       setSelectedTemplate(created);
-    } catch (err) {
-      alert('Erro ao criar novo modelo');
+      setCustomFontInput(created.font_family);
+      setShowCreateModal(false);
+      setNewTemplateName('Meu Modelo Personalizado');
+      showToast('Novo modelo criado.', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Erro ao criar novo modelo', 'error');
     }
   };
 
@@ -192,26 +198,28 @@ export const CVBuilderView: React.FC = () => {
       });
       setTemplates(prev => [duplicated, ...prev]);
       setSelectedTemplate(duplicated);
-    } catch (err) {
-      alert('Erro ao duplicar modelo');
+      showToast('Modelo duplicado.', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Erro ao duplicar modelo', 'error');
     }
   };
 
   const handleDeleteTemplate = async () => {
     if (!selectedTemplate) return;
     if (templates.length <= 1) {
-      alert('Deve manter pelo menos um modelo de CV configurado.');
+      showToast('Deve manter pelo menos um modelo de CV configurado.', 'error');
       return;
     }
-    if (!confirm(`Tem a certeza que pretende eliminar o modelo "${selectedTemplate.name}"?`)) return;
 
     try {
       await api.deleteCVTemplate(selectedTemplate.id);
       const remaining = templates.filter(t => t.id !== selectedTemplate.id);
       setTemplates(remaining);
       setSelectedTemplate(remaining[0] || null);
-    } catch (err) {
-      alert('Erro ao eliminar modelo');
+      setConfirmingDelete(false);
+      showToast('Modelo eliminado.', 'info');
+    } catch (err: any) {
+      showToast(err.message || 'Erro ao eliminar modelo', 'error');
     }
   };
 
@@ -220,12 +228,10 @@ export const CVBuilderView: React.FC = () => {
     try {
       const updated = await api.updateCVTemplate(selectedTemplate.id, { is_default: true });
       setSelectedTemplate(updated);
-      setTemplates(prev => prev.map(t => ({
-        ...t,
-        is_default: t.id === updated.id
-      })));
-    } catch (err) {
-      alert('Erro ao definir como modelo padrão');
+      setTemplates(prev => prev.map(t => ({ ...t, is_default: t.id === updated.id })));
+      showToast('Modelo definido como padrão.', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Erro ao definir como modelo padrão', 'error');
     }
   };
 
@@ -267,26 +273,29 @@ export const CVBuilderView: React.FC = () => {
                 if (found) {
                   setSelectedTemplate(found);
                   setCustomFontInput(found.font_family);
+                  setConfirmingDelete(false);
                 }
               }}
               className="bg-transparent text-xs font-semibold text-txt-primary focus:outline-none cursor-pointer"
             >
               {templates.map(tpl => (
                 <option key={tpl.id} value={tpl.id} className="bg-surface-100 text-txt-primary">
-                  {tpl.name} {tpl.is_default ? '★ (Padrão)' : ''}
+                  {tpl.name} {tpl.is_default ? '(Padrão)' : ''}
                 </option>
               ))}
             </select>
           </div>
 
           <button
-            onClick={handleCreateNewTemplate}
+            type="button"
+            onClick={() => setShowCreateModal(true)}
             className="px-3 py-1.5 text-xs font-medium bg-surface-200 hover:bg-surface-300 text-txt-primary border border-surface-border rounded-xl transition-colors"
           >
             + Novo
           </button>
 
           <button
+            type="button"
             onClick={handleDuplicateTemplate}
             title="Duplicar modelo"
             className="p-2 text-txt-secondary hover:text-txt-primary hover:bg-surface-200 rounded-xl border border-surface-border transition-colors"
@@ -296,6 +305,7 @@ export const CVBuilderView: React.FC = () => {
 
           {selectedTemplate && !selectedTemplate.is_default && (
             <button
+              type="button"
               onClick={handleSetDefault}
               title="Definir como modelo padrão para candidaturas"
               className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-amber-400 hover:bg-amber-500/10 rounded-xl border border-amber-500/30 transition-colors"
@@ -306,6 +316,7 @@ export const CVBuilderView: React.FC = () => {
           )}
 
           <button
+            type="button"
             onClick={handleSaveTemplate}
             disabled={saving}
             className="flex items-center gap-1.5 px-4 py-1.5 bg-accent hover:bg-accent-hover text-white rounded-xl text-xs font-semibold transition-colors shadow-sm disabled:opacity-50"
@@ -315,13 +326,33 @@ export const CVBuilderView: React.FC = () => {
           </button>
 
           {selectedTemplate && templates.length > 1 && (
-            <button
-              onClick={handleDeleteTemplate}
-              title="Eliminar este modelo"
-              className="p-2 text-rose-400 hover:bg-rose-500/10 rounded-xl border border-rose-500/20 transition-colors"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            confirmingDelete ? (
+              <div className="flex items-center gap-1.5 bg-rose-500/10 border border-rose-500/30 rounded-xl px-2.5 py-1">
+                <button
+                  type="button"
+                  onClick={handleDeleteTemplate}
+                  className="text-xs font-semibold text-rose-400 hover:text-rose-300"
+                >
+                  Confirmar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  className="text-xs text-txt-muted hover:text-txt-primary"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                title="Eliminar este modelo"
+                className="p-2 text-rose-400 hover:bg-rose-500/10 rounded-xl border border-rose-500/20 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )
           )}
         </div>
       </div>
@@ -335,12 +366,9 @@ export const CVBuilderView: React.FC = () => {
 
       {/* Main 3-Column Studio Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* ================= COLUMN 1: CONTROLS & BUILDER ================= */}
+        {/* COLUMN 1: CONTROLS & BUILDER */}
         <div className="lg:col-span-5 xl:col-span-4 space-y-4">
           <div className="bg-surface-100 border border-surface-border rounded-2xl p-4 space-y-4">
-            
-            {/* Template Name Input */}
             <div>
               <label className="block text-[11px] font-bold text-txt-muted uppercase tracking-wider mb-1.5">
                 Nome do Modelo
@@ -354,58 +382,45 @@ export const CVBuilderView: React.FC = () => {
               />
             </div>
 
-            {/* Config Sub-Tabs */}
             <div className="flex border-b border-surface-border text-xs gap-1">
               <button
+                type="button"
                 onClick={() => setActiveConfigTab('layout')}
                 className={`flex items-center gap-1 pb-2 px-2.5 font-medium border-b-2 transition-colors ${
-                  activeConfigTab === 'layout'
-                    ? 'border-accent text-accent-light'
-                    : 'border-transparent text-txt-muted hover:text-txt-primary'
+                  activeConfigTab === 'layout' ? 'border-accent text-accent-light' : 'border-transparent text-txt-muted hover:text-txt-primary'
                 }`}
               >
-                <Layout className="w-3.5 h-3.5" />
-                Layout
+                <Layout className="w-3.5 h-3.5" /> Layout
               </button>
-
               <button
+                type="button"
                 onClick={() => setActiveConfigTab('blocks')}
                 className={`flex items-center gap-1 pb-2 px-2.5 font-medium border-b-2 transition-colors ${
-                  activeConfigTab === 'blocks'
-                    ? 'border-accent text-accent-light'
-                    : 'border-transparent text-txt-muted hover:text-txt-primary'
+                  activeConfigTab === 'blocks' ? 'border-accent text-accent-light' : 'border-transparent text-txt-muted hover:text-txt-primary'
                 }`}
               >
-                <Sliders className="w-3.5 h-3.5" />
-                Blocos
+                <Sliders className="w-3.5 h-3.5" /> Blocos
               </button>
-
               <button
+                type="button"
                 onClick={() => setActiveConfigTab('typography')}
                 className={`flex items-center gap-1 pb-2 px-2.5 font-medium border-b-2 transition-colors ${
-                  activeConfigTab === 'typography'
-                    ? 'border-accent text-accent-light'
-                    : 'border-transparent text-txt-muted hover:text-txt-primary'
+                  activeConfigTab === 'typography' ? 'border-accent text-accent-light' : 'border-transparent text-txt-muted hover:text-txt-primary'
                 }`}
               >
-                <Type className="w-3.5 h-3.5" />
-                Fontes & Cores
+                <Type className="w-3.5 h-3.5" /> Fontes & Cores
               </button>
-
               <button
+                type="button"
                 onClick={() => setActiveConfigTab('photo')}
                 className={`flex items-center gap-1 pb-2 px-2.5 font-medium border-b-2 transition-colors ${
-                  activeConfigTab === 'photo'
-                    ? 'border-accent text-accent-light'
-                    : 'border-transparent text-txt-muted hover:text-txt-primary'
+                  activeConfigTab === 'photo' ? 'border-accent text-accent-light' : 'border-transparent text-txt-muted hover:text-txt-primary'
                 }`}
               >
-                <User className="w-3.5 h-3.5" />
-                Foto
+                <User className="w-3.5 h-3.5" /> Foto
               </button>
             </div>
 
-            {/* TAB: LAYOUT SELECTION */}
             {activeConfigTab === 'layout' && (
               <div className="space-y-3 pt-2">
                 <label className="block text-[11px] font-bold text-txt-muted uppercase tracking-wider">
@@ -419,28 +434,28 @@ export const CVBuilderView: React.FC = () => {
                       title: 'ATS Clássico (1 Coluna Linear)',
                       badge: '100% ATS Safe',
                       badgeColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-                      desc: 'Formatação recomendada para candidaturas internacionais e portais corporativos (Taleo, Workday, Greenhouse).'
+                      desc: 'Formatação recomendada para candidaturas internacionais e portais corporativos.'
                     },
                     {
                       id: 'modern_split',
                       title: 'Executivo Moderno (2 Colunas)',
                       badge: 'Design Equilibrado',
                       badgeColor: 'text-blue-400 bg-blue-500/10 border-blue-500/20',
-                      desc: 'Barra lateral para competências e formação, coluna ampla para experiências de alto impacto.'
+                      desc: 'Barra lateral para competências e formação, coluna ampla para experiências.'
                     },
                     {
                       id: 'compact_executive',
                       title: 'Compacto Simétrico',
                       badge: 'Alta Densidade',
                       badgeColor: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
-                      desc: 'Cabeçalho centrado elegante e divisórias subtis para aproveitar ao máximo a página.'
+                      desc: 'Cabeçalho centrado elegante e divisórias subtis.'
                     },
                     {
                       id: 'tech_minimal',
                       title: 'Tech Minimalista',
                       badge: 'Engenharia & Tech',
                       badgeColor: 'text-teal-400 bg-teal-500/10 border-teal-500/20',
-                      desc: 'Estilo clean focado em stack técnico, métricas destacadas e legibilidade pura.'
+                      desc: 'Estilo clean focado em stack técnico e métricas destacadas.'
                     }
                   ].map(layoutOpt => (
                     <div
@@ -453,16 +468,12 @@ export const CVBuilderView: React.FC = () => {
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-semibold text-txt-primary">
-                          {layoutOpt.title}
-                        </span>
+                        <span className="text-xs font-semibold text-txt-primary">{layoutOpt.title}</span>
                         <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${layoutOpt.badgeColor}`}>
                           {layoutOpt.badge}
                         </span>
                       </div>
-                      <p className="text-[11px] text-txt-secondary leading-relaxed">
-                        {layoutOpt.desc}
-                      </p>
+                      <p className="text-[11px] text-txt-secondary leading-relaxed">{layoutOpt.desc}</p>
                     </div>
                   ))}
                 </div>
@@ -495,7 +506,6 @@ export const CVBuilderView: React.FC = () => {
               </div>
             )}
 
-            {/* TAB: BLOCKS BUILDER (REORDER & VISIBILITY) */}
             {activeConfigTab === 'blocks' && (
               <div className="space-y-3 pt-2">
                 <div className="flex items-center justify-between">
@@ -530,7 +540,7 @@ export const CVBuilderView: React.FC = () => {
                           >
                             {isVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                           </button>
-                          <div>
+                          <div className="min-w-0">
                             <div className="text-xs font-semibold truncate">{blockDef.label}</div>
                             <div className="text-[10px] text-txt-muted truncate">{blockDef.desc}</div>
                           </div>
@@ -541,7 +551,7 @@ export const CVBuilderView: React.FC = () => {
                             type="button"
                             onClick={() => handleMoveBlock(idx, 'up')}
                             disabled={idx === 0}
-                            className="p-1 rounded text-txt-secondary hover:text-txt-primary hover:bg-surface-300 disabled:opacity-30 disabled:hover:bg-transparent"
+                            className="p-1 rounded text-txt-secondary hover:text-txt-primary hover:bg-surface-300 disabled:opacity-30"
                             title="Mover para cima"
                           >
                             <ArrowUp className="w-3.5 h-3.5" />
@@ -550,7 +560,7 @@ export const CVBuilderView: React.FC = () => {
                             type="button"
                             onClick={() => handleMoveBlock(idx, 'down')}
                             disabled={idx === selectedTemplate.blocks_order.length - 1}
-                            className="p-1 rounded text-txt-secondary hover:text-txt-primary hover:bg-surface-300 disabled:opacity-30 disabled:hover:bg-transparent"
+                            className="p-1 rounded text-txt-secondary hover:text-txt-primary hover:bg-surface-300 disabled:opacity-30"
                             title="Mover para baixo"
                           >
                             <ArrowDown className="w-3.5 h-3.5" />
@@ -563,10 +573,8 @@ export const CVBuilderView: React.FC = () => {
               </div>
             )}
 
-            {/* TAB: TYPOGRAPHY & COLORS */}
             {activeConfigTab === 'typography' && (
               <div className="space-y-4 pt-2">
-                {/* Custom Color & Presets */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-[11px] font-bold text-txt-muted uppercase tracking-wider">
@@ -590,7 +598,6 @@ export const CVBuilderView: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Preset Swatches */}
                   <div className="grid grid-cols-3 gap-1.5">
                     {PRESET_COLORS.map(preset => (
                       <button
@@ -604,17 +611,13 @@ export const CVBuilderView: React.FC = () => {
                             : 'border-surface-border bg-surface-200 hover:bg-surface-300'
                         }`}
                       >
-                        <span
-                          className="w-3 h-3 rounded-full shrink-0 border border-black/20"
-                          style={{ backgroundColor: preset.hex }}
-                        />
+                        <span className="w-3 h-3 rounded-full shrink-0 border border-black/20" style={{ backgroundColor: preset.hex }} />
                         <span className="truncate text-txt-secondary font-medium">{preset.name}</span>
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Google Fonts Selector */}
                 <div>
                   <label className="block text-[11px] font-bold text-txt-muted uppercase tracking-wider mb-1.5">
                     Fonte do Corpo (Google Fonts)
@@ -634,7 +637,6 @@ export const CVBuilderView: React.FC = () => {
                     ))}
                   </select>
 
-                  {/* Custom Google Font Input */}
                   <div className="space-y-1">
                     <span className="text-[10px] text-txt-muted">
                       Ou digite qualquer fonte da biblioteca do Google Fonts:
@@ -644,7 +646,7 @@ export const CVBuilderView: React.FC = () => {
                         type="text"
                         value={customFontInput}
                         onChange={(e) => setCustomFontInput(e.target.value)}
-                        placeholder="Ex: Sora, Lexend, Cabinet Grotesk"
+                        placeholder="Ex: Sora, Lexend"
                         className="flex-1 bg-surface-200 border border-surface-border rounded-xl px-3 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
                       />
                       <button
@@ -662,7 +664,6 @@ export const CVBuilderView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Heading Font */}
                 <div>
                   <label className="block text-[11px] font-bold text-txt-muted uppercase tracking-wider mb-1.5">
                     Fonte dos Títulos (Opcional)
@@ -683,7 +684,6 @@ export const CVBuilderView: React.FC = () => {
               </div>
             )}
 
-            {/* TAB: PHOTO & AVATAR */}
             {activeConfigTab === 'photo' && (
               <div className="space-y-4 pt-2">
                 <div className="flex items-center justify-between p-3 rounded-xl bg-surface-200 border border-surface-border">
@@ -705,7 +705,7 @@ export const CVBuilderView: React.FC = () => {
                   <div className="space-y-3">
                     <div>
                       <label className="block text-[11px] font-bold text-txt-muted uppercase tracking-wider mb-1.5">
-                        URL ou Ficheiro da Fotografia
+                        URL ou Data URI da Fotografia
                       </label>
                       <input
                         type="text"
@@ -716,25 +716,23 @@ export const CVBuilderView: React.FC = () => {
                       />
                     </div>
 
-                    {/* ATS Warning for Photo */}
                     <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs space-y-1">
                       <div className="flex items-center gap-1.5 font-semibold">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                         Aviso ATS sobre Fotografia
                       </div>
                       <p className="text-[11px] text-amber-200/90 leading-relaxed">
-                        Em mercados como EUA, Reino Unido e Canadá, sistemas ATS rejeitam CVs com foto devido a regras de conformidade (EEOC). Em Portugal e na Europa é habitual, mas para vagas internacionais remotas é mais seguro desativar.
+                        Em mercados como EUA, Reino Unido e Canadá, sistemas ATS rejeitam CVs com foto devido a regras anti-discriminação (EEOC).
                       </p>
                     </div>
                   </div>
                 )}
               </div>
             )}
-
           </div>
         </div>
 
-        {/* ================= COLUMN 2: LIVE A4 PREVIEW ================= */}
+        {/* COLUMN 2: LIVE A4 PREVIEW */}
         <div className="lg:col-span-7 xl:col-span-5 space-y-3">
           <div className="bg-surface-100 border border-surface-border rounded-2xl p-4 flex flex-col h-[780px]">
             <div className="flex items-center justify-between pb-3 border-b border-surface-border">
@@ -745,6 +743,7 @@ export const CVBuilderView: React.FC = () => {
                 </span>
               </div>
               <button
+                type="button"
                 onClick={() => selectedTemplate && refreshPreviewAndAudit(selectedTemplate)}
                 disabled={loadingPreview}
                 className="p-1.5 rounded-lg text-txt-secondary hover:text-txt-primary hover:bg-surface-200 transition-colors"
@@ -754,7 +753,6 @@ export const CVBuilderView: React.FC = () => {
               </button>
             </div>
 
-            {/* A4 Document Viewport */}
             <div className="flex-1 overflow-auto bg-slate-900/50 p-4 rounded-xl mt-3 flex justify-center">
               {loadingPreview ? (
                 <div className="flex items-center justify-center h-full text-txt-muted text-xs gap-2">
@@ -767,7 +765,7 @@ export const CVBuilderView: React.FC = () => {
                     title="CV Preview"
                     srcDoc={previewHtml}
                     className="w-full h-full min-h-[700px] border-0"
-                    sandbox="allow-same-origin"
+                    sandbox=""
                   />
                 </div>
               ) : (
@@ -779,10 +777,8 @@ export const CVBuilderView: React.FC = () => {
           </div>
         </div>
 
-        {/* ================= COLUMN 3: REAL-TIME ATS AUDIT & CRAFT TIPS ================= */}
+        {/* COLUMN 3: REAL-TIME ATS AUDIT & CRAFT TIPS */}
         <div className="lg:col-span-12 xl:col-span-3 space-y-4">
-          
-          {/* ATS Score Card */}
           <div className="bg-surface-100 border border-surface-border rounded-2xl p-4 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-txt-muted uppercase tracking-wider">
@@ -798,7 +794,6 @@ export const CVBuilderView: React.FC = () => {
               </div>
             ) : auditResult ? (
               <div className="space-y-4">
-                {/* Score Gauge */}
                 <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-200 border border-surface-border">
                   <div
                     className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-display font-extrabold text-xl shrink-0 ${
@@ -827,7 +822,6 @@ export const CVBuilderView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Checklist Breakdown */}
                 <div className="space-y-2">
                   <span className="text-[11px] font-bold text-txt-muted uppercase tracking-wider block">
                     Checklist de Verificação
@@ -852,7 +846,6 @@ export const CVBuilderView: React.FC = () => {
                   ))}
                 </div>
 
-                {/* Warnings & Tips */}
                 {auditResult.warnings.length > 0 && (
                   <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-1.5">
                     <span className="text-xs font-bold text-amber-400 block">Pontos a Melhorar</span>
@@ -878,9 +871,9 @@ export const CVBuilderView: React.FC = () => {
             ) : null}
           </div>
 
-          {/* Dicas de Ouro Collapsible Accordion */}
           <div className="bg-surface-100 border border-surface-border rounded-2xl p-4 space-y-3">
             <button
+              type="button"
               onClick={() => setShowTipsAccordion(!showTipsAccordion)}
               className="w-full flex items-center justify-between text-left focus:outline-none"
             >
@@ -890,11 +883,7 @@ export const CVBuilderView: React.FC = () => {
                   Dicas de Ouro para o CV
                 </span>
               </div>
-              {showTipsAccordion ? (
-                <ChevronUp className="w-4 h-4 text-txt-muted" />
-              ) : (
-                <ChevronDown className="w-4 h-4 text-txt-muted" />
-              )}
+              {showTipsAccordion ? <ChevronUp className="w-4 h-4 text-txt-muted" /> : <ChevronDown className="w-4 h-4 text-txt-muted" />}
             </button>
 
             {showTipsAccordion && (
@@ -909,23 +898,66 @@ export const CVBuilderView: React.FC = () => {
                 <div className="p-2.5 rounded-xl bg-surface-200 border border-surface-border space-y-1">
                   <div className="font-semibold text-txt-primary">A Regra dos 6 Segundos</div>
                   <p className="text-[11px] text-txt-muted">
-                    Recrutadores olham primeiro para o cargo atual, empresas anteriores e competências-chave. Mantenha os títulos claros e sem termos vagos.
+                    Recrutadores olham primeiro para o cargo atual, empresas anteriores e competências-chave.
                   </p>
                 </div>
 
                 <div className="p-2.5 rounded-xl bg-surface-200 border border-surface-border space-y-1">
                   <div className="font-semibold text-txt-primary">Fotografia vs Sem Fotografia</div>
                   <p className="text-[11px] text-txt-muted">
-                    Empresas nos EUA/Reino Unido rejeitam fotos para cumprir regras anti-discriminação. Use foto apenas para candidaturas em Portugal ou na União Europeia.
+                    Empresas nos EUA/Reino Unido rejeitam fotos para cumprir regras anti-discriminação.
                   </p>
                 </div>
               </div>
             )}
           </div>
-
         </div>
-
       </div>
+
+      {/* Create Template Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-surface-100 border border-surface-border rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-surface-border pb-3">
+              <h3 className="font-display font-bold text-base text-txt-primary">Novo Modelo de CV</h3>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="p-1 text-txt-muted hover:text-txt-primary rounded"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateNewTemplate} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-txt-secondary mb-1">Nome do Modelo</label>
+                <input
+                  type="text"
+                  required
+                  value={newTemplateName}
+                  onChange={(e) => setNewTemplateName(e.target.value)}
+                  className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-2 text-xs text-txt-primary focus:outline-none focus:border-accent"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-3 py-1.5 text-xs text-txt-secondary hover:text-txt-primary"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold"
+                >
+                  Criar Modelo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

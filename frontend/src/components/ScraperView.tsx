@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { ScanRecord } from '../types';
 import { api } from '../api';
+import { useToast } from '../context/ToastContext';
 import { Search, Play, Terminal } from 'lucide-react';
 
 interface ScraperViewProps {
@@ -8,6 +9,7 @@ interface ScraperViewProps {
 }
 
 export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => {
+  const { showToast } = useToast();
   const [query, setQuery] = useState('Desenvolvedor');
   const [location, setLocation] = useState('Lisboa');
   const [sources, setSources] = useState<string[]>(['netempregos', 'ats']);
@@ -15,9 +17,15 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
   const [scanning, setScanning] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [history, setHistory] = useState<ScanRecord[]>([]);
+  const pollTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     loadHistory();
+    return () => {
+      if (pollTimerRef.current) {
+        window.clearInterval(pollTimerRef.current);
+      }
+    };
   }, []);
 
   const loadHistory = async () => {
@@ -39,48 +47,62 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
     }
   };
 
-  const addLog = (msg: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setLogs((prev) => [...prev, `[${timestamp}] ${msg}`]);
-  };
-
   const handleStartScan = async () => {
     if (sources.length === 0) {
-      alert('Selecione pelo menos uma fonte para varredura.');
+      showToast('Selecione pelo menos uma fonte para varredura.', 'error');
       return;
     }
 
+    if (pollTimerRef.current) {
+      window.clearInterval(pollTimerRef.current);
+    }
+
     setScanning(true);
-    setLogs([]);
-    addLog(`Iniciando varredura para "${query}" em "${location}"...`);
-    addLog(`Fontes selecionadas: ${sources.join(', ')}`);
+    setLogs([`A iniciar varredura para "${query}" em "${location}"...`]);
 
     try {
-      addLog(`Enviando requisição assíncrona ao backend...`);
       const res = await api.triggerScan(sources, query, location, limit);
-      addLog(`Status: ${res.message}`);
-      
-      // Simulate live progress logs
-      setTimeout(() => addLog(`[Net-Empregos] Consultando catálogo de anúncios em ${location}...`), 800);
-      setTimeout(() => addLog(`[Career-Ops ATS] Verificando boards diretos (Greenhouse, Lever)...`), 1600);
-      setTimeout(() => addLog(`[Liveness Engine] Aplicando pré-filtros de duplicados e URLs...`), 2400);
-      setTimeout(async () => {
-        addLog(`Varredura concluída com sucesso! Atualizando base local.`);
-        setScanning(false);
-        await loadHistory();
-        if (onScanCompleted) onScanCompleted();
-      }, 3500);
+      setLogs((prev) => [...prev, res.message]);
 
-    } catch (err) {
-      addLog(`Erro ao disparar varredura: ${String(err)}`);
+      const scanId = res.scan_id;
+      const pollOnce = async () => {
+        try {
+          const statusRec = await api.getScanStatus(scanId);
+          if (statusRec.logs && statusRec.logs.length > 0) {
+            setLogs(statusRec.logs);
+          }
+          if (statusRec.status === 'completed' || statusRec.status === 'failed') {
+            if (pollTimerRef.current) {
+              window.clearInterval(pollTimerRef.current);
+              pollTimerRef.current = null;
+            }
+            setScanning(false);
+            await loadHistory();
+            if (statusRec.status === 'completed') {
+              showToast(`Varredura concluída: ${statusRec.total_new} novas vagas adicionadas.`, 'success');
+              if (onScanCompleted) onScanCompleted();
+            } else {
+              showToast(statusRec.error_message || 'A varredura falhou.', 'error');
+            }
+          }
+        } catch (pollErr) {
+          console.error('Erro ao consultar progresso:', pollErr);
+        }
+      };
+
+      pollTimerRef.current = window.setInterval(pollOnce, 1200);
+      setTimeout(pollOnce, 600);
+    } catch (err: any) {
+      setLogs((prev) => [...prev, `Erro ao disparar varredura: ${err.message || String(err)}`]);
+      showToast(err.message || 'Erro ao iniciar varredura.', 'error');
       setScanning(false);
     }
   };
 
   const sourceCards = [
     { id: 'netempregos', label: 'Net-Empregos (Portugal)', desc: 'Maior portal nacional de empregos' },
-    { id: 'ats', label: 'Career-Ops ATS Portals', desc: 'Boards diretos: Greenhouse, Lever, Ashby, Workday' },
-    { id: 'google', label: 'Google Jobs (APIs)', desc: 'Agregador SerpApi / JSearch' },
+    { id: 'ats', label: 'Career-Ops ATS Portals', desc: 'Boards diretos: Greenhouse, Lever e Ashby' },
+    { id: 'google', label: 'Google Jobs (APIs)', desc: 'Agregador SerpApi / JSearch (usa as suas chaves)' },
     { id: 'jobspy', label: 'JobSpy Engine', desc: 'LinkedIn, Indeed e Glassdoor nativos' },
   ];
 
@@ -98,7 +120,6 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
 
       {/* Control Box */}
       <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-5">
-        {/* Source Selection */}
         <div>
           <label className="block text-xs font-semibold text-txt-primary uppercase tracking-wider mb-2">
             Fontes a Monitorar
@@ -132,7 +153,6 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
           </div>
         </div>
 
-        {/* Inputs */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-medium text-txt-secondary mb-1">Cargo / Termo de Pesquisa</label>
@@ -160,19 +180,21 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
             <label className="block text-xs font-medium text-txt-secondary mb-1">Limite por Fonte</label>
             <input
               type="number"
+              min={1}
+              max={100}
               value={limit}
-              onChange={(e) => setLimit(Number(e.target.value))}
+              onChange={(e) => setLimit(Math.max(1, Math.min(100, Number(e.target.value) || 20)))}
               className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-1.5 text-sm text-txt-primary focus:outline-none focus:border-accent"
             />
           </div>
         </div>
 
-        {/* Action Button */}
         <div className="flex justify-end pt-2">
           <button
+            type="button"
             onClick={handleStartScan}
             disabled={scanning}
-            className="px-6 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition-colors"
+            className="px-6 py-2.5 bg-accent hover:bg-accent-hover disabled:opacity-60 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition-colors"
           >
             <Play className={`w-4 h-4 ${scanning ? 'animate-spin' : ''}`} />
             {scanning ? 'Varredura em Execução...' : 'Iniciar Varredura'}
@@ -185,9 +207,9 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
         <div className="bg-surface-100 border border-surface-border rounded-xl p-4 space-y-2">
           <div className="flex items-center gap-2 text-xs font-bold text-txt-muted uppercase">
             <Terminal className="w-4 h-4 text-accent-light" />
-            Console de Execução
+            Console de Execução em Tempo Real
           </div>
-          <div className="bg-black/60 rounded-lg p-3 font-mono text-xs text-emerald-400 space-y-1 max-h-48 overflow-y-auto">
+          <div className="bg-black/60 rounded-lg p-3 font-mono text-xs text-emerald-400 space-y-1 max-h-52 overflow-y-auto">
             {logs.map((log, idx) => (
               <div key={idx}>{log}</div>
             ))}
@@ -197,7 +219,7 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
 
       {/* Scan History Table */}
       <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-4">
-        <h3 className="font-semibold text-sm text-txt-primary uppercase tracking-wider text-xs">
+        <h3 className="font-semibold text-xs text-txt-primary uppercase tracking-wider">
           Histórico de Varreduras
         </h3>
 
@@ -214,6 +236,7 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
                   <th className="pb-2">Fontes</th>
                   <th className="pb-2">Termo</th>
                   <th className="pb-2">Local</th>
+                  <th className="pb-2 text-center">Estado</th>
                   <th className="pb-2 text-center">Encontradas</th>
                   <th className="pb-2 text-center">Novas</th>
                   <th className="pb-2 text-right">Duração</th>
@@ -226,6 +249,17 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
                     <td className="py-2.5 font-medium text-txt-primary uppercase text-[11px]">{h.engine}</td>
                     <td className="py-2.5 text-txt-primary">{h.query}</td>
                     <td className="py-2.5 text-txt-secondary">{h.location || '-'}</td>
+                    <td className="py-2.5 text-center">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                        h.status === 'completed'
+                          ? 'bg-emerald-500/10 text-emerald-400'
+                          : h.status === 'failed'
+                          ? 'bg-rose-500/10 text-rose-400'
+                          : 'bg-amber-500/10 text-amber-400'
+                      }`}>
+                        {h.status}
+                      </span>
+                    </td>
                     <td className="py-2.5 text-center font-bold text-txt-primary">{h.total_found}</td>
                     <td className="py-2.5 text-center font-bold text-emerald-400">+{h.total_new}</td>
                     <td className="py-2.5 text-right text-txt-muted">{h.duration_seconds ? `${h.duration_seconds}s` : '-'}</td>

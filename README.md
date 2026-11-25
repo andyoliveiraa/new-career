@@ -77,21 +77,21 @@ Permite a migração imediata de quem já utiliza o Career-Ops, funcionando perf
 - **Simulador de Entrevista (STAR+R)**: Perguntas comportamentais prováveis e estrutura sugerida de resposta.
 
 ### 7. 📋 Pipeline de Gestão de Candidaturas ("Já me candidatei")
-- Visualização em **Tabela Densa** ou **Quadro Kanban**.
+- Visualização em **Tabela Densa** ou **Quadro Kanban completo (8 colunas)**.
 - Fluxo completo: *Disponíveis ➔ Avaliadas ➔ Em Preparação ➔ Candidatado ➔ Entrevista ➔ Positiva / Oferta ➔ Negativa ➔ Descartada*.
+- **Adição Manual de Vagas por URL**, **Verificação Liveness em Lote**, filtros avançados (remoto, liveness, ordenação por match/distância) e **Exportação CSV/JSON**.
 - Ação rápida de 1 clique para marcar como candidatado e registar a data.
 
-### 8. ⚙️ Central de Configurações, Webhook do Discord & Validação de Chaves de API
+### 8. ⚙️ Central de Configurações, Webhook do Discord & Segurança
+- **Encriptação em Repouso & Mascaramento**: Chaves de API e URLs de webhook são encriptadas em repouso (`Fernet`) e nunca são reexpostas em texto claro após guardadas.
 - **Webhook do Discord com Notificações em Tempo Real**:
-  - Envio de alertas automáticos quando novas vagas forem descobertas durante varreduras.
-  - Botão **"Testar Webhook"** de 1 clique que dispara um Embed corporativo formatado e confirma a receção pelo Discord (HTTP 204).
-  - Toggles granulares para controlar que tipo de evento gera alertas no canal.
-- **Validação Ativa de Chaves de API**:
+  - Alertas automáticos quando novas vagas forem descobertas durante varreduras **e** quando uma candidatura avança para *Entrevista* ou *Positiva*.
+  - Botão **"Testar Webhook"** de 1 clique que dispara um Embed corporativo formatado e confirma a receção pelo Discord.
+- **Validação Ativa de Chaves de API & Cascata Automática**:
   - Teste em tempo real para **Google Gemini**, **OpenAI**, **Groq Cloud**, **SerpApi** e **RapidAPI JSearch**.
-  - O sistema efetua um ping leve aos endpoints oficiais e reporta latência em milissegundos, estado operacional (*Ativa*, *Quota Esgotada*, *Inválida*) e contagem de modelos disponíveis.
-  - Configuração do **Provedor de IA Primário** com cascata inteligente de fallback automático.
-- **Isolamento Multi-Tenant**:
-  - Cada utilizador tem a sua partição privada de chaves e webhook no Firestore Cloud (`users/{user_id}/settings`).
+  - Cascata automática de fallback entre provedores de IA configurados antes de recorrer ao modo heurístico offline.
+- **Varredura com Estado Real**:
+  - Acompanhamento em tempo real via `GET /api/scrapers/scan/{scan_id}` com logs reais do backend.
 
 ### 9. 💎 Padrão de Design Unslop & Layout Responsivo
 - **Navbar em Linha Única & Menu Mobile**:
@@ -148,6 +148,13 @@ new-career/
 ---
 
 ## 🚀 Como Executar
+
+### 0. Configurar Variáveis de Ambiente
+Copie o modelo de configuração na raiz do projeto e defina o seu `JWT_SECRET`:
+```powershell
+Copy-Item .env.example .env
+```
+> Em produção (`APP_ENV=production`), configure obrigatoriamente um `JWT_SECRET` forte (>= 32 caracteres) e restrinja `CORS_ORIGINS`.
 
 ### 1. Inicialização Rápida Local (Windows)
 Basta clicar duas vezes em `start.bat` ou executar no terminal PowerShell:
@@ -224,7 +231,7 @@ Toda a base de dados do projeto roda sobre o **Google Cloud Firestore (Firebase)
 
 ## 🧪 Testes Automatizados
 
-A plataforma conta com uma suíte rigorosa de **18 testes automatizados** cobrindo autenticação JWT, isolamento de dados multi-utilizador, upload de ficheiros e descompactação ZIP segura (proteção Zip Slip), modo de privacidade, construtor de modelos de CV, motor de auditoria ATS, validação de webhooks do Discord, diagnósticos de chaves de API, scrapers e verificação de liveness em tempo real:
+A plataforma conta com uma suíte de **26 testes automatizados** cobrindo autenticação JWT, isolamento multi-utilizador, upload seguro e parsing dinâmico do Career-Ops, proteção contra Zip Slip e Path Traversal, encriptação/mascaramento de chaves, cascata de IA, preparação de entrevista STAR+R, exportação CSV/JSON, liveness em lote, construtor de CVs e scrapers:
 
 ```powershell
 $env:PYTHONPATH = "."

@@ -19,6 +19,28 @@ export interface Job {
   match_score?: number;
 }
 
+export interface ManualJobPayload {
+  url: string;
+  title?: string;
+  company?: string;
+  location?: string;
+  is_remote?: boolean;
+  salary?: string;
+  description?: string;
+}
+
+export interface BatchLivenessResult {
+  checked: number;
+  active: number;
+  expired: number;
+  uncertain: number;
+  results: Array<{
+    job_id: number;
+    liveness_status: string;
+    liveness_reason?: string;
+  }>;
+}
+
 export interface ApplicationStats {
   total_jobs: number;
   disponivel: number;
@@ -29,6 +51,36 @@ export interface ApplicationStats {
   positiva: number;
   negativa: number;
   descartada: number;
+}
+
+export interface ProfileExperience {
+  role: string;
+  company: string;
+  period: string;
+  location?: string;
+  bullets?: string[];
+}
+
+export interface ProfileEducation {
+  degree: string;
+  institution: string;
+  period: string;
+}
+
+export interface ProfileProject {
+  title: string;
+  tech?: string;
+  description?: string;
+}
+
+export interface ProfileCertification {
+  name: string;
+  issuer?: string;
+}
+
+export interface ProfileLanguage {
+  name: string;
+  level?: string;
 }
 
 export interface ProfileData {
@@ -43,18 +95,11 @@ export interface ProfileData {
   portfolio_url?: string;
   summary?: string;
   skills: string[];
-  experiences: Array<{
-    role: string;
-    company: string;
-    period: string;
-    location?: string;
-    bullets?: string[];
-  }>;
-  educations: Array<{
-    degree: string;
-    institution: string;
-    period: string;
-  }>;
+  experiences: ProfileExperience[];
+  educations: ProfileEducation[];
+  certifications?: ProfileCertification[];
+  projects?: ProfileProject[];
+  languages?: ProfileLanguage[];
   verified_facts?: string[];
 }
 
@@ -71,7 +116,7 @@ export interface JDAnalysis {
 export interface CVTailorResult {
   job_id: number;
   tailored_summary: string;
-  tailored_experiences: any[];
+  tailored_experiences: ProfileExperience[];
   highlighted_skills: string[];
   pdf_download_url?: string;
 }
@@ -82,6 +127,18 @@ export interface CoverLetterResult {
   linkedin_note: string;
 }
 
+export interface InterviewPrepQuestion {
+  question: string;
+  purpose: string;
+  recommended_star_angle: string;
+}
+
+export interface InterviewPrepResult {
+  job_id: number;
+  likely_questions: InterviewPrepQuestion[];
+  company_intel: Record<string, any>;
+}
+
 export interface ScanRecord {
   id: number;
   engine: string;
@@ -89,9 +146,11 @@ export interface ScanRecord {
   location?: string;
   total_found: number;
   total_new: number;
-  status: string;
+  status: 'running' | 'completed' | 'failed' | string;
   duration_seconds?: number;
   executed_at: string;
+  logs?: string[];
+  error_message?: string;
 }
 
 export interface User {
@@ -159,6 +218,7 @@ export interface ATSAuditResult {
 export interface UserSettings {
   user_id: string;
   discord_webhook_url?: string | null;
+  discord_webhook_url_masked?: string | null;
   discord_notify_on_new_jobs: boolean;
   discord_notify_on_status_change: boolean;
   primary_ai_provider: 'gemini' | 'groq' | 'openai';
@@ -167,6 +227,11 @@ export interface UserSettings {
   groq_api_key?: string | null;
   serpapi_api_key?: string | null;
   jsearch_api_key?: string | null;
+  gemini_api_key_masked?: string | null;
+  openai_api_key_masked?: string | null;
+  groq_api_key_masked?: string | null;
+  serpapi_api_key_masked?: string | null;
+  jsearch_api_key_masked?: string | null;
   has_gemini_key: boolean;
   has_openai_key: boolean;
   has_groq_key: boolean;

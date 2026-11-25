@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import type { Job } from '../types';
-import { Search, MapPin, ExternalLink, Sparkles, RefreshCw, Send, Trash2, Columns, List } from 'lucide-react';
+import type { Job, ManualJobPayload } from '../types';
+import {
+  Search, MapPin, ExternalLink, Sparkles, RefreshCw, Send,
+  Trash2, Columns, List, Plus, Download, ShieldCheck, X
+} from 'lucide-react';
 
 interface JobsViewProps {
   jobs: Job[];
@@ -8,6 +11,9 @@ interface JobsViewProps {
   onRefresh: () => void;
   onMarkApplied: (jobId: number) => void;
   onCheckLiveness: (jobId: number) => void;
+  onCheckLivenessBatch: () => Promise<void>;
+  onCreateManualJob: (payload: ManualJobPayload) => Promise<void>;
+  onExportJobs: (format: 'csv' | 'json') => Promise<void>;
   onUpdateStatus: (jobId: number, status: string) => void;
   onDeleteJob: (jobId: number) => void;
   onOpenJobAI: (job: Job) => void;
@@ -19,6 +25,12 @@ interface JobsViewProps {
   setFilterSource: (s: string) => void;
   filterStatus: string;
   setFilterStatus: (s: string) => void;
+  filterLiveness: string;
+  setFilterLiveness: (l: string) => void;
+  filterRemoteOnly: boolean;
+  setFilterRemoteOnly: (r: boolean) => void;
+  sortBy: 'created_at' | 'match_score' | 'distance_km';
+  setSortBy: (s: 'created_at' | 'match_score' | 'distance_km') => void;
 }
 
 const STATUS_COLUMNS = [
@@ -26,7 +38,7 @@ const STATUS_COLUMNS = [
   { id: 'avaliada', label: 'Avaliadas', color: 'border-blue-500/30 text-blue-400 bg-blue-500/5' },
   { id: 'em_preparacao', label: 'Em Preparação', color: 'border-indigo-500/30 text-indigo-400 bg-indigo-500/5' },
   { id: 'candidatado', label: 'Candidatado', color: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/5' },
-  { id: 'entrevista', label: 'Entrevista', color: 'border-purple-500/30 text-purple-400 bg-purple-500/5' },
+  { id: 'entrevista', label: 'Entrevista', color: 'border-cyan-500/30 text-cyan-400 bg-cyan-500/5' },
   { id: 'positiva', label: 'Oferta / Positiva', color: 'border-green-500/40 text-green-400 bg-green-500/10' },
   { id: 'negativa', label: 'Negativa', color: 'border-slate-500/30 text-slate-400 bg-slate-500/5' },
   { id: 'descartada', label: 'Descartada', color: 'border-red-500/20 text-red-400 bg-red-500/5' }
@@ -38,6 +50,9 @@ export const JobsView: React.FC<JobsViewProps> = ({
   onRefresh,
   onMarkApplied,
   onCheckLiveness,
+  onCheckLivenessBatch,
+  onCreateManualJob,
+  onExportJobs,
   onUpdateStatus,
   onDeleteJob,
   onOpenJobAI,
@@ -49,9 +64,28 @@ export const JobsView: React.FC<JobsViewProps> = ({
   setFilterSource,
   filterStatus,
   setFilterStatus,
+  filterLiveness,
+  setFilterLiveness,
+  filterRemoteOnly,
+  setFilterRemoteOnly,
+  sortBy,
+  setSortBy,
 }) => {
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [checkingLivenessId, setCheckingLivenessId] = useState<number | null>(null);
+  const [checkingBatch, setCheckingBatch] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+
+  // Manual Job Modal State
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [manualUrl, setManualUrl] = useState('');
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualCompany, setManualCompany] = useState('');
+  const [manualLocation, setManualLocation] = useState('');
+  const [manualSalary, setManualSalary] = useState('');
+  const [manualRemote, setManualRemote] = useState(false);
+  const [manualDesc, setManualDesc] = useState('');
+  const [addingJob, setAddingJob] = useState(false);
 
   const handleLiveness = async (jobId: number) => {
     setCheckingLivenessId(jobId);
@@ -62,10 +96,46 @@ export const JobsView: React.FC<JobsViewProps> = ({
     }
   };
 
+  const handleBatchLiveness = async () => {
+    setCheckingBatch(true);
+    try {
+      await onCheckLivenessBatch();
+    } finally {
+      setCheckingBatch(false);
+    }
+  };
+
+  const handleAddManualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualUrl.trim()) return;
+    setAddingJob(true);
+    try {
+      await onCreateManualJob({
+        url: manualUrl.trim(),
+        title: manualTitle.trim() || undefined,
+        company: manualCompany.trim() || undefined,
+        location: manualLocation.trim() || undefined,
+        salary: manualSalary.trim() || undefined,
+        is_remote: manualRemote,
+        description: manualDesc.trim() || undefined,
+      });
+      setShowAddModal(false);
+      setManualUrl('');
+      setManualTitle('');
+      setManualCompany('');
+      setManualLocation('');
+      setManualSalary('');
+      setManualRemote(false);
+      setManualDesc('');
+    } finally {
+      setAddingJob(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header & Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h2 className="font-display font-bold text-xl text-txt-primary">
             Pipeline de Vagas & Candidaturas
@@ -75,10 +145,51 @@ export const JobsView: React.FC<JobsViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="px-3 py-1.5 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Adicionar Vaga
+          </button>
+
+          <button
+            type="button"
+            onClick={handleBatchLiveness}
+            disabled={checkingBatch || jobs.length === 0}
+            className="px-3 py-1.5 bg-surface-100 hover:bg-surface-200 text-txt-primary border border-surface-border rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
+            title="Verificar disponibilidade das vagas em lote"
+          >
+            <ShieldCheck className={`w-3.5 h-3.5 text-emerald-400 ${checkingBatch ? 'animate-pulse' : ''}`} />
+            {checkingBatch ? 'A verificar...' : 'Liveness em Lote'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onExportJobs('csv')}
+            className="px-2.5 py-1.5 bg-surface-100 hover:bg-surface-200 text-txt-secondary hover:text-txt-primary border border-surface-border rounded-lg text-xs font-medium flex items-center gap-1 transition-colors"
+            title="Exportar CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            CSV
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onExportJobs('json')}
+            className="px-2.5 py-1.5 bg-surface-100 hover:bg-surface-200 text-txt-secondary hover:text-txt-primary border border-surface-border rounded-lg text-xs font-medium flex items-center gap-1 transition-colors"
+            title="Exportar JSON"
+          >
+            <Download className="w-3.5 h-3.5" />
+            JSON
+          </button>
+
           {/* Toggle List / Kanban */}
           <div className="bg-surface-100 border border-surface-border rounded-lg p-1 flex">
             <button
+              type="button"
               onClick={() => setViewMode('list')}
               className={`p-1.5 rounded text-xs font-medium flex items-center gap-1.5 transition-colors ${
                 viewMode === 'list' ? 'bg-surface-200 text-txt-primary' : 'text-txt-muted hover:text-txt-primary'
@@ -88,6 +199,7 @@ export const JobsView: React.FC<JobsViewProps> = ({
               Lista
             </button>
             <button
+              type="button"
               onClick={() => setViewMode('kanban')}
               className={`p-1.5 rounded text-xs font-medium flex items-center gap-1.5 transition-colors ${
                 viewMode === 'kanban' ? 'bg-surface-200 text-txt-primary' : 'text-txt-muted hover:text-txt-primary'
@@ -99,6 +211,7 @@ export const JobsView: React.FC<JobsViewProps> = ({
           </div>
 
           <button
+            type="button"
             onClick={onRefresh}
             disabled={loading}
             className="p-2 bg-surface-100 hover:bg-surface-200 text-txt-secondary hover:text-txt-primary border border-surface-border rounded-lg transition-colors"
@@ -122,11 +235,11 @@ export const JobsView: React.FC<JobsViewProps> = ({
           />
         </div>
 
-        <div className="relative min-w-[150px]">
+        <div className="relative min-w-[140px]">
           <MapPin className="w-3.5 h-3.5 text-txt-muted absolute left-3 top-2.5" />
           <input
             type="text"
-            placeholder="Cidade ou Remoto"
+            placeholder="Cidade ou País"
             value={filterLocation}
             onChange={(e) => setFilterLocation(e.target.value)}
             className="w-full bg-surface-200 border border-surface-border rounded-lg pl-8 pr-3 py-1.5 text-sm text-txt-primary placeholder:text-txt-muted focus:outline-none focus:border-accent"
@@ -145,6 +258,8 @@ export const JobsView: React.FC<JobsViewProps> = ({
           <option value="indeed">Indeed</option>
           <option value="greenhouse">Greenhouse (ATS)</option>
           <option value="lever">Lever (ATS)</option>
+          <option value="ashby">Ashby (ATS)</option>
+          <option value="manual">Manual</option>
         </select>
 
         <select
@@ -153,15 +268,42 @@ export const JobsView: React.FC<JobsViewProps> = ({
           className="bg-surface-200 border border-surface-border rounded-lg px-3 py-1.5 text-sm text-txt-primary focus:outline-none focus:border-accent"
         >
           <option value="">Todos os Status</option>
-          <option value="disponivel">Disponível</option>
-          <option value="avaliada">Avaliada</option>
-          <option value="em_preparacao">Em Preparação</option>
-          <option value="candidatado">Candidatado</option>
-          <option value="entrevista">Entrevista</option>
-          <option value="positiva">Positiva</option>
-          <option value="negativa">Negativa</option>
-          <option value="descartada">Descartada</option>
+          {STATUS_COLUMNS.map((c) => (
+            <option key={c.id} value={c.id}>{c.label}</option>
+          ))}
         </select>
+
+        <select
+          value={filterLiveness}
+          onChange={(e) => setFilterLiveness(e.target.value)}
+          className="bg-surface-200 border border-surface-border rounded-lg px-3 py-1.5 text-sm text-txt-primary focus:outline-none focus:border-accent"
+        >
+          <option value="">Qualquer Liveness</option>
+          <option value="active">Ativa</option>
+          <option value="expired">Expirada</option>
+          <option value="uncertain">Incerta</option>
+          <option value="unknown">Por verificar</option>
+        </select>
+
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as any)}
+          className="bg-surface-200 border border-surface-border rounded-lg px-3 py-1.5 text-sm text-txt-primary focus:outline-none focus:border-accent"
+        >
+          <option value="created_at">Mais Recentes</option>
+          <option value="match_score">Maior Match Score</option>
+          <option value="distance_km">Menor Distância</option>
+        </select>
+
+        <label className="flex items-center gap-2 text-xs text-txt-secondary cursor-pointer px-2 py-1.5 rounded-lg bg-surface-200 border border-surface-border">
+          <input
+            type="checkbox"
+            checked={filterRemoteOnly}
+            onChange={(e) => setFilterRemoteOnly(e.target.checked)}
+            className="accent-accent"
+          />
+          <span>Apenas Remoto</span>
+        </label>
       </div>
 
       {/* Content Rendering: List View or Kanban View */}
@@ -187,18 +329,17 @@ export const JobsView: React.FC<JobsViewProps> = ({
                         </span>
                       )}
                       {j.match_score !== undefined && j.match_score !== null && (
-                        <span className="px-2 py-0.5 text-[10px] font-bold bg-purple-500/10 text-purple-300 rounded border border-purple-500/20 flex items-center gap-1">
+                        <span className="px-2 py-0.5 text-[10px] font-bold bg-accent/10 text-accent-light rounded border border-accent/20 flex items-center gap-1">
                           <Sparkles className="w-3 h-3" />
                           {Math.round(j.match_score)}% Match
                         </span>
                       )}
-                      {/* Liveness badge */}
                       <span className={`px-2 py-0.5 text-[10px] uppercase font-bold rounded border ${
                         j.liveness_status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
                         j.liveness_status === 'expired' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
                         'bg-slate-500/10 text-slate-400 border-slate-500/20'
                       }`} title={j.liveness_reason || 'Status de disponibilidade'}>
-                        {j.liveness_status === 'active' ? '● Ativa' : j.liveness_status === 'expired' ? '✕ Expirada' : '○ A Verificar'}
+                        {j.liveness_status === 'active' ? 'Ativa' : j.liveness_status === 'expired' ? 'Expirada' : 'A Verificar'}
                       </span>
                     </div>
 
@@ -226,31 +367,25 @@ export const JobsView: React.FC<JobsViewProps> = ({
                   </div>
 
                   {/* Right Action Bar */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    {/* Status Selector */}
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
                     <select
                       value={j.application_status || 'disponivel'}
                       onChange={(e) => onUpdateStatus(j.id, e.target.value)}
                       className={`text-xs px-2.5 py-1.5 rounded-lg border font-medium focus:outline-none ${
                         j.application_status === 'candidatado' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' :
                         j.application_status === 'positiva' ? 'bg-green-500/20 border-green-500/40 text-green-300' :
-                        j.application_status === 'entrevista' ? 'bg-purple-500/10 border-purple-500/30 text-purple-300' :
+                        j.application_status === 'entrevista' ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300' :
                         'bg-surface-200 border-surface-border text-txt-primary'
                       }`}
                     >
-                      <option value="disponivel">Disponível</option>
-                      <option value="avaliada">Avaliada</option>
-                      <option value="em_preparacao">Em Preparação</option>
-                      <option value="candidatado">Candidatado</option>
-                      <option value="entrevista">Entrevista</option>
-                      <option value="positiva">Positiva</option>
-                      <option value="negativa">Negativa</option>
-                      <option value="descartada">Descartada</option>
+                      {STATUS_COLUMNS.map((c) => (
+                        <option key={c.id} value={c.id}>{c.label}</option>
+                      ))}
                     </select>
 
-                    {/* Quick Mark Applied Button */}
                     {j.application_status !== 'candidatado' && (
                       <button
+                        type="button"
                         onClick={() => onMarkApplied(j.id)}
                         className="px-2.5 py-1.5 text-xs font-medium bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-lg transition-colors flex items-center gap-1"
                         title="Marcar como 'Já me candidatei'"
@@ -260,8 +395,8 @@ export const JobsView: React.FC<JobsViewProps> = ({
                       </button>
                     )}
 
-                    {/* Check Liveness Button */}
                     <button
+                      type="button"
                       onClick={() => handleLiveness(j.id)}
                       disabled={checkingLivenessId === j.id}
                       className="p-1.5 bg-surface-200 hover:bg-surface-300 text-txt-secondary hover:text-txt-primary border border-surface-border rounded-lg transition-colors"
@@ -270,8 +405,8 @@ export const JobsView: React.FC<JobsViewProps> = ({
                       <RefreshCw className={`w-3.5 h-3.5 ${checkingLivenessId === j.id ? 'animate-spin' : ''}`} />
                     </button>
 
-                    {/* AI Studio */}
                     <button
+                      type="button"
                       onClick={() => onOpenJobAI(j)}
                       className="px-3 py-1.5 text-xs font-medium bg-accent hover:bg-accent-hover text-white rounded-lg transition-colors flex items-center gap-1 shadow-sm"
                     >
@@ -279,7 +414,6 @@ export const JobsView: React.FC<JobsViewProps> = ({
                       AI Studio
                     </button>
 
-                    {/* External Link */}
                     <a
                       href={j.url}
                       target="_blank"
@@ -290,14 +424,36 @@ export const JobsView: React.FC<JobsViewProps> = ({
                       <ExternalLink className="w-3.5 h-3.5" />
                     </a>
 
-                    {/* Delete */}
-                    <button
-                      onClick={() => onDeleteJob(j.id)}
-                      className="p-1.5 hover:bg-red-500/10 text-txt-muted hover:text-red-400 rounded-lg transition-colors"
-                      title="Remover vaga"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {confirmDeleteId === j.id ? (
+                      <div className="flex items-center gap-1 bg-rose-500/10 border border-rose-500/30 rounded-lg px-2 py-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onDeleteJob(j.id);
+                            setConfirmDeleteId(null);
+                          }}
+                          className="text-[11px] font-semibold text-rose-400 hover:text-rose-300"
+                        >
+                          Confirmar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="text-[11px] text-txt-muted hover:text-txt-primary ml-1"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(j.id)}
+                        className="p-1.5 hover:bg-red-500/10 text-txt-muted hover:text-red-400 rounded-lg transition-colors"
+                        title="Remover vaga"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))
@@ -305,15 +461,15 @@ export const JobsView: React.FC<JobsViewProps> = ({
           </div>
         </div>
       ) : (
-        /* Kanban Board View */
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 overflow-x-auto pb-4">
-          {STATUS_COLUMNS.slice(0, 4).map((col) => {
+        /* Full 8-Column Kanban Board View */
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {STATUS_COLUMNS.map((col) => {
             const columnJobs = jobs.filter((j) => (j.application_status || 'disponivel') === col.id);
             return (
-              <div key={col.id} className="bg-surface-100 border border-surface-border rounded-xl p-3 flex flex-col min-w-[280px]">
+              <div key={col.id} className="bg-surface-100 border border-surface-border rounded-xl p-3 flex flex-col w-[280px] shrink-0">
                 <div className={`flex items-center justify-between pb-2 mb-3 border-b border-surface-border ${col.color}`}>
                   <span className="font-semibold text-xs uppercase tracking-wider">{col.label}</span>
-                  <span className="px-1.5 py-0.2 rounded-full text-xs font-bold bg-surface-200">
+                  <span className="px-1.5 py-0.5 rounded-full text-xs font-bold bg-surface-200">
                     {columnJobs.length}
                   </span>
                 </div>
@@ -349,6 +505,122 @@ export const JobsView: React.FC<JobsViewProps> = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Manual Job Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-surface-100 border border-surface-border rounded-2xl w-full max-w-lg p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-surface-border pb-3">
+              <h3 className="font-display font-bold text-base text-txt-primary">Adicionar Vaga Manualmente</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddModal(false)}
+                className="p-1 text-txt-muted hover:text-txt-primary rounded"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddManualSubmit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-txt-secondary mb-1">URL da Vaga *</label>
+                <input
+                  type="url"
+                  required
+                  value={manualUrl}
+                  onChange={(e) => setManualUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-2 text-xs text-txt-primary focus:outline-none focus:border-accent"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-txt-secondary mb-1">Cargo / Título</label>
+                  <input
+                    type="text"
+                    value={manualTitle}
+                    onChange={(e) => setManualTitle(e.target.value)}
+                    placeholder="Ex: Backend Engineer"
+                    className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-2 text-xs text-txt-primary focus:outline-none focus:border-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-txt-secondary mb-1">Empresa</label>
+                  <input
+                    type="text"
+                    value={manualCompany}
+                    onChange={(e) => setManualCompany(e.target.value)}
+                    placeholder="Ex: Tech Corp"
+                    className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-2 text-xs text-txt-primary focus:outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-txt-secondary mb-1">Localização</label>
+                  <input
+                    type="text"
+                    value={manualLocation}
+                    onChange={(e) => setManualLocation(e.target.value)}
+                    placeholder="Ex: Lisboa, Portugal"
+                    className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-2 text-xs text-txt-primary focus:outline-none focus:border-accent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-txt-secondary mb-1">Salário (opcional)</label>
+                  <input
+                    type="text"
+                    value={manualSalary}
+                    onChange={(e) => setManualSalary(e.target.value)}
+                    placeholder="Ex: 45k - 55k EUR"
+                    className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-2 text-xs text-txt-primary focus:outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+
+              <label className="flex items-center gap-2 text-xs text-txt-secondary cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={manualRemote}
+                  onChange={(e) => setManualRemote(e.target.checked)}
+                  className="accent-accent"
+                />
+                <span>Trabalho Remoto</span>
+              </label>
+
+              <div>
+                <label className="block text-xs font-medium text-txt-secondary mb-1">Descrição da Vaga (opcional)</label>
+                <textarea
+                  rows={3}
+                  value={manualDesc}
+                  onChange={(e) => setManualDesc(e.target.value)}
+                  placeholder="Cole os requisitos da vaga para melhorar a análise ATS..."
+                  className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-2 text-xs text-txt-primary focus:outline-none focus:border-accent"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 text-xs text-txt-secondary hover:text-txt-primary rounded-lg"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={addingJob}
+                  className="px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold disabled:opacity-50"
+                >
+                  {addingJob ? 'A guardar...' : 'Guardar Vaga'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

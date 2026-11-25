@@ -1,10 +1,16 @@
 import os
+import re
 import urllib.parse
 from typing import Dict, Any, List, Optional
-from jinja2 import Template
+from jinja2 import Environment, select_autoescape
 import logging
 
 logger = logging.getLogger(__name__)
+
+_HEX_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+_SAFE_FONT_RE = re.compile(r"^[A-Za-z0-9 \-]+$")
+_DATA_IMAGE_RE = re.compile(r"^data:image/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$", re.IGNORECASE)
+_JINJA_ENV = Environment(autoescape=select_autoescape(["html", "xml"]))
 
 MODERN_CV_TEMPLATE = """<!DOCTYPE html>
 <html lang="pt">
@@ -568,20 +574,31 @@ class PDFGeneratorService:
     ) -> str:
         cfg = template_config or {}
 
-        # Default fallback values
-        font_family = cfg.get("font_family") or "Inter"
-        font_heading = cfg.get("font_heading") or font_family
-        accent_color = cfg.get("accent_color") or "#2563eb"
+        # Sanitize styling parameters defensively
+        raw_font = (cfg.get("font_family") or "Inter").strip()
+        font_family = raw_font if _SAFE_FONT_RE.match(raw_font) else "Inter"
+
+        raw_heading = (cfg.get("font_heading") or font_family).strip()
+        font_heading = raw_heading if _SAFE_FONT_RE.match(raw_heading) else font_family
+
+        raw_color = (cfg.get("accent_color") or "#2563eb").strip()
+        accent_color = raw_color if _HEX_COLOR_RE.match(raw_color) else "#2563eb"
+
         layout = cfg.get("layout") or "classic_ats"
         has_photo = bool(cfg.get("has_photo", False))
-        photo_url = cfg.get("photo_url") or ""
+
+        raw_photo = (cfg.get("photo_url") or "").strip()
+        if raw_photo and (raw_photo.startswith(("https://", "http://")) or _DATA_IMAGE_RE.match(raw_photo)):
+            photo_url = raw_photo
+        else:
+            photo_url = ""
 
         # Normalize layout CSS class
         layout_class = layout.replace("_", "-")
 
         # Normalize Google Fonts URL parameters
-        font_family_url = font_family.strip().replace(" ", "+")
-        font_heading_url = font_heading.strip().replace(" ", "+") if font_heading else font_family_url
+        font_family_url = urllib.parse.quote_plus(font_family)
+        font_heading_url = urllib.parse.quote_plus(font_heading) if font_heading else font_family_url
 
         # Font size scale
         font_scale = cfg.get("font_size_scale", "normal")
@@ -592,7 +609,7 @@ class PDFGeneratorService:
         blocks_order = cfg.get("blocks_order") or default_blocks
         visibility = cfg.get("block_visibility") or {b: True for b in default_blocks}
 
-        template = Template(MODERN_CV_TEMPLATE)
+        template = _JINJA_ENV.from_string(MODERN_CV_TEMPLATE)
         return template.render(
             profile=profile_dict,
             tailored_summary=tailored_summary,

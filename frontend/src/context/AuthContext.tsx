@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { User } from '../types';
 import { api } from '../api';
 
@@ -21,11 +21,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(localStorage.getItem('new_career_token'));
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    initAuth();
+  const logout = useCallback(() => {
+    localStorage.removeItem('new_career_token');
+    setToken(null);
+    setUser(null);
   }, []);
 
-  const initAuth = async () => {
+  const initAuth = useCallback(async () => {
     const savedToken = localStorage.getItem('new_career_token');
     if (!savedToken) {
       setLoading(false);
@@ -37,13 +39,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(savedToken);
     } catch (err) {
       console.warn('Sessão expirada:', err);
-      localStorage.removeItem('new_career_token');
-      setUser(null);
-      setToken(null);
+      logout();
     } finally {
       setLoading(false);
     }
-  };
+  }, [logout]);
+
+  useEffect(() => {
+    initAuth();
+  }, [initAuth]);
+
+  useEffect(() => {
+    const handleUnauthorized = () => logout();
+    window.addEventListener('new-career:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('new-career:unauthorized', handleUnauthorized);
+  }, [logout]);
 
   const login = async (email: string, password: string) => {
     const res = await api.login(email, password);
@@ -58,12 +68,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(res.access_token);
     setUser(res.user);
     return res.user;
-  };
-
-  const logout = () => {
-    localStorage.removeItem('new_career_token');
-    setToken(null);
-    setUser(null);
   };
 
   const refreshUser = async () => {

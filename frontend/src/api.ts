@@ -1,83 +1,90 @@
 import type {
   Job, ApplicationStats, ProfileData, JDAnalysis, CVTailorResult,
-  CoverLetterResult, ScanRecord, AuthResponse, User, OnboardingResult,
-  CVTemplate, ATSAuditResult, UserSettings, TestKeyResult, TestWebhookResult
+  CoverLetterResult, InterviewPrepResult, ScanRecord, AuthResponse, User, OnboardingResult,
+  CVTemplate, ATSAuditResult, UserSettings, TestKeyResult, TestWebhookResult,
+  ManualJobPayload, BatchLivenessResult
 } from './types';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') || '/api';
 
 function authHeaders(): Record<string, string> {
   const token = localStorage.getItem('new_career_token');
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+async function apiFetch(path: string, init: RequestInit = {}, defaultError = 'Erro na comunicação com o servidor'): Promise<Response> {
+  const url = path.startsWith('http') ? path : `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      ...authHeaders(),
+      ...(init.headers || {}),
+    },
+  });
+
+  if (res.status === 401 && !path.startsWith('/auth/login') && !path.startsWith('/auth/register')) {
+    window.dispatchEvent(new CustomEvent('new-career:unauthorized'));
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || defaultError);
+  }
+  return res;
+}
+
+function triggerBlobDownload(blob: Blob, filename: string) {
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+}
+
 export const api = {
   // Auth
   async register(full_name: string, email: string, password: string): Promise<AuthResponse> {
-    const res = await fetch(`${API_BASE}/auth/register`, {
+    const res = await apiFetch('/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ full_name, email, password })
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || 'Erro ao registrar conta');
-    }
+    }, 'Erro ao registrar conta');
     return res.json();
   },
 
   async login(email: string, password: string): Promise<AuthResponse> {
-    const res = await fetch(`${API_BASE}/auth/login`, {
+    const res = await apiFetch('/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || 'Email ou palavra-passe incorretos');
-    }
+    }, 'Email ou palavra-passe incorretos');
     return res.json();
   },
 
   async getMe(): Promise<User> {
-    const res = await fetch(`${API_BASE}/auth/me`, {
-      headers: { ...authHeaders() }
-    });
-    if (!res.ok) throw new Error('Sessão expirada');
+    const res = await apiFetch('/auth/me', {}, 'Sessão expirada');
     return res.json();
   },
 
   async onboardingCareerOps(directory_path: string): Promise<OnboardingResult> {
-    const res = await fetch(`${API_BASE}/auth/onboarding/career-ops`, {
+    const res = await apiFetch('/auth/onboarding/career-ops', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders()
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ directory_path })
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || 'Erro ao importar do Career-Ops');
-    }
+    }, 'Erro ao importar do Career-Ops');
     return res.json();
   },
 
   async uploadCareerOpsZip(file: File): Promise<OnboardingResult> {
     const formData = new FormData();
     formData.append('zip_file', file);
-
-    const res = await fetch(`${API_BASE}/auth/onboarding/upload-zip`, {
+    const res = await apiFetch('/auth/onboarding/upload-zip', {
       method: 'POST',
-      headers: {
-        ...authHeaders()
-      },
       body: formData
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || 'Erro ao descompactar e importar arquivo ZIP');
-    }
+    }, 'Erro ao descompactar e importar arquivo ZIP');
     return res.json();
   },
 
@@ -89,27 +96,14 @@ export const api = {
   }): Promise<OnboardingResult> {
     const formData = new FormData();
     formData.append('cv_file', files.cvFile);
-    if (files.profileFile) {
-      formData.append('profile_file', files.profileFile);
-    }
-    if (files.applicationsFile) {
-      formData.append('applications_file', files.applicationsFile);
-    }
-    if (files.outputZip) {
-      formData.append('output_zip', files.outputZip);
-    }
+    if (files.profileFile) formData.append('profile_file', files.profileFile);
+    if (files.applicationsFile) formData.append('applications_file', files.applicationsFile);
+    if (files.outputZip) formData.append('output_zip', files.outputZip);
 
-    const res = await fetch(`${API_BASE}/auth/onboarding/upload-privacy`, {
+    const res = await apiFetch('/auth/onboarding/upload-privacy', {
       method: 'POST',
-      headers: {
-        ...authHeaders()
-      },
       body: formData
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || 'Erro ao importar ficheiros no modo privacidade');
-    }
+    }, 'Erro ao importar ficheiros no modo privacidade');
     return res.json();
   },
 
@@ -121,18 +115,11 @@ export const api = {
     initial_skills: string[];
     initial_cv_text?: string;
   }): Promise<OnboardingResult> {
-    const res = await fetch(`${API_BASE}/auth/onboarding/manual`, {
+    const res = await apiFetch('/auth/onboarding/manual', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders()
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || 'Erro ao configurar perfil');
-    }
+    }, 'Erro ao configurar perfil');
     return res.json();
   },
 
@@ -144,6 +131,8 @@ export const api = {
     status?: string;
     liveness?: string;
     is_remote?: boolean;
+    max_distance?: number;
+    sort_by?: 'created_at' | 'match_score' | 'distance_km';
     limit?: number;
     offset?: number;
   }): Promise<Job[]> {
@@ -154,271 +143,238 @@ export const api = {
     if (params.status) q.append('status', params.status);
     if (params.liveness) q.append('liveness', params.liveness);
     if (params.is_remote !== undefined) q.append('is_remote', String(params.is_remote));
+    if (params.max_distance !== undefined) q.append('max_distance', String(params.max_distance));
+    if (params.sort_by) q.append('sort_by', params.sort_by);
     if (params.limit) q.append('limit', String(params.limit));
     if (params.offset) q.append('offset', String(params.offset));
 
-    const res = await fetch(`${API_BASE}/jobs?${q.toString()}`, {
-      headers: { ...authHeaders() }
-    });
-    if (!res.ok) throw new Error('Erro ao buscar vagas');
+    const res = await apiFetch(`/jobs?${q.toString()}`, {}, 'Erro ao buscar vagas');
+    return res.json();
+  },
+
+  async createManualJob(payload: ManualJobPayload): Promise<Job> {
+    const res = await apiFetch('/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }, 'Erro ao adicionar vaga');
     return res.json();
   },
 
   async getJob(id: number): Promise<Job> {
-    const res = await fetch(`${API_BASE}/jobs/${id}`, {
-      headers: { ...authHeaders() }
-    });
-    if (!res.ok) throw new Error('Erro ao obter detalhes da vaga');
+    const res = await apiFetch(`/jobs/${id}`, {}, 'Erro ao obter detalhes da vaga');
     return res.json();
   },
 
   async checkLiveness(jobId: number): Promise<{ job_id: number; liveness_status: string; liveness_reason?: string }> {
-    const res = await fetch(`${API_BASE}/jobs/${jobId}/check-liveness`, {
-      method: 'POST',
-      headers: { ...authHeaders() }
-    });
-    if (!res.ok) throw new Error('Erro ao verificar disponibilidade');
+    const res = await apiFetch(`/jobs/${jobId}/check-liveness`, {
+      method: 'POST'
+    }, 'Erro ao verificar disponibilidade');
     return res.json();
   },
 
+  async checkLivenessBatch(jobIds?: number[]): Promise<BatchLivenessResult> {
+    const res = await apiFetch('/jobs/check-liveness-batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_ids: jobIds, only_non_expired: true, limit: 20 })
+    }, 'Erro ao verificar disponibilidade em lote');
+    return res.json();
+  },
+
+  async exportJobs(format: 'csv' | 'json', status?: string): Promise<void> {
+    const q = new URLSearchParams({ format });
+    if (status) q.append('status', status);
+    const res = await apiFetch(`/jobs/export?${q.toString()}`, {}, 'Erro ao exportar vagas');
+    const blob = await res.blob();
+    triggerBlobDownload(blob, `new-career-vagas.${format}`);
+  },
+
   async deleteJob(jobId: number): Promise<void> {
-    const res = await fetch(`${API_BASE}/jobs/${jobId}`, {
-      method: 'DELETE',
-      headers: { ...authHeaders() }
-    });
-    if (!res.ok) throw new Error('Erro ao excluir vaga');
+    await apiFetch(`/jobs/${jobId}`, { method: 'DELETE' }, 'Erro ao excluir vaga');
   },
 
   // Applications
   async getStats(): Promise<ApplicationStats> {
-    const res = await fetch(`${API_BASE}/applications/stats`, {
-      headers: { ...authHeaders() }
-    });
-    if (!res.ok) throw new Error('Erro ao buscar métricas');
+    const res = await apiFetch('/applications/stats', {}, 'Erro ao buscar métricas');
     return res.json();
   },
 
   async markApplied(jobId: number, notes?: string): Promise<any> {
-    const res = await fetch(`${API_BASE}/applications/${jobId}/apply?notes=${encodeURIComponent(notes || '')}`, {
-      method: 'POST',
-      headers: { ...authHeaders() }
-    });
-    if (!res.ok) throw new Error('Erro ao registrar candidatura');
+    const res = await apiFetch(`/applications/${jobId}/apply?notes=${encodeURIComponent(notes || '')}`, {
+      method: 'POST'
+    }, 'Erro ao registrar candidatura');
     return res.json();
   },
 
   async updateApplication(jobId: number, update: { status?: string; notes?: string; feedback_notes?: string }): Promise<any> {
-    const res = await fetch(`${API_BASE}/applications/${jobId}`, {
+    const res = await apiFetch(`/applications/${jobId}`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders()
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(update)
-    });
-    if (!res.ok) throw new Error('Erro ao atualizar candidatura');
+    }, 'Erro ao atualizar candidatura');
     return res.json();
   },
 
   // Profile
   async getProfile(): Promise<ProfileData> {
-    const res = await fetch(`${API_BASE}/profile`, {
-      headers: { ...authHeaders() }
-    });
-    if (!res.ok) throw new Error('Erro ao buscar perfil mestre');
+    const res = await apiFetch('/profile', {}, 'Erro ao buscar perfil mestre');
     return res.json();
   },
 
   async updateProfile(profile: ProfileData): Promise<ProfileData> {
-    const res = await fetch(`${API_BASE}/profile`, {
+    const res = await apiFetch('/profile', {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders()
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(profile)
-    });
-    if (!res.ok) throw new Error('Erro ao salvar perfil');
+    }, 'Erro ao salvar perfil');
     return res.json();
   },
 
   // Scrapers
-  async triggerScan(sources: string[], query: string, location: string, limit = 20): Promise<any> {
-    const res = await fetch(`${API_BASE}/scrapers/scan`, {
+  async triggerScan(sources: string[], query: string, location: string, limit = 20): Promise<{ status: string; scan_id: number; message: string; sources: string[] }> {
+    const res = await apiFetch('/scrapers/scan', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders()
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sources, query, location, limit })
-    });
-    if (!res.ok) throw new Error('Erro ao iniciar varredura');
+    }, 'Erro ao iniciar varredura');
+    return res.json();
+  },
+
+  async getScanStatus(scanId: number): Promise<ScanRecord> {
+    const res = await apiFetch(`/scrapers/scan/${scanId}`, {}, 'Erro ao consultar estado da varredura');
     return res.json();
   },
 
   async getScanHistory(): Promise<ScanRecord[]> {
-    const res = await fetch(`${API_BASE}/scrapers/history`, {
-      headers: { ...authHeaders() }
-    });
-    if (!res.ok) throw new Error('Erro ao buscar histórico de varreduras');
+    const res = await apiFetch('/scrapers/history', {}, 'Erro ao buscar histórico de varreduras');
     return res.json();
   },
 
   // AI Studio
   async analyzeJob(jobId: number): Promise<JDAnalysis> {
-    const res = await fetch(`${API_BASE}/ai/analyze/${jobId}`, {
-      method: 'POST',
-      headers: { ...authHeaders() }
-    });
-    if (!res.ok) throw new Error('Erro ao analisar vaga com IA');
+    const res = await apiFetch(`/ai/analyze/${jobId}`, { method: 'POST' }, 'Erro ao analisar vaga com IA');
     return res.json();
   },
 
   async tailorCV(jobId: number, templateId?: string): Promise<CVTailorResult> {
-    const res = await fetch(`${API_BASE}/ai/tailor-cv`, {
+    const res = await apiFetch('/ai/tailor-cv', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders()
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ job_id: jobId, template_id: templateId })
-    });
-    if (!res.ok) throw new Error('Erro ao adaptar currículo');
+    }, 'Erro ao adaptar currículo');
     return res.json();
   },
 
   async generateCoverLetter(jobId: number, angle = 'direct'): Promise<CoverLetterResult> {
-    const res = await fetch(`${API_BASE}/ai/cover-letter`, {
+    const res = await apiFetch('/ai/cover-letter', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders()
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ job_id: jobId, angle })
-    });
-    if (!res.ok) throw new Error('Erro ao gerar carta de apresentação');
+    }, 'Erro ao gerar carta de apresentação');
     return res.json();
+  },
+
+  async generateInterviewPrep(jobId: number): Promise<InterviewPrepResult> {
+    const res = await apiFetch('/ai/interview-prep', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ job_id: jobId })
+    }, 'Erro ao gerar preparação de entrevista');
+    return res.json();
+  },
+
+  async downloadProtectedFile(downloadUrlPath: string, fallbackName = 'curriculo.pdf'): Promise<void> {
+    const normalized = downloadUrlPath.startsWith('/api/')
+      ? downloadUrlPath.slice(4)
+      : downloadUrlPath;
+    const res = await apiFetch(normalized, {}, 'Erro ao descarregar ficheiro');
+    const blob = await res.blob();
+    const filename = downloadUrlPath.split('/').pop()?.split('?')[0] || fallbackName;
+    triggerBlobDownload(blob, filename);
   },
 
   // CV Templates & ATS Auditor
   async getCVTemplates(): Promise<CVTemplate[]> {
-    const res = await fetch(`${API_BASE}/cv-templates`, {
-      headers: { ...authHeaders() }
-    });
-    if (!res.ok) throw new Error('Erro ao carregar modelos de CV');
+    const res = await apiFetch('/cv-templates', {}, 'Erro ao carregar modelos de CV');
     return res.json();
   },
 
   async createCVTemplate(template: Partial<CVTemplate>): Promise<CVTemplate> {
-    const res = await fetch(`${API_BASE}/cv-templates`, {
+    const res = await apiFetch('/cv-templates', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders()
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(template)
-    });
-    if (!res.ok) throw new Error('Erro ao criar modelo de CV');
+    }, 'Erro ao criar modelo de CV');
     return res.json();
   },
 
   async updateCVTemplate(id: string, updates: Partial<CVTemplate>): Promise<CVTemplate> {
-    const res = await fetch(`${API_BASE}/cv-templates/${id}`, {
+    const res = await apiFetch(`/cv-templates/${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders()
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates)
-    });
-    if (!res.ok) throw new Error('Erro ao atualizar modelo de CV');
+    }, 'Erro ao atualizar modelo de CV');
     return res.json();
   },
 
   async deleteCVTemplate(id: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/cv-templates/${id}`, {
-      method: 'DELETE',
-      headers: { ...authHeaders() }
-    });
-    if (!res.ok) throw new Error('Erro ao remover modelo de CV');
+    await apiFetch(`/cv-templates/${id}`, { method: 'DELETE' }, 'Erro ao remover modelo de CV');
   },
 
   async auditCVTemplate(template: Partial<CVTemplate>, profile?: any, jobId?: number): Promise<ATSAuditResult> {
-    const res = await fetch(`${API_BASE}/cv-templates/audit`, {
+    const res = await apiFetch('/cv-templates/audit', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders()
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ template, profile, job_id: jobId })
-    });
-    if (!res.ok) throw new Error('Erro ao auditar modelo de CV');
+    }, 'Erro ao auditar modelo de CV');
     return res.json();
   },
 
   async previewCVTemplate(template: Partial<CVTemplate>, tailoredSummary?: string, tailoredExperiences?: any[], highlightedSkills?: string[]): Promise<string> {
-    const res = await fetch(`${API_BASE}/cv-templates/preview`, {
+    const res = await apiFetch('/cv-templates/preview', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders()
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         template,
         tailored_summary: tailoredSummary,
         tailored_experiences: tailoredExperiences,
         highlighted_skills: highlightedSkills
       })
-    });
-    if (!res.ok) throw new Error('Erro ao gerar pré-visualização do CV');
+    }, 'Erro ao gerar pré-visualização do CV');
     return res.text();
   },
 
   // Settings & Integrations
   async getUserSettings(): Promise<UserSettings> {
-    const res = await fetch(`${API_BASE}/settings`, {
-      headers: { ...authHeaders() }
-    });
-    if (!res.ok) throw new Error('Erro ao carregar configurações do utilizador');
+    const res = await apiFetch('/settings', {}, 'Erro ao carregar configurações do utilizador');
     return res.json();
   },
 
   async updateUserSettings(settings: Partial<UserSettings>): Promise<UserSettings> {
-    const res = await fetch(`${API_BASE}/settings`, {
+    const res = await apiFetch('/settings', {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders()
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings)
-    });
-    if (!res.ok) throw new Error('Erro ao guardar configurações');
+    }, 'Erro ao guardar configurações');
     return res.json();
   },
 
   async testApiKey(provider: string, apiKey?: string): Promise<TestKeyResult> {
-    const res = await fetch(`${API_BASE}/settings/test-key`, {
+    const res = await apiFetch('/settings/test-key', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders()
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ provider, api_key: apiKey || undefined })
-    });
-    if (!res.ok) throw new Error('Erro ao testar chave de API');
+    }, 'Erro ao testar chave de API');
     return res.json();
   },
 
   async testDiscordWebhook(webhookUrl?: string): Promise<TestWebhookResult> {
-    const res = await fetch(`${API_BASE}/settings/test-webhook`, {
+    const res = await apiFetch('/settings/test-webhook', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders()
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ webhook_url: webhookUrl || undefined })
-    });
-    if (!res.ok) throw new Error('Erro ao testar webhook do Discord');
+    }, 'Erro ao testar webhook do Discord');
     return res.json();
   }
 };

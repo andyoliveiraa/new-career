@@ -1,14 +1,27 @@
+import logging
 import re
 import time
+from typing import Any, Dict, List, Optional
+
 import httpx
-from typing import Dict, Any, List, Optional
-import logging
 
 logger = logging.getLogger(__name__)
 
 DISCORD_WEBHOOK_PATTERN = re.compile(
     r"^https:\/\/(canary\.|ptb\.)?discord(app)?\.com\/api\/webhooks\/\d+\/[\w-]+$"
 )
+
+STATUS_LABELS = {
+    "disponivel": "Disponível",
+    "avaliada": "Avaliada",
+    "em_preparacao": "Em Preparação",
+    "candidatado": "Candidatado",
+    "entrevista": "Entrevista Agendada",
+    "positiva": "Oferta / Positiva",
+    "negativa": "Negativa",
+    "descartada": "Descartada"
+}
+
 
 class DiscordNotificationService:
     @staticmethod
@@ -33,22 +46,22 @@ class DiscordNotificationService:
             "avatar_url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/briefcase.png",
             "embeds": [
                 {
-                    "title": "🎉 Notificações New Career Conectadas!",
-                    "description": "O seu webhook do Discord foi verificado com sucesso e está operacional. Irá receber aqui alertas automáticos de novas oportunidades profissionais.",
-                    "color": 2450411, # #2563eb
+                    "title": "Notificações New Career Conectadas",
+                    "description": "O seu webhook do Discord foi verificado com sucesso e está operacional.",
+                    "color": 2450411,
                     "fields": [
                         {
-                            "name": "👤 Utilizador",
+                            "name": "Utilizador",
                             "value": user_name or "Utilizador New Career",
                             "inline": True
                         },
                         {
-                            "name": "🟢 Estado",
+                            "name": "Estado",
                             "value": "Conectado & Ativo",
                             "inline": True
                         },
                         {
-                            "name": "⚡ Funcionalidades",
+                            "name": "Funcionalidades",
                             "value": "• Alertas automáticos de novas vagas\n• Notificações de avanço de entrevistas\n• Resumos de liveness check",
                             "inline": False
                         }
@@ -125,8 +138,8 @@ class DiscordNotificationService:
             salary = f" • Salário: {j.get('salary')}" if j.get("salary") else ""
 
             fields.append({
-                "name": f"💼 {title} — {company}",
-                "value": f"📍 {loc}{salary}\n[🔗 Ver Oferta e Candidatar]({url})",
+                "name": f"{title} — {company}",
+                "value": f"Local: {loc}{salary}\n[Ver Oferta e Candidatar]({url})",
                 "inline": False
             })
 
@@ -135,9 +148,9 @@ class DiscordNotificationService:
             "avatar_url": "https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/radar.png",
             "embeds": [
                 {
-                    "title": f"🎯 {len(jobs)} Novas Vagas Encontradas!",
-                    "description": f"Varredura para **'{query}'** em **{location or 'Portugal/Remoto'}** identificou novas oportunidades:",
-                    "color": 366217, # #059669 Emerald
+                    "title": f"{len(jobs)} Novas Vagas Encontradas",
+                    "description": f"Varredura para **'{query}'** em **{location or 'Global/Remoto'}** identificou novas oportunidades:",
+                    "color": 366217,
                     "fields": fields,
                     "footer": {
                         "text": f"New Career • {len(jobs)} novas oportunidades registadas na sua conta"
@@ -152,4 +165,41 @@ class DiscordNotificationService:
                 return resp.status_code in (200, 204)
         except Exception as e:
             logger.warning(f"Falha ao enviar alerta de novas vagas no Discord: {e}")
+            return False
+
+    @staticmethod
+    async def send_status_change_notification(
+        webhook_url: str,
+        job_title: str,
+        company: str,
+        new_status: str,
+        job_url: Optional[str] = None
+    ) -> bool:
+        if not DiscordNotificationService.is_valid_webhook_url(webhook_url):
+            return False
+
+        status_label = STATUS_LABELS.get(new_status, new_status)
+        color = 366217 if new_status == "positiva" else (9064446 if new_status == "entrevista" else 2450411)
+        desc = f"A candidatura para **{job_title}** na **{company}** avançou para **{status_label}**."
+        if job_url:
+            desc += f"\n[Abrir Oferta]({job_url})"
+
+        payload = {
+            "username": "New Career Pipeline",
+            "embeds": [
+                {
+                    "title": f"Atualização de Candidatura: {status_label}",
+                    "description": desc,
+                    "color": color,
+                    "footer": {"text": "New Career • Pipeline de Candidaturas"}
+                }
+            ]
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                resp = await client.post(webhook_url.strip(), json=payload)
+                return resp.status_code in (200, 204)
+        except Exception as e:
+            logger.warning(f"Falha ao enviar notificação de status para Discord: {e}")
             return False

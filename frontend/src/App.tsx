@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import type { Job, ApplicationStats } from './types';
+import React, { useState, useEffect, useCallback } from 'react';
+import type { Job, ApplicationStats, ManualJobPayload } from './types';
 import { api } from './api';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider, useToast } from './context/ToastContext';
 import { LoginView } from './components/LoginView';
 import { RegisterView } from './components/RegisterView';
 import { OnboardingWizard } from './components/OnboardingWizard';
@@ -16,6 +17,7 @@ import { AIStudioModal } from './components/AIStudioModal';
 
 const AppContent: React.FC = () => {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'jobs' | 'cv-builder' | 'scrapers' | 'profile' | 'settings'>('dashboard');
@@ -39,14 +41,11 @@ const AppContent: React.FC = () => {
   const [filterLocation, setFilterLocation] = useState('');
   const [filterSource, setFilterSource] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterLiveness, setFilterLiveness] = useState('');
+  const [filterRemoteOnly, setFilterRemoteOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<'created_at' | 'match_score' | 'distance_km'>('created_at');
 
-  useEffect(() => {
-    if (isAuthenticated && user?.has_completed_onboarding) {
-      loadData();
-    }
-  }, [isAuthenticated, user?.has_completed_onboarding, filterQuery, filterLocation, filterSource, filterStatus]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [jobsData, statsData] = await Promise.all([
@@ -55,7 +54,10 @@ const AppContent: React.FC = () => {
           location: filterLocation || undefined,
           source: filterSource || undefined,
           status: filterStatus || undefined,
-          limit: 100
+          liveness: filterLiveness || undefined,
+          is_remote: filterRemoteOnly ? true : undefined,
+          sort_by: sortBy,
+          limit: 150
         }),
         api.getStats()
       ]);
@@ -66,14 +68,21 @@ const AppContent: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterQuery, filterLocation, filterSource, filterStatus, filterLiveness, filterRemoteOnly, sortBy]);
+
+  useEffect(() => {
+    if (isAuthenticated && user?.has_completed_onboarding) {
+      loadData();
+    }
+  }, [isAuthenticated, user?.has_completed_onboarding, loadData]);
 
   const handleMarkApplied = async (jobId: number) => {
     try {
       await api.markApplied(jobId);
+      showToast('Candidatura marcada como submetida.', 'success');
       await loadData();
-    } catch (err) {
-      alert('Erro ao marcar como candidatado.');
+    } catch (err: any) {
+      showToast(err.message || 'Erro ao marcar como candidatado.', 'error');
     }
   };
 
@@ -87,31 +96,63 @@ const AppContent: React.FC = () => {
             : j
         )
       );
-    } catch (err) {
-      alert('Erro ao verificar disponibilidade.');
+      showToast(`Disponibilidade atualizada: ${res.liveness_status}`, 'info');
+    } catch (err: any) {
+      showToast(err.message || 'Erro ao verificar disponibilidade.', 'error');
+    }
+  };
+
+  const handleCheckLivenessBatch = async () => {
+    try {
+      const ids = jobs.slice(0, 20).map((j) => j.id);
+      const res = await api.checkLivenessBatch(ids);
+      showToast(`Verificação concluída (${res.checked}): ${res.active} ativas, ${res.expired} expiradas.`, 'success');
+      await loadData();
+    } catch (err: any) {
+      showToast(err.message || 'Erro ao verificar disponibilidade em lote.', 'error');
+    }
+  };
+
+  const handleCreateManualJob = async (payload: ManualJobPayload) => {
+    try {
+      await api.createManualJob(payload);
+      showToast('Vaga adicionada ao pipeline.', 'success');
+      await loadData();
+    } catch (err: any) {
+      showToast(err.message || 'Erro ao adicionar vaga.', 'error');
+      throw err;
+    }
+  };
+
+  const handleExportJobs = async (format: 'csv' | 'json') => {
+    try {
+      await api.exportJobs(format, filterStatus || undefined);
+      showToast(`Exportação ${format.toUpperCase()} concluída.`, 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Erro ao exportar vagas.', 'error');
     }
   };
 
   const handleUpdateStatus = async (jobId: number, status: string) => {
     try {
       await api.updateApplication(jobId, { status });
+      showToast('Estado da candidatura atualizado.', 'success');
       await loadData();
-    } catch (err) {
-      alert('Erro ao atualizar status.');
+    } catch (err: any) {
+      showToast(err.message || 'Erro ao atualizar estado.', 'error');
     }
   };
 
   const handleDeleteJob = async (jobId: number) => {
-    if (!confirm('Deseja realmente remover esta vaga do sistema?')) return;
     try {
       await api.deleteJob(jobId);
+      showToast('Vaga removida do sistema.', 'info');
       await loadData();
-    } catch (err) {
-      alert('Erro ao excluir vaga.');
+    } catch (err: any) {
+      showToast(err.message || 'Erro ao excluir vaga.', 'error');
     }
   };
 
-  // 1. Loading auth state
   if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -123,7 +164,6 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // 2. Unauthenticated: Login or Register
   if (!isAuthenticated) {
     if (authView === 'register') {
       return <RegisterView onSwitchToLogin={() => setAuthView('login')} />;
@@ -131,22 +171,18 @@ const AppContent: React.FC = () => {
     return <LoginView onSwitchToRegister={() => setAuthView('register')} />;
   }
 
-  // 3. Authenticated but needs Onboarding Setup
   if (user && !user.has_completed_onboarding) {
     return <OnboardingWizard />;
   }
 
-  // 4. Authenticated & Onboarded: Full Workspace
   return (
     <div className="min-h-screen bg-background text-txt-primary flex flex-col font-sans selection:bg-accent selection:text-white">
-      {/* Navbar */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={(tab: string) => setActiveTab(tab as any)}
         statsTotal={stats.total_jobs}
       />
 
-      {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'dashboard' && (
           <DashboardView
@@ -164,6 +200,9 @@ const AppContent: React.FC = () => {
             onRefresh={loadData}
             onMarkApplied={handleMarkApplied}
             onCheckLiveness={handleCheckLiveness}
+            onCheckLivenessBatch={handleCheckLivenessBatch}
+            onCreateManualJob={handleCreateManualJob}
+            onExportJobs={handleExportJobs}
             onUpdateStatus={handleUpdateStatus}
             onDeleteJob={handleDeleteJob}
             onOpenJobAI={(job: Job) => setSelectedJobForAI(job)}
@@ -175,27 +214,21 @@ const AppContent: React.FC = () => {
             setFilterSource={setFilterSource}
             filterStatus={filterStatus}
             setFilterStatus={setFilterStatus}
+            filterLiveness={filterLiveness}
+            setFilterLiveness={setFilterLiveness}
+            filterRemoteOnly={filterRemoteOnly}
+            setFilterRemoteOnly={setFilterRemoteOnly}
+            sortBy={sortBy}
+            setSortBy={setSortBy}
           />
         )}
 
-        {activeTab === 'cv-builder' && (
-          <CVBuilderView />
-        )}
-
-        {activeTab === 'scrapers' && (
-          <ScraperView onScanCompleted={loadData} />
-        )}
-
-        {activeTab === 'profile' && (
-          <ProfileView onSaved={loadData} />
-        )}
-
-        {activeTab === 'settings' && (
-          <SettingsView />
-        )}
+        {activeTab === 'cv-builder' && <CVBuilderView />}
+        {activeTab === 'scrapers' && <ScraperView onScanCompleted={loadData} />}
+        {activeTab === 'profile' && <ProfileView onSaved={loadData} />}
+        {activeTab === 'settings' && <SettingsView />}
       </main>
 
-      {/* AI Studio Modal */}
       {selectedJobForAI && (
         <AIStudioModal
           job={selectedJobForAI}
@@ -204,7 +237,6 @@ const AppContent: React.FC = () => {
         />
       )}
 
-      {/* Subtle Footer */}
       <footer className="border-t border-surface-border py-4 text-center text-xs text-txt-muted bg-surface-100/40">
         New Career — Plataforma Multi-Utilizador de Emprego & AI Career Ops • Padrão Unslop Craft
       </footer>
@@ -214,9 +246,11 @@ const AppContent: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ToastProvider>
   );
 };
 

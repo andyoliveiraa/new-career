@@ -92,6 +92,22 @@ class LivenessService:
             except Exception as e:
                 logger.warning(f"Lever liveness error: {e}")
 
+        # Ashby
+        ash = extract_ashby_params(url)
+        if ash:
+            api_url = f"https://api.ashbyhq.com/posting-api/job-board/{ash['org']}"
+            try:
+                async with httpx.AsyncClient(timeout=8.0) as client:
+                    res = await client.get(api_url)
+                    if res.status_code == 200:
+                        jobs_list = res.json().get("jobs", [])
+                        found = any(ash["job_id"] in str(j.get("id", "")) or ash["job_id"] in str(j.get("jobUrl", "")) for j in jobs_list)
+                        if found:
+                            return {"status": "active", "reason": "Ashby API confirmed active (200)", "checked_at": now}
+                        return {"status": "expired", "reason": "Ashby API: posting not listed on board", "checked_at": now}
+            except Exception as e:
+                logger.warning(f"Ashby liveness error: {e}")
+
         # LinkedIn Guest Endpoint
         li_id = extract_linkedin_id(url)
         if li_id:

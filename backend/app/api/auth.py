@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from typing import Dict, Any, Optional
+from backend.app.config import settings
 from backend.app.schemas.auth import (
     UserRegister, UserLogin, UserResponse, TokenResponse,
     CareerOpsOnboardingRequest, ManualOnboardingRequest, OnboardingResultResponse
@@ -9,6 +10,17 @@ from backend.app.firebase import firebase_manager
 from backend.app.services.career_ops_importer import CareerOpsImporter
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+def _to_user_response(user: Dict[str, Any]) -> UserResponse:
+    return UserResponse(
+        id=user["id"],
+        full_name=user["full_name"],
+        email=user["email"],
+        has_completed_onboarding=user.get("has_completed_onboarding", False),
+        created_at=user.get("created_at")
+    )
+
 
 @router.post("/register", response_model=TokenResponse)
 async def register(req: UserRegister):
@@ -30,14 +42,9 @@ async def register(req: UserRegister):
     return TokenResponse(
         access_token=token,
         token_type="bearer",
-        user=UserResponse(
-            id=user["id"],
-            full_name=user["full_name"],
-            email=user["email"],
-            has_completed_onboarding=user.get("has_completed_onboarding", False),
-            created_at=user.get("created_at")
-        )
+        user=_to_user_response(user)
     )
+
 
 @router.post("/login", response_model=TokenResponse)
 async def login(req: UserLogin):
@@ -52,32 +59,28 @@ async def login(req: UserLogin):
     return TokenResponse(
         access_token=token,
         token_type="bearer",
-        user=UserResponse(
-            id=user["id"],
-            full_name=user["full_name"],
-            email=user["email"],
-            has_completed_onboarding=user.get("has_completed_onboarding", False),
-            created_at=user.get("created_at")
-        )
+        user=_to_user_response(user)
     )
+
 
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: Dict[str, Any] = Depends(get_current_user)):
-    return UserResponse(
-        id=current_user["id"],
-        full_name=current_user["full_name"],
-        email=current_user["email"],
-        has_completed_onboarding=current_user.get("has_completed_onboarding", False),
-        created_at=current_user.get("created_at")
-    )
+    return _to_user_response(current_user)
+
 
 @router.post("/onboarding/career-ops", response_model=OnboardingResultResponse)
 async def onboarding_career_ops(
     req: CareerOpsOnboardingRequest,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
+    if not settings.ALLOW_LOCAL_DIR_IMPORT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Importação direta de diretórios do servidor está desativada por segurança. Utilize o upload de ZIP ou o Modo Privacidade."
+        )
     result = await CareerOpsImporter.import_from_directory(req.directory_path, current_user["id"])
     return OnboardingResultResponse(**result)
+
 
 @router.post("/onboarding/upload-zip", response_model=OnboardingResultResponse)
 async def onboarding_upload_zip(
@@ -85,12 +88,14 @@ async def onboarding_upload_zip(
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     """Modo Rápido: Upload de arquivo ZIP completo da pasta Career-Ops."""
-    if not zip_file.filename.lower().endswith(".zip"):
+    filename = (zip_file.filename or "").lower()
+    if not filename.endswith(".zip"):
         raise HTTPException(status_code=400, detail="Por favor envie um ficheiro com formato .zip válido.")
 
     content = await zip_file.read()
     result = await CareerOpsImporter.import_from_zip(content, current_user["id"])
     return OnboardingResultResponse(**result)
+
 
 @router.post("/onboarding/upload-privacy", response_model=OnboardingResultResponse)
 async def onboarding_upload_privacy(
@@ -127,6 +132,7 @@ async def onboarding_upload_privacy(
     )
     return OnboardingResultResponse(**result)
 
+
 @router.post("/onboarding/manual", response_model=OnboardingResultResponse)
 async def onboarding_manual(
     req: ManualOnboardingRequest,
@@ -140,7 +146,7 @@ async def onboarding_manual(
         "headline": req.headline or "Profissional em Transição / Procura Ativa",
         "email": current_user["email"],
         "phone": req.phone,
-        "location": req.location or "Portugal",
+        "location": req.location or settings.DEFAULT_COUNTRY,
         "linkedin_url": None,
         "github_url": None,
         "portfolio_url": None,
@@ -149,6 +155,8 @@ async def onboarding_manual(
         "experiences": [],
         "educations": [],
         "certifications": [],
+        "projects": [],
+        "languages": [],
         "verified_facts": [],
         "master_cv_text": req.initial_cv_text or ""
     }

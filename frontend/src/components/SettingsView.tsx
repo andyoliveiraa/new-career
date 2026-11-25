@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import type { UserSettings, TestKeyResult, TestWebhookResult } from '../types';
 import { api } from '../api';
+import { useToast } from '../context/ToastContext';
 import {
   Sliders, Bell, Key, Sparkles, CheckCircle2, AlertCircle,
   Eye, EyeOff, Save, RefreshCw, ExternalLink, HelpCircle,
-  ChevronDown, ChevronUp, Bot, ShieldCheck, Check
+  ChevronDown, ChevronUp, Bot, ShieldCheck, Check, Trash2
 } from 'lucide-react';
 
 interface KeyCardConfig {
@@ -14,7 +15,9 @@ interface KeyCardConfig {
   description: string;
   docsUrl: string;
   placeholder: string;
-  field: keyof UserSettings;
+  field: 'gemini_api_key' | 'openai_api_key' | 'groq_api_key' | 'serpapi_api_key' | 'jsearch_api_key';
+  hasField: 'has_gemini_key' | 'has_openai_key' | 'has_groq_key' | 'has_serpapi_key' | 'has_jsearch_key';
+  maskedField: 'gemini_api_key_masked' | 'openai_api_key_masked' | 'groq_api_key_masked' | 'serpapi_api_key_masked' | 'jsearch_api_key_masked';
 }
 
 const PROVIDERS: KeyCardConfig[] = [
@@ -25,51 +28,66 @@ const PROVIDERS: KeyCardConfig[] = [
     description: 'Motor principal para análise de aderência de vagas, extração de palavras-chave e tailoring de CVs.',
     docsUrl: 'https://aistudio.google.com/app/apikey',
     placeholder: 'AIzaSy...',
-    field: 'gemini_api_key'
+    field: 'gemini_api_key',
+    hasField: 'has_gemini_key',
+    maskedField: 'gemini_api_key_masked'
   },
   {
     provider: 'groq',
     title: 'Groq Cloud (Llama 3.3)',
     badge: 'Inferência Ultra-Rápida',
-    description: 'Processamento de alta velocidade (500+ tokens/segundo) com modelos Llama 3.3 70B para geração instantânea.',
+    description: 'Processamento de alta velocidade com modelos Llama 3.3 70B para geração instantânea.',
     docsUrl: 'https://console.groq.com/keys',
     placeholder: 'gsk_...',
-    field: 'groq_api_key'
+    field: 'groq_api_key',
+    hasField: 'has_groq_key',
+    maskedField: 'groq_api_key_masked'
   },
   {
     provider: 'openai',
     title: 'OpenAI (GPT-4o)',
     badge: 'Alta Precisão',
-    description: 'Alternativa premium para redação de cartas de apresentação e simulação comportamental de entrevistas.',
+    description: 'Alternativa para redação de cartas de apresentação e simulação comportamental de entrevistas.',
     docsUrl: 'https://platform.openai.com/api-keys',
     placeholder: 'sk-proj-...',
-    field: 'openai_api_key'
+    field: 'openai_api_key',
+    hasField: 'has_openai_key',
+    maskedField: 'openai_api_key_masked'
   },
   {
     provider: 'serpapi',
     title: 'SerpApi (Google Jobs)',
     badge: 'Scraper de Vagas',
-    description: 'Permite busca estruturada e indexação de anúncios de emprego publicados diretamente no Google Jobs.',
+    description: 'Permite busca estruturada e indexação de anúncios publicados diretamente no Google Jobs.',
     docsUrl: 'https://serpapi.com/manage-api-key',
     placeholder: 'Chave de 64 caracteres...',
-    field: 'serpapi_api_key'
+    field: 'serpapi_api_key',
+    hasField: 'has_serpapi_key',
+    maskedField: 'serpapi_api_key_masked'
   },
   {
     provider: 'jsearch',
     title: 'RapidAPI JSearch',
     badge: 'Multi-Portal Jobs',
-    description: 'Agregação global de vagas de emprego em portais como LinkedIn, Indeed e Glassdoor.',
+    description: 'Agregação global de vagas em portais como LinkedIn, Indeed e Glassdoor.',
     docsUrl: 'https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch',
     placeholder: 'RapidAPI-Key...',
-    field: 'jsearch_api_key'
+    field: 'jsearch_api_key',
+    hasField: 'has_jsearch_key',
+    maskedField: 'jsearch_api_key_masked'
   }
 ];
 
 export const SettingsView: React.FC = () => {
+  const { showToast } = useToast();
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+
+  // Draft values for secret inputs (empty means keep saved secret; explicit '' in clearedFields means clear)
+  const [secretDrafts, setSecretDrafts] = useState<Record<string, string>>({});
+  const [clearedSecrets, setClearedSecrets] = useState<Record<string, boolean>>({});
 
   // Visibility toggles
   const [showWebhookUrl, setShowWebhookUrl] = useState(false);
@@ -79,7 +97,7 @@ export const SettingsView: React.FC = () => {
   const [testingWebhook, setTestingWebhook] = useState(false);
   const [webhookTestResult, setWebhookTestResult] = useState<TestWebhookResult | null>(null);
 
-  // Key Test States: Map from provider to TestKeyResult
+  // Key Test States
   const [testingKey, setTestingKey] = useState<Record<string, boolean>>({});
   const [keyResults, setKeyResults] = useState<Record<string, TestKeyResult>>({});
 
@@ -95,8 +113,10 @@ export const SettingsView: React.FC = () => {
     try {
       const data = await api.getUserSettings();
       setSettings(data);
-    } catch (err) {
-      console.error('Erro ao carregar configurações:', err);
+      setSecretDrafts({});
+      setClearedSecrets({});
+    } catch (err: any) {
+      showToast(err.message || 'Erro ao carregar configurações.', 'error');
     } finally {
       setLoading(false);
     }
@@ -104,40 +124,72 @@ export const SettingsView: React.FC = () => {
 
   const handleFieldChange = (field: keyof UserSettings, value: any) => {
     if (!settings) return;
-    setSettings({
-      ...settings,
-      [field]: value
-    });
+    setSettings({ ...settings, [field]: value });
+  };
+
+  const handleSecretDraftChange = (field: string, value: string) => {
+    setSecretDrafts(prev => ({ ...prev, [field]: value }));
+    if (value.trim()) {
+      setClearedSecrets(prev => ({ ...prev, [field]: false }));
+    }
+  };
+
+  const handleClearSecret = (field: string) => {
+    setSecretDrafts(prev => ({ ...prev, [field]: '' }));
+    setClearedSecrets(prev => ({ ...prev, [field]: true }));
   };
 
   const toggleShowKey = (provider: string) => {
-    setShowKeys(prev => ({
-      ...prev,
-      [provider]: !prev[provider]
-    }));
+    setShowKeys(prev => ({ ...prev, [provider]: !prev[provider] }));
   };
 
   const handleSaveSettings = async () => {
     if (!settings) return;
     setSaving(true);
     try {
-      const updated = await api.updateUserSettings(settings);
+      const payload: Partial<UserSettings> = {
+        discord_notify_on_new_jobs: settings.discord_notify_on_new_jobs,
+        discord_notify_on_status_change: settings.discord_notify_on_status_change,
+        primary_ai_provider: settings.primary_ai_provider,
+      };
+
+      const secretKeys = [
+        'discord_webhook_url',
+        'gemini_api_key',
+        'openai_api_key',
+        'groq_api_key',
+        'serpapi_api_key',
+        'jsearch_api_key'
+      ] as const;
+
+      for (const sk of secretKeys) {
+        if (clearedSecrets[sk]) {
+          payload[sk] = '';
+        } else if (secretDrafts[sk] && secretDrafts[sk].trim()) {
+          payload[sk] = secretDrafts[sk].trim();
+        }
+      }
+
+      const updated = await api.updateUserSettings(payload);
       setSettings(updated);
+      setSecretDrafts({});
+      setClearedSecrets({});
       setSaveSuccessMsg('Configurações e credenciais guardadas com sucesso!');
+      showToast('Configurações guardadas com segurança.', 'success');
       setTimeout(() => setSaveSuccessMsg(''), 3500);
-    } catch (err) {
-      alert('Erro ao guardar configurações.');
+    } catch (err: any) {
+      showToast(err.message || 'Erro ao guardar configurações.', 'error');
     } finally {
       setSaving(false);
     }
   };
 
-  // Test Discord Webhook
   const handleTestWebhook = async () => {
     setTestingWebhook(true);
     setWebhookTestResult(null);
     try {
-      const res = await api.testDiscordWebhook(settings?.discord_webhook_url || undefined);
+      const draft = secretDrafts['discord_webhook_url']?.trim();
+      const res = await api.testDiscordWebhook(draft || undefined);
       setWebhookTestResult(res);
     } catch (err: any) {
       setWebhookTestResult({
@@ -149,12 +201,11 @@ export const SettingsView: React.FC = () => {
     }
   };
 
-  // Test Individual Key
-  const handleTestKey = async (provider: string) => {
+  const handleTestKey = async (provider: string, field: string) => {
     setTestingKey(prev => ({ ...prev, [provider]: true }));
     try {
-      const keyVal = settings ? (settings as any)[`${provider}_api_key`] : undefined;
-      const res = await api.testApiKey(provider, keyVal || undefined);
+      const draftVal = secretDrafts[field]?.trim();
+      const res = await api.testApiKey(provider, draftVal || undefined);
       setKeyResults(prev => ({ ...prev, [provider]: res }));
     } catch (err: any) {
       setKeyResults(prev => ({
@@ -171,13 +222,13 @@ export const SettingsView: React.FC = () => {
     }
   };
 
-  // Test All Filled Keys
   const handleTestAllKeys = async () => {
     if (!settings) return;
     for (const p of PROVIDERS) {
-      const val = (settings as any)[p.field];
-      if (val && String(val).trim()) {
-        handleTestKey(p.provider);
+      const hasDraft = Boolean(secretDrafts[p.field]?.trim());
+      const hasSaved = Boolean(settings[p.hasField]) && !clearedSecrets[p.field];
+      if (hasDraft || hasSaved) {
+        handleTestKey(p.provider, p.field);
       }
     }
   };
@@ -193,6 +244,8 @@ export const SettingsView: React.FC = () => {
     );
   }
 
+  const webhookConfigured = Boolean(settings?.has_discord_webhook) && !clearedSecrets['discord_webhook_url'];
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Top Header */}
@@ -205,11 +258,12 @@ export const SettingsView: React.FC = () => {
             </h1>
           </div>
           <p className="text-xs text-txt-secondary mt-1">
-            Configure o seu Webhook do Discord para notificações em tempo real e faça a gestão das suas chaves de API com validação imediata.
+            Configure o seu Webhook do Discord e faça a gestão das suas chaves de API (encriptadas em repouso no servidor).
           </p>
         </div>
 
         <button
+          type="button"
           onClick={handleSaveSettings}
           disabled={saving}
           className="flex items-center justify-center gap-2 px-5 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-xl text-xs font-semibold transition-colors shadow-sm disabled:opacity-50"
@@ -235,33 +289,30 @@ export const SettingsView: React.FC = () => {
         </div>
       )}
 
-      {/* ================= 1. DISCORD WEBHOOK INTEGRATION ================= */}
+      {/* 1. DISCORD WEBHOOK INTEGRATION */}
       <div className="bg-surface-100 border border-surface-border rounded-2xl p-6 space-y-5">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
               <Bell className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-txt-primary">
-                Webhook do Discord
-              </h2>
+              <h2 className="text-sm font-bold text-txt-primary">Webhook do Discord</h2>
               <p className="text-xs text-txt-muted">
                 Receba alertas automáticos de novas vagas e atualizações de candidaturas no seu servidor de Discord.
               </p>
             </div>
           </div>
 
-          <span className={`text-[11px] px-2.5 py-1 rounded-full border font-medium ${
-            settings?.discord_webhook_url
+          <span className={`text-[11px] px-2.5 py-1 rounded-full border font-medium shrink-0 ${
+            webhookConfigured
               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
               : 'bg-surface-200 text-txt-muted border-surface-border'
           }`}>
-            {settings?.discord_webhook_url ? 'Webhook Configurado' : 'Não Configurado'}
+            {webhookConfigured ? `Configurado (${settings?.discord_webhook_url_masked || 'ativo'})` : 'Não Configurado'}
           </span>
         </div>
 
-        {/* Webhook URL Input */}
         <div className="space-y-2">
           <label className="block text-[11px] font-bold text-txt-muted uppercase tracking-wider">
             URL do Webhook do Discord
@@ -270,9 +321,13 @@ export const SettingsView: React.FC = () => {
             <div className="relative flex-1">
               <input
                 type={showWebhookUrl ? 'text' : 'password'}
-                value={settings?.discord_webhook_url || ''}
-                onChange={(e) => handleFieldChange('discord_webhook_url', e.target.value)}
-                placeholder="https://discord.com/api/webhooks/1234567890/token-do-seu-canal..."
+                value={secretDrafts['discord_webhook_url'] ?? ''}
+                onChange={(e) => handleSecretDraftChange('discord_webhook_url', e.target.value)}
+                placeholder={
+                  webhookConfigured
+                    ? `Guardado (${settings?.discord_webhook_url_masked}) — cole aqui apenas para substituir`
+                    : 'https://discord.com/api/webhooks/1234567890/token-do-seu-canal...'
+                }
                 className="w-full bg-surface-200 border border-surface-border rounded-xl px-3.5 py-2.5 text-xs text-txt-primary pr-10 focus:outline-none focus:border-accent"
               />
               <button
@@ -284,6 +339,17 @@ export const SettingsView: React.FC = () => {
                 {showWebhookUrl ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+
+            {webhookConfigured && (
+              <button
+                type="button"
+                onClick={() => handleClearSecret('discord_webhook_url')}
+                className="p-2.5 bg-surface-200 hover:bg-rose-500/10 text-txt-muted hover:text-rose-400 border border-surface-border rounded-xl transition-colors"
+                title="Remover Webhook guardado"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
 
             <button
               type="button"
@@ -306,7 +372,6 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
 
-        {/* Webhook Test Result Display */}
         {webhookTestResult && (
           <div className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 ${
             webhookTestResult.success
@@ -322,14 +387,11 @@ export const SettingsView: React.FC = () => {
               <div className="font-semibold">
                 {webhookTestResult.success ? 'Conexão Bem-Sucedida!' : 'Falha no Teste do Webhook'}
               </div>
-              <p className="text-[11px] opacity-90 leading-relaxed">
-                {webhookTestResult.message}
-              </p>
+              <p className="text-[11px] opacity-90 leading-relaxed">{webhookTestResult.message}</p>
             </div>
           </div>
         )}
 
-        {/* Discord Notification Toggles */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
           <label className="flex items-center justify-between p-3 rounded-xl bg-surface-200 border border-surface-border cursor-pointer">
             <div>
@@ -358,7 +420,6 @@ export const SettingsView: React.FC = () => {
           </label>
         </div>
 
-        {/* Collapsible Discord Help Guide */}
         <div className="border-t border-surface-border pt-3">
           <button
             type="button"
@@ -375,20 +436,20 @@ export const SettingsView: React.FC = () => {
           {showDiscordGuide && (
             <div className="mt-3 p-3.5 rounded-xl bg-surface-200/60 border border-surface-border text-xs text-txt-secondary space-y-2">
               <p className="leading-relaxed">
-                <strong>1.</strong> No seu servidor do Discord, clique com o botão direito no canal onde deseja receber alertas e selecione <em>Editar Canal</em>.
+                <strong>1.</strong> No seu servidor do Discord, clique com o botão direito no canal desejado e selecione <em>Editar Canal</em>.
               </p>
               <p className="leading-relaxed">
-                <strong>2.</strong> Aceda à aba <em>Integrações</em> e clique em <em>Webhooks</em> ➔ <em>Novo Webhook</em>.
+                <strong>2.</strong> Aceda à aba <em>Integrações</em> e clique em <em>Webhooks</em> &rarr; <em>Novo Webhook</em>.
               </p>
               <p className="leading-relaxed">
-                <strong>3.</strong> Dê o nome <strong>New Career</strong>, clique em <strong>Copiar URL do Webhook</strong>, cole no campo acima e clique em <em>Testar Webhook</em>.
+                <strong>3.</strong> Dê o nome <strong>New Career</strong>, clique em <strong>Copiar URL do Webhook</strong>, cole acima e clique em <em>Testar Webhook</em>.
               </p>
             </div>
           )}
         </div>
       </div>
 
-      {/* ================= 2. API KEYS MANAGEMENT ================= */}
+      {/* 2. API KEYS MANAGEMENT */}
       <div className="bg-surface-100 border border-surface-border rounded-2xl p-6 space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -400,7 +461,7 @@ export const SettingsView: React.FC = () => {
                 Chaves de API (Inteligência Artificial & Scrapers)
               </h2>
               <p className="text-xs text-txt-muted">
-                Insira as suas chaves pessoais para ter controlo total de cotas e validação em tempo real.
+                As chaves são armazenadas encriptadas e nunca são reexpostas após guardadas.
               </p>
             </div>
           </div>
@@ -415,10 +476,11 @@ export const SettingsView: React.FC = () => {
           </button>
         </div>
 
-        {/* API Keys Grid */}
         <div className="grid grid-cols-1 gap-4">
           {PROVIDERS.map((item) => {
-            const currentVal = settings ? ((settings as any)[item.field] || '') : '';
+            const draftVal = secretDrafts[item.field] ?? '';
+            const hasSaved = Boolean(settings?.[item.hasField]) && !clearedSecrets[item.field];
+            const maskedPreview = settings?.[item.maskedField];
             const isTesting = testingKey[item.provider];
             const result = keyResults[item.provider];
             const isVisible = showKeys[item.provider];
@@ -429,11 +491,16 @@ export const SettingsView: React.FC = () => {
                 className="p-4 rounded-xl bg-surface-200/50 border border-surface-border space-y-3 transition-colors hover:border-surface-border/80"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="font-bold text-xs text-txt-primary">{item.title}</span>
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-surface-300 text-txt-muted border border-surface-border">
                       {item.badge}
                     </span>
+                    {hasSaved && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono">
+                        Configurada ({maskedPreview})
+                      </span>
+                    )}
                   </div>
 
                   <a
@@ -446,18 +513,19 @@ export const SettingsView: React.FC = () => {
                   </a>
                 </div>
 
-                <p className="text-[11px] text-txt-muted leading-relaxed">
-                  {item.description}
-                </p>
+                <p className="text-[11px] text-txt-muted leading-relaxed">{item.description}</p>
 
-                {/* Input & Action */}
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <input
                       type={isVisible ? 'text' : 'password'}
-                      value={currentVal}
-                      onChange={(e) => handleFieldChange(item.field, e.target.value)}
-                      placeholder={item.placeholder}
+                      value={draftVal}
+                      onChange={(e) => handleSecretDraftChange(item.field, e.target.value)}
+                      placeholder={
+                        hasSaved
+                          ? `Chave guardada (${maskedPreview}) — insira apenas para substituir`
+                          : item.placeholder
+                      }
                       className="w-full bg-surface-200 border border-surface-border rounded-xl px-3.5 py-2 text-xs text-txt-primary pr-10 focus:outline-none focus:border-accent font-mono"
                     />
                     <button
@@ -470,9 +538,20 @@ export const SettingsView: React.FC = () => {
                     </button>
                   </div>
 
+                  {hasSaved && (
+                    <button
+                      type="button"
+                      onClick={() => handleClearSecret(item.field)}
+                      className="p-2 bg-surface-200 hover:bg-rose-500/10 text-txt-muted hover:text-rose-400 border border-surface-border rounded-xl transition-colors"
+                      title="Remover chave guardada"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    onClick={() => handleTestKey(item.provider)}
+                    onClick={() => handleTestKey(item.provider, item.field)}
                     disabled={isTesting}
                     className="flex items-center gap-1.5 px-3 py-2 bg-surface-300 hover:bg-surface-border text-txt-primary rounded-xl text-xs font-semibold transition-colors disabled:opacity-50 shrink-0"
                   >
@@ -490,7 +569,6 @@ export const SettingsView: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Test Result Message */}
                 {result && (
                   <div className={`p-2.5 rounded-lg border text-xs flex items-start gap-2 ${
                     result.valid
@@ -503,14 +581,8 @@ export const SettingsView: React.FC = () => {
                       <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-400 mt-0.5" />
                     )}
                     <div className="space-y-0.5">
-                      <div className="font-semibold text-[11px]">
-                        {result.message}
-                      </div>
-                      {result.details && (
-                        <p className="text-[10px] opacity-80 font-mono">
-                          {result.details}
-                        </p>
-                      )}
+                      <div className="font-semibold text-[11px]">{result.message}</div>
+                      {result.details && <p className="text-[10px] opacity-80 font-mono">{result.details}</p>}
                     </div>
                   </div>
                 )}
@@ -520,16 +592,14 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
 
-      {/* ================= 3. PRIMARY AI PROVIDER SELECTION ================= */}
+      {/* 3. PRIMARY AI PROVIDER SELECTION */}
       <div className="bg-surface-100 border border-surface-border rounded-2xl p-6 space-y-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
             <Bot className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-txt-primary">
-              Provedor de IA Primário
-            </h2>
+            <h2 className="text-sm font-bold text-txt-primary">Provedor de IA Primário</h2>
             <p className="text-xs text-txt-muted">
               Selecione o motor preferencial a utilizar na análise de compatibilidade e tailoring de currículos.
             </p>
@@ -557,16 +627,14 @@ export const SettingsView: React.FC = () => {
                   <span className="text-xs font-semibold text-txt-primary">{opt.title}</span>
                   {isSelected && <Check className="w-3.5 h-3.5 text-accent-light" />}
                 </div>
-                <p className="text-[11px] text-txt-muted leading-relaxed">
-                  {opt.desc}
-                </p>
+                <p className="text-[11px] text-txt-muted leading-relaxed">{opt.desc}</p>
               </div>
             );
           })}
         </div>
 
         <div className="p-3 rounded-xl bg-surface-200/50 border border-surface-border text-[11px] text-txt-muted">
-          ℹ️ <strong>Hierarquia de Fallback Automática:</strong> Se o provedor primário atingir limite de requisições ou estiver temporariamente indisponível, o sistema consultará automaticamente as suas outras chaves configuradas antes de recorrer ao modo offline determinístico.
+          <strong>Hierarquia de Fallback Automática:</strong> Se o provedor primário falhar ou atingir limite de requisições, o sistema tenta automaticamente os restantes provedores configurados antes de recorrer ao modo heurístico offline.
         </div>
       </div>
     </div>
