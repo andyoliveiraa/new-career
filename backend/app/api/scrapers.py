@@ -30,7 +30,7 @@ SCRAPERS_MAP = {
 
 class ScanRequest(BaseModel):
     sources: Optional[List[str]] = None
-    query: str = Field(default="Desenvolvedor", min_length=1, max_length=120)
+    query: Optional[str] = Field(default="", max_length=120)
     location: Optional[str] = None
     limit: int = Field(default=20, ge=1, le=100)
 
@@ -66,7 +66,12 @@ async def run_scan_task(
         current_jobs = await firebase_manager.list_jobs(user_id=user_id, limit=1000)
         existing_keys = {j.get("job_key") for j in current_jobs}
 
-        await _append_scan_log(user_id, scan_id, logs, f"Varredura iniciada para '{query}' em '{target_city}'...")
+        start_msg = (
+            f"Varredura iniciada para '{query}' em '{target_city}'..."
+            if query
+            else f"Varredura iniciada em '{target_city}' (todas as áreas)..."
+        )
+        await _append_scan_log(user_id, scan_id, logs, start_msg)
 
         for src_name in sources:
             scraper = SCRAPERS_MAP.get(src_name)
@@ -179,10 +184,18 @@ async def trigger_scan(
     if not selected_sources:
         raise HTTPException(status_code=400, detail="Selecione pelo menos uma fonte válida para varredura.")
 
-    location_val = request.location or settings.DEFAULT_CITY
+    clean_query = (request.query or "").strip()
+    clean_location = (request.location or "").strip()
+    if not clean_query and not clean_location:
+        raise HTTPException(
+            status_code=400,
+            detail="Indique pelo menos um cargo/termo de pesquisa ou uma localização."
+        )
+
+    location_val = clean_location or settings.DEFAULT_CITY
     scan_record = await firebase_manager.add_scan_history(user_id, {
         "engine": ",".join(selected_sources),
-        "query": request.query,
+        "query": clean_query,
         "location": location_val,
         "total_found": 0,
         "total_new": 0,
@@ -196,15 +209,16 @@ async def trigger_scan(
         user_id,
         scan_record["id"],
         selected_sources,
-        request.query,
+        clean_query,
         location_val,
         request.limit
     )
 
+    search_desc = f"para '{clean_query}' em '{location_val}'" if clean_query else f"em '{location_val}' (todas as áreas)"
     return {
         "status": "started",
         "scan_id": scan_record["id"],
-        "message": f"Varredura iniciada para '{request.query}' em '{location_val}' nas fontes: {', '.join(selected_sources)}",
+        "message": f"Varredura iniciada {search_desc} nas fontes: {', '.join(selected_sources)}",
         "sources": selected_sources
     }
 

@@ -28,7 +28,15 @@ async function apiFetch(path: string, init: RequestInit = {}, defaultError = 'Er
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || defaultError);
+    let msg = defaultError;
+    if (typeof err?.detail === 'string') {
+      msg = err.detail;
+    } else if (Array.isArray(err?.detail) && err.detail.length > 0) {
+      msg = err.detail.map((item: any) => item?.msg || String(item)).join('; ');
+    } else if (typeof err?.message === 'string') {
+      msg = err.message;
+    }
+    throw new Error(msg);
   }
   return res;
 }

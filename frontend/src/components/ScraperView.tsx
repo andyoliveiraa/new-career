@@ -55,15 +55,26 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
       return;
     }
 
+    const cleanQuery = query.trim();
+    const cleanLocation = location.trim();
+    if (!cleanQuery && !cleanLocation) {
+      showToast(t('scraper.queryOrLocationRequired'), 'error');
+      return;
+    }
+
     if (pollTimerRef.current) {
       window.clearInterval(pollTimerRef.current);
     }
 
     setScanning(true);
-    setLogs([t('scraper.startingLog', { query, location })]);
+    setLogs([
+      cleanQuery
+        ? t('scraper.startingLog', { query: cleanQuery, location: cleanLocation || '-' })
+        : t('scraper.startingLogLocationOnly', { location: cleanLocation }),
+    ]);
 
     try {
-      const res = await api.triggerScan(sources, query, location, limit);
+      const res = await api.triggerScan(sources, cleanQuery, cleanLocation, limit);
       setLogs((prev) => [...prev, res.message]);
 
       const scanId = res.scan_id;
@@ -249,7 +260,9 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
                   <tr key={h.id} className="hover:bg-surface-200/40">
                     <td className="py-2.5 text-txt-secondary">{new Date(h.executed_at).toLocaleString(locale)}</td>
                     <td className="py-2.5 font-medium text-txt-primary uppercase text-[11px]">{h.engine}</td>
-                    <td className="py-2.5 text-txt-primary">{h.query}</td>
+                    <td className="py-2.5 text-txt-primary">
+                      {h.query ? h.query : <span className="text-txt-muted italic">{t('scraper.allRoles')}</span>}
+                    </td>
                     <td className="py-2.5 text-txt-secondary">{h.location || '-'}</td>
                     <td className="py-2.5 text-center">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${

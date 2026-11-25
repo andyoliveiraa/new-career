@@ -24,10 +24,11 @@ class JobSpyScraper(BaseScraper):
             from jobspy import scrape_jobs
             
             country_val = "Portugal" if (not location or "portugal" in location.lower()) else "USA"
+            effective_term = (query or "").strip() or ("emprego" if country_val == "Portugal" else "jobs")
             
             jobs_df = scrape_jobs(
                 site_name=self.sites,
-                search_term=query,
+                search_term=effective_term,
                 location=location or "Lisboa, Portugal",
                 results_wanted=limit,
                 country_indeed=country_val,

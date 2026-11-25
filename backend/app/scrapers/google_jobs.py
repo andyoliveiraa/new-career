@@ -22,7 +22,8 @@ class GoogleJobsScraper(BaseScraper):
         jsearch_key: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         loc = location or settings.DEFAULT_COUNTRY
-        full_query = f"{query} em {loc}" if loc else query
+        clean_q = (query or "").strip()
+        full_query = f"{clean_q} em {loc}" if (clean_q and loc) else (clean_q or f"emprego em {loc}")
 
         effective_serp = serpapi_key or settings.SERPAPI_API_KEY
         if effective_serp:

@@ -61,6 +61,25 @@ async def test_scan_endpoint_accepts_json_body_and_tracks_status():
             assert status_res.json()["query"] == "FastAPI Engineer"
             assert status_res.json()["location"] == "Porto"
 
+            # Also accept location-only scan without query
+            loc_only_res = await client.post("/api/scrapers/scan", json={
+                "sources": ["netempregos"],
+                "query": "",
+                "location": "Lisboa",
+                "limit": 10
+            }, headers=headers)
+            assert loc_only_res.status_code == 200
+            assert "Lisboa" in loc_only_res.json()["message"]
+
+            # Reject when both query and location are empty
+            empty_res = await client.post("/api/scrapers/scan", json={
+                "sources": ["netempregos"],
+                "query": "",
+                "location": "",
+                "limit": 10
+            }, headers=headers)
+            assert empty_res.status_code == 400
+
 
 @pytest.mark.asyncio
 async def test_career_ops_importer_uses_dynamic_cv_and_profile_data():
