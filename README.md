@@ -1,4 +1,4 @@
-# 💼 New Career — Plataforma Inteligente de Emprego & AI Career Ops
+# 💼 New Career — Intelligent Job Platform & AI Career Ops
 
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -7,238 +7,242 @@
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-Unslop-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-A **New Career** é uma plataforma multi-utilizador de agregação inteligente de vagas, verificação de disponibilidade em tempo real (*liveness check*), tailoring cirúrgico de currículos ATS sem alucinações e gestão ativa de candidaturas.
+**New Career** is a multi-user platform for intelligent job aggregation, real-time availability verification (*liveness check*), zero-hallucination ATS resume tailoring, and active application pipeline management.
 
-O projeto combina a velocidade e resiliência de monitoramento assíncrono do [**V2-BOT_EMPREGO**](https://github.com/andyoliveiraa/V2-BOT_EMPREGO) e o rigor de avaliação e liveness do [**career-ops**](https://github.com/career-ops-hq/career-ops), com uma interface visual profissional de alta produtividade construída sob os padrões de design do [**Unslop**](.agents/skills/unslop/SKILL.md).
+The project combines the speed and resilience of asynchronous monitoring from [**V2-BOT_EMPREGO**](https://github.com/andyoliveiraa/V2-BOT_EMPREGO) and the evaluation and liveness rigor of [**career-ops**](https://github.com/career-ops-hq/career-ops), with a high-craft productivity interface built under [**Unslop**](.agents/skills/unslop/SKILL.md) design standards.
 
-Projetado tanto para execução **local** como para hospedagem remota numa **VPS (Linux / Docker)** com isolamento completo de utilizadores.
-
----
-
-## ✨ Funcionalidades Principais
-
-### 1. 👥 Arquitetura Multi-Utilizador & Autenticação Segura
-- **Gestão de Sessão JWT & Hashing Criptográfico**:
-  - Hashing de palavras-passe com salt através de `PBKDF2-HMAC-SHA256`.
-  - Sessões autenticadas com tokens JWT (`PyJWT`) e rotação de credenciais.
-- **Isolamento de Dados Multi-tenant**:
-  - Cada utilizador possui a sua partição estritamente isolada no **Firebase Firestore** (`users/{user_id}/profile`, `jobs`, `applications`, `scan_history`).
-  - Utilizadores diferentes operam de forma 100% privada e independente.
-- **Telas Dedicadas Unslop**:
-  - Telas de **Login** e **Registo** com design limpo, tipografia ergonómica, neutral ramp calma e validações em tempo real.
-
-### 2. 📦 Onboarding Career-Ops com Suporte a VPS
-Permite a migração imediata de quem já utiliza o Career-Ops, funcionando perfeitamente em servidores remotos (VPS):
-- **Modo de Privacidade (Upload Ficheiro a Ficheiro)**:
-  - 📝 **`cv.md`** (na raiz) ➔ O **CV Base Mestre** que serve de alicerce para todas as customizações de IA.
-  - 📄 **`config/profile.yml`** ➔ Perfil pessoal, competências e fatos verificados.
-  - 📊 **`data/applications.md`** ➔ Histórico de vagas submetidas, fit scores e anotações.
-  - 📑 **`output.zip`** ➔ Comprima apenas a pasta `output/` dos PDFs para upload seguro.
-- **Modo Rápido (Pasta Completa em ZIP)**:
-  - Drag-and-drop da pasta inteira do Career-Ops comprimida em `.zip`. O servidor VPS descompacta em sandbox segura com proteção contra *Zip Slip*, localiza os ficheiros e indexa tudo automaticamente.
-- **Modo Manual (Começar do Zero)**:
-  - Configuração rápida para novos utilizadores sem histórico prévio.
-
-### 3. 🚀 Motor de Scraping Multi-Fonte
-- **Net-Empregos (Portugal)**: Scraper dedicado nativo com suporte a categorias, distritos/cidades, ordenação e extração de descrições completas com decodificação `iso-8859-1`.
-- **Career-Ops ATS Portals**: Consulta direta aos quadros de empregos das principais empresas de tecnologia através de APIs públicas (Greenhouse, Lever, Ashby, Workday).
-- **Google Jobs**: Agregação com fallbacks inteligentes (SerpApi, JSearch).
-- **JobSpy Engine**: Coleta agregada no LinkedIn, Indeed, Glassdoor e ZipRecruiter.
-- **Prevenção de Duplicados**: Hash determinístico de vagas para nunca duplicar oportunidades.
-- **Filtro Geográfico**: Cálculo de distância física em km via OpenStreetMap Nominatim e fórmula de Haversine.
-
-### 4. 🟢 Verificação de Disponibilidade em Tempo Real (Liveness Engine)
-- **Camada Zero-Token**: Consulta direta a endpoints JSON públicos dos ATSs para checagem instantânea de encerramento sem gastar cotas de IA ou carregar navegadores pesados.
-- **Camada Headless / HTTP**: Inspeção de marcadores de encerramento de ofertas ("vaga encerrada", "candidaturas fechadas", "404 Not Found").
-- Badges visuais imediatos: **Ativa**, **Expirada** ou **A Verificar**.
-
-### 5. 🎨 Construtor de CV Modular & Auditoria ATS em Tempo Real
-- **Múltiplos Modelos de CV Salvos**:
-  - Crie, duplique e alterne entre vários modelos de CV (ex: *ATS Clássico*, *Executivo Moderno*, *Tech Minimal*, *Compacto Simétrico*).
-  - Defina um modelo padrão que é automaticamente utilizado ao submeter candidaturas.
-- **Construtor por Blocos Interativo**:
-  - Reordene a sequência dos blocos (Resumo, Competências, Experiência, Formação, Projetos, Certificações, Idiomas) com setas de ordenação.
-  - Oculte ou exiba qualquer bloco individualmente em 1 clique.
-- **Liberdade Total de Cores & Fontes do Google Fonts**:
-  - Seletor de qualquer cor através de `<input type="color">`, valor HEX livre ou paletas pré-definidas.
-  - Tipografia via **Google Fonts**: escolha entre as mais populares (Inter, Roboto, DM Sans, Plus Jakarta Sans, Outfit, Space Grotesk, Poppins, Montserrat, Lora, Merriweather) ou digite o nome de **qualquer fonte da biblioteca do Google Fonts** com importação dinâmica.
-  - Fotografia opcional (circular/rounded com URL ou data URI) com alerta automático de conformidade anti-discriminação (EEOC).
-- **Auditor ATS em Tempo Real (Pontuação de 0 a 100)**:
-  - Avaliação contínua de compatibilidade com sistemas ATS corporativos (Taleo, Workday, Greenhouse, Lever).
-  - Verificação de dados de contacto essenciais, densidade de competências, métricas quantitativas nos bullet points e segurança de layout.
-  - Alertas instantâneos e checklist de aprovação/aviso com **Dicas de Ouro** (Fórmula XYZ da Google, regra dos 6 segundos dos recrutadores, etc.).
-
-### 6. 🎯 AI Career Studio & Adaptação de CV (Sem Alucinações)
-- **Seleção do Modelo de CV**: Escolha qual modelo de design de CV utilizar ao adaptar o currículo para uma vaga específica.
-- **Auditoria de Fit & Match Score (0 a 100%)**: Diagnóstico detalhado de pontos fortes e lacunas técnicas em relação ao anúncio.
-- **Adaptação Cirúrgica de CV**: Alinha o resumo profissional e os bullet points reais às palavras-chave da vaga, respeitando estritamente os fatos comprovados do perfil mestre.
-- **Exportação de PDF ATS-Friendly**: Geração de currículo A4 profissional via Playwright/HTML com tipografia e cores do modelo selecionado.
-- **Carta de Apresentação & Mensagem LinkedIn**: Redação concisa, persuasiva e livre de clichês corporativos.
-- **Simulador de Entrevista (STAR+R)**: Perguntas comportamentais prováveis e estrutura sugerida de resposta.
-
-### 7. 📋 Pipeline de Gestão de Candidaturas ("Já me candidatei")
-- Visualização em **Tabela Densa** ou **Quadro Kanban completo (8 colunas)**.
-- Fluxo completo: *Disponíveis ➔ Avaliadas ➔ Em Preparação ➔ Candidatado ➔ Entrevista ➔ Positiva / Oferta ➔ Negativa ➔ Descartada*.
-- **Adição Manual de Vagas por URL**, **Verificação Liveness em Lote**, filtros avançados (remoto, liveness, ordenação por match/distância) e **Exportação CSV/JSON**.
-- Ação rápida de 1 clique para marcar como candidatado e registar a data.
-
-### 8. ⚙️ Central de Configurações, Webhook do Discord & Segurança
-- **Encriptação em Repouso & Mascaramento**: Chaves de API e URLs de webhook são encriptadas em repouso (`Fernet`) e nunca são reexpostas em texto claro após guardadas.
-- **Webhook do Discord com Notificações em Tempo Real**:
-  - Alertas automáticos quando novas vagas forem descobertas durante varreduras **e** quando uma candidatura avança para *Entrevista* ou *Positiva*.
-  - Botão **"Testar Webhook"** de 1 clique que dispara um Embed corporativo formatado e confirma a receção pelo Discord.
-- **Validação Ativa de Chaves de API & Cascata Automática**:
-  - Teste em tempo real para **Google Gemini**, **OpenAI**, **Groq Cloud**, **SerpApi** e **RapidAPI JSearch**.
-  - Cascata automática de fallback entre provedores de IA configurados antes de recorrer ao modo heurístico offline.
-- **Varredura com Estado Real**:
-  - Acompanhamento em tempo real via `GET /api/scrapers/scan/{scan_id}` com logs reais do backend.
-
-### 9. 💎 Padrão de Design Unslop & Layout Responsivo
-- **Navbar em Linha Única & Menu Mobile**:
-  - Altura fixa e tipografia contida com `whitespace-nowrap` e truncamento inteligente para nomes de utilizador longos.
-  - Menu drawer expansível para tablets e telemóveis.
-- **Pipeline Kanban Anti-Colisão**:
-  - Cabeçalhos de cartões com proteção de largura (`min-w-0`, `truncate`, `shrink-0`) eliminando sobreposições entre títulos de vagas, empresas extensas e badges de localização.
-- **Estúdio de CV Adaptativo**:
-  - Grelha responsiva de 3 colunas (Controlos, Pré-visualização A4 e Auditoria ATS) equilibrada entre ecrãs portáteis e monitores ultra-wide.
-  - Seletor de cores com etiquetas concisas e tooltips completos.
-- **Perfil Mestre Abrangente**:
-  - Gestão de dados pessoais, resumo executivo, competências técnicas e secção dedicada para **Formação Académica Registada** (grau, universidade/instituição e período).
+Designed for both **local** execution and remote hosting on a **VPS (Linux / Docker)** with full multi-tenant user isolation and **7 interface languages** (English, Portuguese, German, Spanish, Simplified Chinese, Arabic with RTL, and Korean).
 
 ---
 
-## 🏗️ Arquitetura do Repositório
+## ✨ Key Features
+
+### 1. 👥 Multi-User Architecture, i18n & Secure Authentication
+- **JWT Session Management & Cryptographic Hashing**:
+  - Salted password hashing via `PBKDF2-HMAC-SHA256`.
+  - Authenticated sessions with JWT tokens (`PyJWT`) and credential rotation.
+- **Multi-Tenant Data Isolation**:
+  - Each user has a strictly isolated partition in **Firebase Firestore** (`users/{user_id}/profile`, `jobs`, `applications`, `scan_history`, `cv_templates`, `settings`).
+  - Different users operate 100% privately and independently.
+- **Multilingual UI & Per-User Language Persistence**:
+  - Supports **English** (default on Sign In & Sign Up), **Portuguese**, **German**, **Spanish**, **Mandarin Chinese**, **Arabic (RTL)**, and **Korean**.
+  - Users choose their preferred language during registration (`preferred_language`) and can update it anytime from the navbar or Settings.
+- **Dedicated Unslop Auth Views**:
+  - Clean **Sign In** and **Sign Up** screens with ergonomic typography, a calm neutral ramp, and real-time validation.
+
+### 2. 📦 Career-Ops Onboarding with VPS Support
+Enables instant migration for existing Career-Ops users and works seamlessly on remote servers (VPS):
+- **Privacy Mode (File-by-File Upload)**:
+  - 📝 **`cv.md`** (root) ➔ **Master Base CV** used as the foundation for all AI customizations.
+  - 📄 **`config/profile.yml`** ➔ Personal profile, skills, and verified facts.
+  - 📊 **`data/applications.md`** ➔ History of submitted jobs, fit scores, and notes.
+  - 📑 **`output.zip`** ➔ Compress only the `output/` folder of PDFs for secure upload.
+- **Fast Mode (Full Folder ZIP)**:
+  - Drag-and-drop your entire Career-Ops folder compressed as `.zip`. The VPS server unpacks it in a secure sandbox with *Zip Slip* protection, locates the files, and indexes everything automatically.
+- **Manual Mode (Start from Scratch)**:
+  - Quick setup for new users without prior history.
+
+### 3. 🚀 Multi-Source Scraping Engine
+- **Net-Empregos (Portugal)**: Native dedicated scraper supporting categories, districts/cities, sorting, and full job description extraction with `iso-8859-1` decoding.
+- **Career-Ops ATS Portals**: Direct queries to major tech companies' public job boards (Greenhouse, Lever, Ashby, Workday).
+- **Google Jobs**: Aggregation with smart fallbacks (SerpApi, JSearch).
+- **JobSpy Engine**: Aggregated scraping across LinkedIn, Indeed, Glassdoor, and ZipRecruiter.
+- **Duplicate Prevention**: Deterministic job hashing so listings are never duplicated.
+- **Geographic Filter**: Physical distance calculation in km via OpenStreetMap Nominatim and the Haversine formula.
+
+### 4. 🟢 Real-Time Availability Check (Liveness Engine)
+- **Zero-Token Layer**: Direct queries to public ATS JSON endpoints for instant closure checks without spending AI quotas or launching heavy browsers.
+- **Headless / HTTP Layer**: Inspection of closing markers ("job closed", "applications closed", "404 Not Found").
+- Immediate status badges: **Active**, **Expired**, or **Check**.
+
+### 5. 🎨 Modular CV Builder & Real-Time ATS Audit
+- **Multiple Saved CV Templates**:
+  - Create, duplicate, and switch between multiple CV templates (e.g., *Classic ATS*, *Modern Executive*, *Tech Minimalist*, *Compact Symmetrical*).
+  - Set a default template automatically used when tailoring applications.
+- **Interactive Block Builder**:
+  - Reorder sections (Summary, Skills, Work Experience, Education, Projects, Certifications, Languages) with arrow controls.
+  - Show or hide any block individually in one click.
+- **Full Color & Google Fonts Freedom**:
+  - Pick any color using `<input type="color">`, custom HEX values, or curated presets.
+  - **Google Fonts** typography: choose from popular options (Inter, Roboto, DM Sans, Plus Jakarta Sans, Outfit, Space Grotesk, Poppins, Montserrat, Lora, Merriweather) or enter **any font from the Google Fonts library** with dynamic loading.
+  - Optional photo (circular/rounded via URL or data URI) with automatic EEOC anti-discrimination compliance notice.
+- **Real-Time ATS Auditor (Score 0 to 100)**:
+  - Continuous compatibility evaluation against corporate ATS systems (Taleo, Workday, Greenhouse, Lever).
+  - Checks essential contact details, skill density, quantified metrics in bullet points, and layout safety.
+  - Instant alerts and pass/warning checklist with **Golden CV Tips** (Google XYZ formula, 6-second recruiter rule, etc.).
+
+### 6. 🎯 AI Career Studio & Zero-Hallucination CV Tailoring
+- **Template Selection**: Choose which CV design template to use when tailoring your resume for a specific job.
+- **Fit Audit & Match Score (0 to 100%)**: Detailed breakdown of aligned strengths and technical gaps relative to the posting.
+- **Surgical CV Tailoring**: Aligns your professional summary and real experience bullets to the posting's keywords while strictly respecting verified facts in your master profile.
+- **ATS-Friendly PDF Export**: Generates professional A4 PDF resumes via Playwright/HTML using the selected template's typography and accent colors.
+- **Cover Letter & LinkedIn Outreach**: Concise, persuasive cover letters free of corporate clichés, plus short recruiter connection notes.
+- **Interview Simulator (STAR+R)**: Likely behavioral and technical questions with structured STAR+R response angles.
+
+### 7. 📋 Application Pipeline ("Applied" Tracking)
+- Switch between **Dense List View** and a full **8-Column Kanban Board**.
+- Full workflow: *Available ➔ Evaluated ➔ Preparing ➔ Applied ➔ Interview ➔ Offer / Positive ➔ Rejected ➔ Discarded*.
+- **Manual Job Addition by URL**, **Batch Liveness Verification**, advanced filters (remote, liveness, sorting by match score/distance), and **CSV/JSON Export**.
+- One-click quick action to mark as applied and record the submission date.
+
+### 8. ⚙️ Settings Hub, Discord Webhook & Security
+- **Encryption at Rest & Masking**: API keys and webhook URLs are encrypted at rest (`Fernet`) and never exposed again in plaintext after saving.
+- **Real-Time Discord Webhook Notifications**:
+  - Automatic alerts when new jobs are discovered during scans **and** when an application advances to *Interview* or *Offer*.
+  - One-click **"Test Webhook"** button that sends a formatted embed and confirms delivery with Discord.
+- **Live API Key Validation & Automatic Fallback Cascade**:
+  - Real-time testing for **Google Gemini**, **OpenAI**, **Groq Cloud**, **SerpApi**, and **RapidAPI JSearch**.
+  - Automatic fallback cascade across configured AI providers before falling back to offline heuristic mode.
+- **Real-Time Scan Status**:
+  - Live progress tracking via `GET /api/scrapers/scan/{scan_id}` with real backend execution logs.
+
+### 9. 💎 Unslop Design Standard & Responsive Layout
+- **Single-Row Navbar & Mobile Menu**:
+  - Fixed height and restrained typography with `whitespace-nowrap` and smart truncation for long usernames.
+  - Expandable drawer menu for tablets and mobile devices.
+- **Collision-Free Kanban Pipeline**:
+  - Card headers protected against overflow (`min-w-0`, `truncate`, `shrink-0`) to prevent collisions between job titles, long company names, and location badges.
+- **Adaptive CV Studio**:
+  - Balanced 3-column responsive grid (Controls, A4 Preview, and ATS Audit) across laptops and ultra-wide displays.
+- **Comprehensive Master Profile**:
+  - Manages personal info, executive summary, technical skills, experiences, projects, certifications, languages, verified facts, and **Education**.
+
+---
+
+## 🏗️ Repository Architecture
 
 ```text
 new-career/
-├── .agents/skills/          # Skills de UI/UX, Design Tokens e Unslop integrados
-├── AGENTS.md                # Regras ativas de design e craft do projeto
+├── .agents/skills/                   # Integrated UI/UX, Design Tokens, and Unslop skills
+├── AGENTS.md                         # Active project design, deploy, and GitHub sync rules
+├── Caddyfile                         # Reverse proxy & automatic HTTPS config for career.andydias.pt
+├── deploy.sh                         # Automated test, build, service restart & health check script
 ├── backend/
 │   ├── app/
-│   │   ├── main.py          # Ponto de entrada FastAPI com CORS e routers
-│   │   ├── config.py        # Configurações de ambiente, JWT e Firebase
-│   │   ├── firebase.py      # Gestor Firestore Multi-Tenant (Users, Jobs, CVs, Settings)
-│   │   ├── auth_utils.py    # Funções de hashing PBKDF2 e tokens JWT
-│   │   ├── database.py      # SQLite assíncrono (SQLAlchemy + aiosqlite)
-│   │   ├── models/          # Modelos de entidades
-│   │   ├── schemas/         # Schemas Pydantic V2 (Auth, Jobs, Profile, CV Templates, Settings)
-│   │   ├── scrapers/        # Scrapers (Net-Empregos, Google, JobSpy, ATS)
-│   │   ├── services/        # Services: ATS Auditor, Discord Notifier, Key Tester, PDF Generator, AI Tailor
-│   │   ├── api/             # Rotas REST (/auth, /jobs, /applications, /scrapers, /ai, /profile, /cv-templates, /settings)
-│   │   └── scripts/         # Scripts de migração, reset e sincronização Cloud
-│   ├── tests/               # Testes automatizados (18 testes pytest com isolamento multi-tenant)
-│   └── requirements.txt     # Dependências Python
+│   │   ├── main.py                   # FastAPI entrypoint with CORS and routers
+│   │   ├── config.py                 # Environment, JWT, and Firebase settings
+│   │   ├── firebase.py               # Multi-Tenant Firestore manager (Users, Jobs, CVs, Settings)
+│   │   ├── auth_utils.py             # PBKDF2 hashing and JWT helpers
+│   │   ├── database.py               # Async SQLite (SQLAlchemy + aiosqlite)
+│   │   ├── models/                   # Entity models
+│   │   ├── schemas/                  # Pydantic V2 schemas (Auth, Jobs, Profile, CV Templates, Settings)
+│   │   ├── scrapers/                 # Scrapers (Net-Empregos, Google, JobSpy, ATS)
+│   │   ├── services/                 # Services: ATS Auditor, Discord Notifier, Key Tester, PDF Generator, AI Tailor
+│   │   ├── api/                      # REST routes (/auth, /jobs, /applications, /scrapers, /ai, /profile, /cv-templates, /settings)
+│   │   └── scripts/                  # Migration, reset, and Cloud Firestore sync scripts
+│   ├── tests/                        # Automated pytest suite (27 tests with multi-tenant isolation)
+│   └── requirements.txt              # Python dependencies
 ├── frontend/
 │   ├── src/
-│   │   ├── components/      # LoginView, RegisterView, OnboardingWizard, Navbar, DashboardView, JobsView, CVBuilderView, SettingsView, AIStudioModal
-│   │   ├── context/         # AuthContext (Gestão global de sessão e utilizador)
-│   │   ├── api.ts           # Cliente HTTP da API com autenticação Bearer
-│   │   ├── types.ts         # Tipagens TypeScript estritas
-│   │   └── App.tsx          # Aplicação principal
-│   ├── tailwind.config.js   # Tokens de estilo Unslop
-│   └── package.json         # Dependências React 19 + Tailwind CSS
-├── storage/                 # Armazenamento particionado por utilizador
-├── firebase-credentials.example.json # Modelo de credenciais Google Cloud Firestore
-├── sync-firebase.bat        # Sincronizador de 1 clique para Firebase Cloud
-├── start.bat                # Inicializador rápido para Windows
-├── start.ps1                # Inicializador PowerShell
-└── README.md                # Documentação do projeto
+│   │   ├── i18n/                     # Multilingual dictionaries (en, pt, de, es, zh, ar, ko)
+│   │   ├── components/               # LoginView, RegisterView, OnboardingWizard, Navbar, DashboardView, JobsView, CVBuilderView, SettingsView, AIStudioModal
+│   │   ├── context/                  # AuthContext, LanguageContext, ToastContext
+│   │   ├── api.ts                    # Bearer-authenticated HTTP API client
+│   │   ├── types.ts                  # Strict TypeScript definitions
+│   │   └── App.tsx                   # Main application
+│   ├── tailwind.config.js            # Unslop style tokens
+│   └── package.json                  # React 19 + Tailwind CSS dependencies
+├── storage/                          # Partitioned per-user storage
+├── firebase-credentials.example.json # Google Cloud Firestore service account template
+├── sync-firebase.bat                 # 1-click Firebase Cloud sync script
+├── start.bat                         # Windows quick launcher
+├── start.ps1                         # PowerShell quick launcher
+└── README.md                         # Project documentation
 ```
 
 ---
 
-## 🚀 Como Executar
+## 🚀 Getting Started
 
-### 0. Configurar Variáveis de Ambiente
-Copie o modelo de configuração na raiz do projeto e defina o seu `JWT_SECRET`:
-```powershell
-Copy-Item .env.example .env
+### 0. Configure Environment Variables
+Copy the configuration template in the project root and set a strong `JWT_SECRET`:
+```bash
+cp .env.example .env
 ```
-> Em produção (`APP_ENV=production`), configure obrigatoriamente um `JWT_SECRET` forte (>= 32 caracteres) e restrinja `CORS_ORIGINS`.
+> In production (`APP_ENV=production`), be sure to set a strong `JWT_SECRET` (>= 32 characters) and restrict `CORS_ORIGINS`.
 
-### 1. Inicialização Rápida Local (Windows)
-Basta clicar duas vezes em `start.bat` ou executar no terminal PowerShell:
+### 1. Local Quick Start (Windows)
+Double-click `start.bat` or run in PowerShell:
 ```powershell
 .\start.ps1
 ```
+The script starts the backend at `http://localhost:8000` and opens the frontend at `http://localhost:5173`.
 
-O script inicia o backend em `http://localhost:8000` e abre o frontend em `http://localhost:5173`.
-
-### 2. Execução Manual
+### 2. Manual Setup
 
 #### Backend
-```powershell
+```bash
 cd backend
-.\.venv\Scripts\Activate.ps1
-$env:PYTHONPATH = ".."
-python -m uvicorn app.main:app --reload --port 8000
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cd ..
+PYTHONPATH=. uvicorn backend.app.main:app --reload --port 8000
 ```
-Documentação interativa Swagger disponível em: `http://localhost:8000/docs`.
+Interactive Swagger documentation is available at `http://localhost:8000/docs`.
 
 #### Frontend
-```powershell
+```bash
 cd frontend
-npm.cmd run dev
+npm install
+npm run dev
 ```
-Acesse a aplicação no navegador em: `http://localhost:5173`.
+Open `http://localhost:5173` in your browser.
 
 ---
 
-## 🌐 Hospedagem em VPS (Linux / Ubuntu)
+## 🌐 VPS Hosting (Linux / Ubuntu + Caddy)
 
-Como o sistema utiliza uploads diretos via browser e armazenamento relativo (`storage/users/{user_id}/`), ele está pronto para rodar em qualquer VPS:
+Because the platform uses direct browser uploads and relative storage (`storage/users/{user_id}/`), it is ready to run on any VPS:
 
-1. **Clonar o repositório na VPS**:
+1. **Clone the repository on your VPS**:
    ```bash
    git clone https://github.com/andyoliveiraa/new-career.git
    cd new-career
    ```
 
-2. **Configurar o Backend**:
+2. **Configure the Backend**:
    ```bash
    cd backend
    python3 -m venv .venv
    source .venv/bin/activate
    pip install -r requirements.txt
    playwright install chromium --with-deps
-   uvicorn app.main:app --host 0.0.0.0 --port 8000
    ```
 
-3. **Compilar e Servir o Frontend**:
+3. **Build & Deploy with Caddy**:
    ```bash
-   cd ../frontend
-   npm install
-   npm run build
-   # Os ficheiros gerados em /dist podem ser servidos via Nginx ou Caddy
+   cd ..
+   ./deploy.sh
    ```
+   `deploy.sh` runs the backend test suite, builds `frontend/dist`, validates/reloads `Caddyfile`, restarts `new-career-backend`, and verifies health checks.
 
 ---
 
-## 🔥 Configuração do Firebase Firestore
+## 🔥 Firebase Firestore Configuration
 
-Toda a base de dados do projeto roda sobre o **Google Cloud Firestore (Firebase)**:
-- Coleções estruturadas: `users`, `users/{user_id}/jobs`, `applications`, `profile`, `cv_templates`, `settings`, `scan_history`.
-- O sistema possui **fallback persistente local automático** (`storage/local_firestore.json`) para que tudo funcione de imediato mesmo sem internet ou sem chaves configuradas.
+The platform stores its database on **Google Cloud Firestore (Firebase)**:
+- Structured collections: `users`, `users/{user_id}/jobs`, `applications`, `profile`, `cv_templates`, `settings`, `scan_history`.
+- Includes an **automatic persistent local fallback** (`storage/local_firestore.json`) so everything works out of the box even offline or without cloud credentials.
 
-### Para ligar ao seu projeto na nuvem Firebase:
-1. Aceda ao [Console do Firebase](https://console.firebase.google.com/) e selecione o projeto (ex: `new-career-9289e`).
-2. Ative a base de dados em **Build > Firestore Database > Criar base de dados**.
-3. Vá a **Configurações do Projeto (Engrenagem) > Contas de Serviço > Gerar nova chave privada**.
-4. Descarregue o ficheiro JSON e coloque-o na raiz como `firebase-credentials.json`.
-5. Execute [`sync-firebase.bat`](sync-firebase.bat) para sincronizar de imediato!
+### Connecting to Your Firebase Cloud Project:
+1. Open the [Firebase Console](https://console.firebase.google.com/) and select your project (e.g., `new-career-9289e`).
+2. Enable Firestore under **Build > Firestore Database > Create database**.
+3. Go to **Project Settings (Gear icon) > Service Accounts > Generate new private key**.
+4. Save the downloaded JSON file to the repository root as `firebase-credentials.json`.
+5. Run [`sync-firebase.bat`](sync-firebase.bat) (or `PYTHONPATH=. python -m backend.app.scripts.sync_to_cloud_firestore`) to sync existing local data to Cloud Firestore.
 
 ---
 
-## 🧪 Testes Automatizados
+## 🧪 Automated Tests
 
-A plataforma conta com uma suíte de **26 testes automatizados** cobrindo autenticação JWT, isolamento multi-utilizador, upload seguro e parsing dinâmico do Career-Ops, proteção contra Zip Slip e Path Traversal, encriptação/mascaramento de chaves, cascata de IA, preparação de entrevista STAR+R, exportação CSV/JSON, liveness em lote, construtor de CVs e scrapers:
+The platform includes an automated suite of **27 pytest tests** covering JWT authentication, multi-tenant isolation, per-user language persistence, Career-Ops ZIP/privacy onboarding, Zip Slip and Path Traversal protection, API key encryption/masking, AI fallback cascade, STAR+R interview prep, CSV/JSON export, batch liveness checks, CV builder/ATS auditor, and scrapers:
 
-```powershell
-$env:PYTHONPATH = "."
-.\backend\.venv\Scripts\python.exe -m pytest backend/tests/ -v
+```bash
+PYTHONPATH=. backend/.venv/bin/pytest backend/tests/ -v
 ```
 
 ---
 
-## 📄 Licença
-Distribuído sob a licença MIT. Consulte [LICENSE](LICENSE) para mais detalhes.
+## 📄 License
+Distributed under the MIT License. See [LICENSE](LICENSE) for details.
