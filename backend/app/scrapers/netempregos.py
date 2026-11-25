@@ -27,6 +27,57 @@ def _slugify_location(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", cleaned).strip("-")
 
 
+# Map Portuguese municipalities/cities to their Net-Empregos district (Zona) & nearby hubs
+PT_CITY_TO_REGION: Dict[str, tuple[str, ...]] = {
+    "covilha": ("castelo branco", "fundao", "tortosendo", "belmonte"),
+    "fundao": ("castelo branco", "covilha"),
+    "cascais": ("lisboa", "oeiras", "sintra"),
+    "sintra": ("lisboa", "oeiras", "cascais", "amadora"),
+    "oeiras": ("lisboa", "cascais", "sintra"),
+    "amadora": ("lisboa", "oeiras", "sintra"),
+    "loures": ("lisboa", "odivelas"),
+    "odivelas": ("lisboa", "loures"),
+    "vila franca de xira": ("lisboa",),
+    "torres vedras": ("lisboa",),
+    "maia": ("porto", "matosinhos"),
+    "matosinhos": ("porto", "maia", "vila nova de gaia"),
+    "vila nova de gaia": ("porto", "matosinhos"),
+    "gaia": ("porto", "matosinhos"),
+    "gondomar": ("porto",),
+    "valongo": ("porto",),
+    "penafiel": ("porto",),
+    "povoa de varzim": ("porto", "vila do conde"),
+    "guimaraes": ("braga", "vila nova de famalicao", "vizela"),
+    "famalicao": ("braga", "guimaraes"),
+    "vila nova de famalicao": ("braga", "guimaraes"),
+    "barcelos": ("braga",),
+    "almada": ("setubal", "seixal", "barreiro"),
+    "seixal": ("setubal", "almada", "barreiro"),
+    "barreiro": ("setubal", "almada", "seixal"),
+    "montijo": ("setubal", "alcochete"),
+    "albufeira": ("faro", "loule", "portimao"),
+    "portimao": ("faro", "lagoa", "lagos"),
+    "loule": ("faro", "albufeira"),
+    "lagos": ("faro", "portimao"),
+    "tavira": ("faro",),
+    "espinho": ("aveiro", "santa maria da feira"),
+    "santa maria da feira": ("aveiro", "sao joao da madeira"),
+    "sao joao da madeira": ("aveiro", "oliveira de azemeis"),
+    "figueira da foz": ("coimbra",),
+    "caldas da rainha": ("leiria", "obidos"),
+    "marinha grande": ("leiria",),
+    "pombal": ("leiria",),
+    "tomar": ("santarem", "entroncamento"),
+    "torres novas": ("santarem", "entroncamento"),
+    "funchal": ("madeira",),
+    "ponta delgada": ("acores",),
+    "chaves": ("vila real",),
+    "lamego": ("viseu",),
+    "elvas": ("portalegre",),
+    "mirandela": ("braganca",),
+}
+
+
 def _title_from_slug(url: str) -> str:
     """Turn a Net-Empregos offer URL slug into a readable title."""
     parts = [p for p in url.rstrip("/").split("/") if p]
@@ -116,6 +167,29 @@ class NetEmpregosScraper(BaseScraper):
                     jobs.append(j)
                     if len(jobs) >= limit:
                         break
+
+            # 3. If exact city matches < limit, expand to the same Portuguese district / nearby hubs
+            if len(jobs) < limit and clean_location and not is_remote_search:
+                region_terms = PT_CITY_TO_REGION.get(clean_location, ())
+                if region_terms:
+                    remaining = min(limit - len(jobs), effective_feed_limit - len(jobs))
+                    if remaining > 0:
+                        reg_rss, reg_sm = await self._fetch_feeds(
+                            client=client,
+                            raw_location=raw_location,
+                            clean_location=clean_location,
+                            loc_slug=loc_slug,
+                            is_remote_search=False,
+                            query_terms=query_terms,
+                            limit=remaining + len(seen_urls),
+                            extra_locations=region_terms,
+                        )
+                        for j in reg_rss + reg_sm:
+                            if j["url"] not in seen_urls:
+                                seen_urls.add(j["url"])
+                                jobs.append(j)
+                                if len(jobs) >= limit:
+                                    break
 
         return jobs[:limit]
 
@@ -239,6 +313,7 @@ class NetEmpregosScraper(BaseScraper):
         is_remote_search: bool,
         query_terms: List[str],
         limit: int,
+        extra_locations: tuple[str, ...] = (),
     ) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         headers = {
             "User-Agent": "Mozilla/5.0 (compatible; NewCareerBot/1.0)",
@@ -295,14 +370,19 @@ class NetEmpregosScraper(BaseScraper):
                                 continue
                             zona_norm = _normalize_text(zona_raw)
                             title_norm = _normalize_text(title)
-                            slug_match = bool(
-                                loc_slug and re.search(rf"(?:^|-|/){re.escape(loc_slug)}(?:-|/|$)", _normalize_text(job_url))
-                            )
-                            if not (
-                                clean_location in zona_norm
-                                or clean_location in title_norm
-                                or slug_match
-                            ):
+                            url_norm = _normalize_text(job_url)
+                            loc_candidates = (clean_location,) + extra_locations
+                            matched_loc = False
+                            for cand in loc_candidates:
+                                cand_slug = _slugify_location(cand)
+                                if (
+                                    cand in zona_norm
+                                    or cand in title_norm
+                                    or (cand_slug and re.search(rf"(?:^|-|/){re.escape(cand_slug)}(?:-|/|$)", url_norm))
+                                ):
+                                    matched_loc = True
+                                    break
+                            if not matched_loc:
                                 continue
 
                     if query_terms:
@@ -344,8 +424,22 @@ class NetEmpregosScraper(BaseScraper):
                     else:
                         if "remot" in url_norm or "teletrabalho" in url_norm:
                             continue
-                        if not (loc_slug and re.search(rf"(?:^|-|/){re.escape(loc_slug)}(?:-|/|$)", url_norm)):
+                        loc_candidates = (clean_location,) + extra_locations
+                        matched_cand = next(
+                            (
+                                cand for cand in loc_candidates
+                                if _slugify_location(cand)
+                                and re.search(rf"(?:^|-|/){re.escape(_slugify_location(cand))}(?:-|/|$)", url_norm)
+                            ),
+                            None,
+                        )
+                        if not matched_cand:
                             continue
+                    inferred_loc = raw_location or "Portugal"
+                    if extra_locations and not is_remote_search and matched_cand and matched_cand != clean_location:
+                        inferred_loc = matched_cand.title()
+                else:
+                    inferred_loc = raw_location or "Portugal"
 
                 if query_terms:
                     slug_text = url_norm.replace("-", " ")
@@ -358,7 +452,7 @@ class NetEmpregosScraper(BaseScraper):
                     "job_key": job_key,
                     "title": title,
                     "company": "Net-Empregos",
-                    "location": raw_location or "Portugal",
+                    "location": inferred_loc,
                     "is_remote": is_remote_search,
                     "salary": None,
                     "description": None,
