@@ -14,6 +14,7 @@ from backend.app.api.ai import router as ai_router
 from backend.app.api.cv_templates import router as cv_templates_router
 from backend.app.api.settings import router as settings_router
 from backend.app.api.analytics import router as analytics_router
+from backend.app.api.admin import router as admin_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("new_career")
@@ -54,6 +55,7 @@ app.include_router(ai_router, prefix="/api")
 app.include_router(cv_templates_router, prefix="/api")
 app.include_router(settings_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
 
 
 @app.get("/api/health")

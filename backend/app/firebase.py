@@ -844,6 +844,61 @@ class FirebaseManager:
             self._save_local_store()
             return dict(partition["settings"])
 
+    async def list_all_users(self) -> List[Dict[str, Any]]:
+        """List all registered users for admin panel — strips password_hash and sensitive keys."""
+        SAFE_FIELDS = {"id", "full_name", "email", "created_at", "updated_at", "last_login_at",
+                       "has_completed_onboarding", "preferred_language"}
+
+        if self._is_live and self._db:
+            try:
+                docs = await self._run_cloud(
+                    lambda: list(self._db.collection("users").stream())
+                )
+                return [{k: u.get(k) for k in SAFE_FIELDS} for doc in docs for u in [doc.to_dict()]]
+            except Exception as e:
+                logger.warning(f"Aviso ao listar todos os utilizadores no Firestore: {e}")
+
+        with self._lock:
+            return [{k: u.get(k) for k in SAFE_FIELDS} for u in self._local_data["users"].values()]
+
+    async def get_platform_metrics(self) -> dict:
+        """Return global aggregated metrics for admin panel."""
+        with self._lock:
+            metrics_root = self._local_data.get("metrics", {})
+            global_metrics: dict = dict(metrics_root.get("global", {}))
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            daily_metrics: dict = dict(metrics_root.get("daily", {}).get(today, {}))
+            user_count = len(self._local_data.get("users", {}))
+
+        if self._is_live and self._db:
+            try:
+                g_doc = await self._run_cloud(
+                    lambda: self._db.collection("system_metrics").document("aggregated").get()
+                )
+                if g_doc.exists:
+                    global_metrics = g_doc.to_dict() or global_metrics
+                d_doc = await self._run_cloud(
+                    lambda: self._db.collection("system_metrics").document(f"daily_{today}").get()
+                )
+                if d_doc.exists:
+                    daily_metrics = d_doc.to_dict() or daily_metrics
+                u_count_docs = await self._run_cloud(
+                    lambda: list(self._db.collection("users").stream())
+                )
+                user_count = len(u_count_docs)
+            except Exception as e:
+                logger.warning(f"Aviso ao ler métricas da plataforma: {e}")
+
+        def _int_only(raw: dict) -> dict:
+            return {k: int(v) for k, v in raw.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
+
+        return {
+            "total_users": user_count,
+            "platform_totals": _int_only(global_metrics),
+            "today_metrics": _int_only(daily_metrics),
+            "date": today,
+        }
+
     # ==================== FIRST-PARTY ANALYTICS ====================
     async def record_metric(
         self,

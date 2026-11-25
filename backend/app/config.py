@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_DAYS: int = 7
 
+    # Admin Panel (credentials stored hashed)
+    ADMIN_EMAIL: str = ""
+    ADMIN_PASSWORD_HASH: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     @property
