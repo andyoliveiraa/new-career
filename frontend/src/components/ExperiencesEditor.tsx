@@ -90,8 +90,8 @@ export const ExperiencesEditor: React.FC<ExperiencesEditorProps> = ({
     <div
       className={
         compact
-          ? 'p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3'
-          : 'bg-surface-100 border border-surface-border rounded-xl p-5 space-y-4'
+          ? 'p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-3 min-w-0 w-full overflow-hidden'
+          : 'bg-surface-100 border border-surface-border rounded-xl p-5 space-y-4 min-w-0 w-full overflow-hidden'
       }
     >
       <div className="flex items-center justify-between">
@@ -253,16 +253,21 @@ export const ExperiencesEditor: React.FC<ExperiencesEditorProps> = ({
                 key={idx}
                 className={
                   compact
-                    ? 'p-3 rounded-lg bg-slate-900/70 border border-slate-800 space-y-1'
-                    : 'p-3 rounded-lg bg-surface-200/50 border border-surface-border space-y-1'
+                    ? 'p-3 rounded-lg bg-slate-900/70 border border-slate-800 space-y-1.5 min-w-0 w-full overflow-hidden'
+                    : 'p-3 rounded-lg bg-surface-200/50 border border-surface-border space-y-1.5 min-w-0 w-full overflow-hidden'
                 }
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="text-sm font-medium text-txt-primary">
-                      {exp.role} — <span className="text-accent-light">{exp.company}</span>
+                <div className="flex items-start justify-between gap-2 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium text-txt-primary break-words">
+                      {exp.role}
+                      {exp.company ? (
+                        <>
+                          {' '}— <span className="text-accent-light">{exp.company}</span>
+                        </>
+                      ) : null}
                     </div>
-                    <div className="text-xs text-txt-muted">
+                    <div className="text-xs text-txt-muted break-words">
                       {exp.period}
                       {exp.location ? ` • ${exp.location}` : ''}
                     </div>
@@ -287,9 +292,11 @@ export const ExperiencesEditor: React.FC<ExperiencesEditorProps> = ({
                   </div>
                 </div>
                 {exp.bullets && exp.bullets.length > 0 && (
-                  <ul className="text-xs text-txt-secondary list-disc ps-4 space-y-1 pt-1">
+                  <ul className="text-xs text-txt-secondary list-disc ps-5 space-y-1 pt-1 break-words [overflow-wrap:anywhere]">
                     {exp.bullets.map((b, bIdx) => (
-                      <li key={bIdx}>{b}</li>
+                      <li key={bIdx} className="leading-relaxed break-words">
+                        {b}
+                      </li>
                     ))}
                   </ul>
                 )}

@@ -5,8 +5,9 @@ import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
 import { SkillsTagEditor } from './SkillsTagEditor';
 import { ExperiencesEditor } from './ExperiencesEditor';
+import { EducationsEditor } from './EducationsEditor';
 import {
-  User, Save, Plus, Trash2, CheckCircle2, GraduationCap,
+  User, Save, Plus, Trash2, CheckCircle2,
   FolderGit2, Award, Globe, ShieldCheck
 } from 'lucide-react';
 
@@ -23,11 +24,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   const [newFact, setNewFact] = useState('');
-
-  const [showAddEdu, setShowAddEdu] = useState(false);
-  const [newDegree, setNewDegree] = useState('');
-  const [newInstitution, setNewInstitution] = useState('');
-  const [newPeriod, setNewPeriod] = useState('');
 
   const [showAddProj, setShowAddProj] = useState(false);
   const [projTitle, setProjTitle] = useState('');
@@ -79,29 +75,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
     } finally {
       setSaving(false);
     }
-  };
-
-  const addEducation = () => {
-    if (!newDegree.trim() || !newInstitution.trim() || !profile) return;
-    setProfile({
-      ...profile,
-      educations: [
-        ...(profile.educations || []),
-        { degree: newDegree.trim(), institution: newInstitution.trim(), period: newPeriod.trim() || t('profile.completedDefault') }
-      ]
-    });
-    setNewDegree('');
-    setNewInstitution('');
-    setNewPeriod('');
-    setShowAddEdu(false);
-  };
-
-  const removeEducation = (index: number) => {
-    if (!profile) return;
-    setProfile({
-      ...profile,
-      educations: (profile.educations || []).filter((_, idx) => idx !== index)
-    });
   };
 
   const addProject = () => {
@@ -327,82 +300,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
         />
 
         {/* Educations Summary */}
-        <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-xs text-txt-primary uppercase tracking-wider flex items-center gap-2">
-              <GraduationCap className="w-4 h-4 text-accent-light" />
-              {t('profile.educationsTitle', { count: (profile.educations || []).length })}
-            </h3>
-            <button
-              type="button"
-              onClick={() => setShowAddEdu(!showAddEdu)}
-              className="text-xs text-accent-light hover:underline flex items-center gap-1 font-medium"
-            >
-              <Plus className="w-3.5 h-3.5" /> {t('profile.addEducation')}
-            </button>
-          </div>
-
-          {showAddEdu && (
-            <div className="p-3.5 rounded-xl bg-surface-200 border border-surface-border space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <input
-                  type="text"
-                  placeholder={t('profile.eduDegreePlaceholder')}
-                  value={newDegree}
-                  onChange={(e) => setNewDegree(e.target.value)}
-                  className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
-                />
-                <input
-                  type="text"
-                  placeholder={t('profile.eduInstitutionPlaceholder')}
-                  value={newInstitution}
-                  onChange={(e) => setNewInstitution(e.target.value)}
-                  className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
-                />
-                <input
-                  type="text"
-                  placeholder={t('profile.eduPeriodPlaceholder')}
-                  value={newPeriod}
-                  onChange={(e) => setNewPeriod(e.target.value)}
-                  className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setShowAddEdu(false)} className="px-2.5 py-1 text-xs text-txt-secondary hover:text-txt-primary">
-                  {t('common.cancel')}
-                </button>
-                <button type="button" onClick={addEducation} className="px-3 py-1 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold">
-                  {t('profile.saveEducation')}
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            {(!profile.educations || profile.educations.length === 0) ? (
-              <div className="text-xs text-txt-muted py-2">{t('profile.noEducations')}</div>
-            ) : (
-              profile.educations.map((edu, idx) => (
-                <div key={idx} className="p-3 rounded-lg bg-surface-200/50 border border-surface-border flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-medium text-txt-primary">
-                      {edu.degree} — <span className="text-accent-light">{edu.institution}</span>
-                    </div>
-                    <div className="text-xs text-txt-muted">{edu.period}</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeEducation(idx)}
-                    className="p-1.5 text-txt-muted hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
-                    title={t('profile.removeEducation')}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+        <EducationsEditor
+          educations={profile.educations || []}
+          onChange={(nextEducations) => setProfile({ ...profile, educations: nextEducations })}
+        />
 
         {/* Projects */}
         <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-4">

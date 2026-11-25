@@ -29,12 +29,18 @@ SECTION_ALIASES: Dict[str, Tuple[str, ...]] = {
         "berufserfahrung", "erfahrung",
     ),
     "education": (
-        "education", "academic background", "educação", "educacao", "formação", "formacao",
-        "formação académica", "educación", "formación", "ausbildung", "studium",
+        "education", "education and training", "academic background", "qualifications",
+        "educação", "educacao", "educação e formação", "educacao e formacao",
+        "formação", "formacao", "formação académica", "formacao academica",
+        "habilitações", "habilitacoes", "habilitações e formação", "habilitacoes e formacao",
+        "habilitações académicas", "habilitacoes academicas", "habilitações literárias", "habilitacoes literarias",
+        "educación", "formación", "formación académica", "ausbildung", "studium", "schulbildung",
     ),
     "skills": (
         "skills", "technical skills", "core competencies", "technologies", "tech stack",
-        "competências", "competencias", "competências técnicas", "habilidades", "fähigkeiten", "kenntnisse",
+        "competências", "competencias", "competências técnicas", "competencias tecnicas",
+        "competências digitais", "competencias digitais",
+        "habilidades", "fähigkeiten", "kenntnisse",
     ),
     "projects": (
         "projects", "featured projects", "key projects", "projetos", "proyectos", "projekte",
@@ -44,7 +50,8 @@ SECTION_ALIASES: Dict[str, Tuple[str, ...]] = {
         "certificaciones", "zertifikate",
     ),
     "languages": (
-        "languages", "idiomas", "línguas", "linguas", "sprachen",
+        "languages", "competências linguísticas", "competencias linguisticas",
+        "idiomas", "línguas", "linguas", "sprachen",
     ),
 }
 
@@ -76,13 +83,13 @@ class CVParserService:
             )
 
         if ext in {".md", ".markdown", ".txt"}:
-            text = content.decode("utf-8", errors="replace").strip()
+            text = content.decode("utf-8", errors="replace").replace("\u00a0", " ").replace("\u200b", "").replace("\ufeff", "").strip()
             if not text:
                 raise HTTPException(status_code=400, detail="Não foi possível ler texto do ficheiro enviado.")
             return text, ext
 
         if ext in {".html", ".htm"}:
-            html_str = content.decode("utf-8", errors="replace")
+            html_str = content.decode("utf-8", errors="replace").replace("\u00a0", " ")
             md = html_to_markdown(html_str, heading_style="ATX").strip()
             if not md:
                 raise HTTPException(status_code=400, detail="O ficheiro HTML não contém conteúdo legível.")
@@ -91,7 +98,7 @@ class CVParserService:
         if ext == ".pdf":
             try:
                 reader = PdfReader(io.BytesIO(content))
-                pages = [(page.extract_text() or "").strip() for page in reader.pages]
+                pages = [(page.extract_text() or "").replace("\u00a0", " ").replace("\u200b", "").strip() for page in reader.pages]
                 text = "\n\n".join(p for p in pages if p).strip()
             except Exception as exc:
                 raise HTTPException(status_code=400, detail=f"Erro ao ler PDF: {exc}")
@@ -124,7 +131,7 @@ class CVParserService:
                     cells = [c.text.strip().replace("\n", " ") for c in row.cells if c.text.strip()]
                     if cells:
                         lines.append(" | ".join(cells))
-            text = "\n".join(lines).strip()
+            text = "\n".join(lines).replace("\u00a0", " ").replace("\u200b", "").strip()
         except Exception as exc:
             raise HTTPException(status_code=400, detail=f"Erro ao ler documento DOCX: {exc}")
 
@@ -134,13 +141,32 @@ class CVParserService:
 
     @staticmethod
     def _match_section(line: str) -> Optional[str]:
-        clean = re.sub(r"^[#*\-\s]+|[:\s]+$", "", line).strip().lower()
-        if not clean or len(clean) > 45:
+        clean = re.sub(r"^[#*\-\s•·]+|[:\s]+$", "", line)
+        clean = re.sub(r"\s+", " ", clean).strip().lower()
+        if not clean or len(clean) > 55:
             return None
         for sec, aliases in SECTION_ALIASES.items():
             if clean in aliases:
                 return sec
         return None
+
+    @staticmethod
+    def _looks_like_location(text: str) -> bool:
+        clean = text.strip(" -|•—()")
+        if not clean or len(clean) > 60:
+            return False
+        low = clean.lower()
+        non_location_tokens = (
+            "engineer", "developer", "diretor", "director", "manager", "lead", "intern",
+            "estágio", "estagio", "coordenador", "analista", "técnico", "tecnico",
+            "bsc", "msc", "licenciatura", "mestrado", "curso", "universidade",
+            "university", "instituto", "institute", "escola", "school", "associação", "associacao",
+        )
+        if any(tok in low for tok in non_location_tokens):
+            return False
+        if low in {"remote", "remoto", "portugal", "spain", "espanha", "germany", "alemanha", "france", "uk", "usa"}:
+            return True
+        return "," in clean and len(clean.split(",")) <= 3
 
     @classmethod
     def _normalize_to_markdown(cls, raw_text: str, ext: str) -> str:
@@ -263,20 +289,70 @@ class CVParserService:
 
         experiences: List[Dict[str, Any]] = []
         cur_exp: Optional[Dict[str, Any]] = None
+        pending_period = ""
+        pending_location = ""
+
         for ln in sections["experience"]:
             is_bullet = ln.startswith(("- ", "* "))
-            if is_bullet and cur_exp is not None:
+            if is_bullet:
+                if cur_exp is None:
+                    cur_exp = {
+                        "role": pending_location or "Experience",
+                        "company": "",
+                        "period": pending_period,
+                        "location": pending_location if pending_period else "",
+                        "bullets": [],
+                    }
+                    pending_period = ""
+                    pending_location = ""
                 cur_exp["bullets"].append(ln[2:].strip())
                 continue
 
             date_m = DATE_RANGE_RE.search(ln)
-            if ln.startswith("## ") or ln.startswith("### ") or date_m or (not is_bullet and len(ln) < 100 and any(sep in ln for sep in (" — ", " | ", " @ ", " - "))):
+            if date_m:
+                period_val = date_m.group(1).strip()
+                rest = DATE_RANGE_RE.sub("", ln.lstrip("#").strip()).strip(" -|•—()")
+                if not rest or cls._looks_like_location(rest):
+                    if cur_exp and (cur_exp["role"] or cur_exp["bullets"]):
+                        if not cur_exp["period"] and not cur_exp["bullets"]:
+                            cur_exp["period"] = period_val
+                            if rest and not cur_exp["location"]:
+                                cur_exp["location"] = rest
+                            continue
+                        experiences.append(cur_exp)
+                        cur_exp = None
+                    pending_period = period_val
+                    pending_location = rest
+                    continue
+
+            # Append wrapped PDF line to previous bullet if we are already inside bullets
+            if (
+                cur_exp is not None
+                and len(cur_exp["bullets"]) > 0
+                and not ln.startswith("#")
+                and not date_m
+                and not any(sep in ln for sep in (" — ", " @ ", " | "))
+                and not (len(ln) < 60 and " - " in ln)
+            ):
+                cur_exp["bullets"][-1] = f"{cur_exp['bullets'][-1]} {ln}".strip()
+                continue
+
+            if ln.startswith("## ") or ln.startswith("### ") or date_m or (len(ln) < 110 and any(sep in ln for sep in (" — ", " | ", " @ ", " - "))) or pending_period:
+                if cur_exp and not cur_exp["company"] and not cur_exp["bullets"] and not date_m and not any(sep in ln for sep in (" — ", " | ", " @ ", " - ")):
+                    cur_exp["company"] = ln.lstrip("#").strip()[:90]
+                    continue
+
                 if cur_exp and (cur_exp["role"] or cur_exp["bullets"]):
                     experiences.append(cur_exp)
+
                 heading = ln.lstrip("#").strip()
-                period = date_m.group(1).strip() if date_m else ""
+                period = date_m.group(1).strip() if date_m else pending_period
+                loc_val = pending_location
+                pending_period = ""
+                pending_location = ""
+
                 if date_m:
-                    heading = DATE_RANGE_RE.sub("", heading).strip(" -|•—")
+                    heading = DATE_RANGE_RE.sub("", heading).strip(" -|•—()")
                 role = heading
                 company = ""
                 for sep in (" — ", " @ ", " | ", " - "):
@@ -286,17 +362,16 @@ class CVParserService:
                         break
                 cur_exp = {
                     "role": role or "Role",
-                    "company": company or "Company",
+                    "company": company,
                     "period": period,
-                    "location": "",
+                    "location": loc_val,
                     "bullets": [],
                 }
-            elif cur_exp is not None and not cur_exp["period"]:
-                dm2 = DATE_RANGE_RE.search(ln)
-                if dm2:
-                    cur_exp["period"] = dm2.group(1).strip()
-                elif not cur_exp["company"]:
-                    cur_exp["company"] = ln[:80]
+            elif cur_exp is not None:
+                if not cur_exp["company"] and not cur_exp["bullets"]:
+                    cur_exp["company"] = ln[:90]
+                elif not cur_exp["location"] and cls._looks_like_location(ln):
+                    cur_exp["location"] = ln.strip()
                 else:
                     cur_exp["bullets"].append(ln)
 
@@ -304,25 +379,33 @@ class CVParserService:
             experiences.append(cur_exp)
 
         educations: List[Dict[str, Any]] = []
+        pending_edu_period = ""
         for ln in sections["education"]:
             clean = ln.lstrip("#- ").strip()
             if not clean:
                 continue
             dm = DATE_RANGE_RE.search(clean)
             period = dm.group(1).strip() if dm else ""
-            txt = DATE_RANGE_RE.sub("", clean).strip(" -|•—")
+            txt = DATE_RANGE_RE.sub("", clean).strip(" -|•—()")
+            if dm and (not txt or cls._looks_like_location(txt)):
+                pending_edu_period = period
+                continue
+
+            resolved_period = period or pending_edu_period
+            pending_edu_period = ""
+
             if any(sep in txt for sep in (" — ", " | ", " - ", ", ")):
                 for sep in (" — ", " | ", " - ", ", "):
                     if sep in txt:
                         deg, inst = [p.strip() for p in txt.split(sep, 1)]
-                        educations.append({"degree": deg, "institution": inst, "period": period})
+                        educations.append({"degree": deg, "institution": inst, "period": resolved_period})
                         break
             elif educations and not educations[-1]["institution"]:
                 educations[-1]["institution"] = txt
-                if period and not educations[-1]["period"]:
-                    educations[-1]["period"] = period
+                if resolved_period and not educations[-1]["period"]:
+                    educations[-1]["period"] = resolved_period
             else:
-                educations.append({"degree": txt, "institution": "", "period": period})
+                educations.append({"degree": txt, "institution": "", "period": resolved_period})
 
         projects: List[Dict[str, Any]] = []
         for ln in sections["projects"]:

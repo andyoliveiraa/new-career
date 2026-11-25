@@ -441,7 +441,7 @@ export const en = {
     expBulletsPlaceholder: 'Impact bullets / achievements (one per line, with metrics where possible)...',
     noExperiences: 'No experience recorded.',
     removeExperience: 'Remove experience',
-    educationsTitle: 'Education ({count})',
+    educationsTitle: 'Education & Qualifications ({count})',
     addEducation: 'Add Education',
     eduDegreePlaceholder: 'Degree / Program',
     eduInstitutionPlaceholder: 'Institution',

@@ -443,7 +443,7 @@ export const pt: TranslationDict = {
     expBulletsPlaceholder: 'Pontos de impacto / conquistas (um por linha, com métricas quando possível)...',
     noExperiences: 'Nenhuma experiência registada.',
     removeExperience: 'Remover experiência',
-    educationsTitle: 'Formação Académica Registada ({count})',
+    educationsTitle: 'Habilitações e Formação ({count})',
     addEducation: 'Adicionar Formação',
     eduDegreePlaceholder: 'Grau / Curso',
     eduInstitutionPlaceholder: 'Instituição',

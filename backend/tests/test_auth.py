@@ -297,3 +297,55 @@ async def test_onboarding_parse_cv_and_confirm():
         assert prof.status_code == 200
         assert "FastAPI" in prof.json()["skills"]
         assert prof.json()["github_url"] == "https://github.com/mariasilva"
+
+
+@pytest.mark.asyncio
+async def test_europass_cv_parsing_date_location_and_habilitacoes():
+    await init_db()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        reg = await client.post("/api/auth/register", json={
+            "full_name": "Andy Dias",
+            "email": "andy.europass@example.com",
+            "password": "Password123!",
+            "preferred_language": "pt"
+        })
+        assert reg.status_code == 200
+        headers = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+
+        europass_txt = (
+            "Andy\u00a0Dias\n"
+            "Engenheiro Informático\n"
+            "EXPERIÊNCIA PROFISSIONAL\n"
+            "10/09/2025 - 10/09/2026 - COVILHÃ, PORTUGAL\n"
+            "Diretor de Tecnologia e Comunicação - Associação Académica\n"
+            "• Coordenação e gestão direta da equipa criativa\n"
+            "• Supervisão do calendário editorial para os meios de media\n"
+            "online, garantindo o cumprimento rigoroso de prazos\n"
+            "HABILITAÇÕES E FORMAÇÃO\n"
+            "15/09/2020 - 30/06/2024 - COVILHÃ, PORTUGAL\n"
+            "Licenciatura em Engenharia Informática\n"
+            "Universidade da Beira Interior\n"
+        ).encode("utf-8")
+
+        res = await client.post(
+            "/api/auth/onboarding/parse-cv",
+            headers=headers,
+            files={"cv_file": ("europass.txt", europass_txt, "text/plain")},
+        )
+        assert res.status_code == 200
+        prof = res.json()["profile"]
+        assert len(prof["experiences"]) == 1
+        exp = prof["experiences"][0]
+        assert exp["role"] == "Diretor de Tecnologia e Comunicação"
+        assert exp["company"] == "Associação Académica"
+        assert exp["period"] == "10/09/2025 - 10/09/2026"
+        assert exp["location"] == "COVILHÃ, PORTUGAL"
+        assert len(exp["bullets"]) == 2
+        assert "meios de media online, garantindo" in exp["bullets"][1]
+
+        assert len(prof["educations"]) == 1
+        edu = prof["educations"][0]
+        assert edu["degree"] == "Licenciatura em Engenharia Informática"
+        assert edu["institution"] == "Universidade da Beira Interior"
+        assert edu["period"] == "15/09/2020 - 30/06/2024"

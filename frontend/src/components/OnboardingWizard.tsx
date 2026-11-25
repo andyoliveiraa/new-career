@@ -10,6 +10,7 @@ import type { OnboardingResult, ProfileExperience, ProfileEducation, ProfileLang
 import { LanguageSelector } from './LanguageSelector';
 import { SkillsTagEditor } from './SkillsTagEditor';
 import { ExperiencesEditor } from './ExperiencesEditor';
+import { EducationsEditor } from './EducationsEditor';
 import type { LanguageCode } from '../i18n';
 
 export const OnboardingWizard: React.FC = () => {
@@ -183,7 +184,7 @@ export const OnboardingWizard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 py-12">
-      <div className="w-full max-w-2xl">
+      <div className={`w-full transition-all ${selectedMode === 'manual' && manualStep === 'confirm' ? 'max-w-4xl' : 'max-w-2xl'}`}>
         <div className="flex justify-end mb-4">
           <LanguageSelector
             value={language}
@@ -768,7 +769,7 @@ export const OnboardingWizard: React.FC = () => {
                   </div>
 
                   {reviewTab === 'profile' ? (
-                    <div className="space-y-3 max-h-[420px] overflow-y-auto pe-1">
+                    <div className="space-y-4 max-h-[60vh] overflow-y-auto overflow-x-hidden pe-2 min-w-0">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-medium text-slate-400 mb-1">
@@ -889,47 +890,11 @@ export const OnboardingWizard: React.FC = () => {
                         compact
                       />
 
-                      {educations.length > 0 && (
-                        <div className="p-3 rounded-lg bg-slate-950/50 border border-slate-800 space-y-2">
-                          <div className="text-xs font-semibold text-slate-300">
-                            {t('profile.educationsTitle', { count: educations.length })}
-                          </div>
-                          {educations.map((edu, idx) => (
-                            <div key={idx} className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                              <input
-                                type="text"
-                                value={edu.degree}
-                                onChange={(e) => {
-                                  const next = [...educations];
-                                  next[idx] = { ...edu, degree: e.target.value };
-                                  setEducations(next);
-                                }}
-                                className="px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded text-slate-200"
-                              />
-                              <input
-                                type="text"
-                                value={edu.institution}
-                                onChange={(e) => {
-                                  const next = [...educations];
-                                  next[idx] = { ...edu, institution: e.target.value };
-                                  setEducations(next);
-                                }}
-                                className="px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded text-slate-200"
-                              />
-                              <input
-                                type="text"
-                                value={edu.period}
-                                onChange={(e) => {
-                                  const next = [...educations];
-                                  next[idx] = { ...edu, period: e.target.value };
-                                  setEducations(next);
-                                }}
-                                className="px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded text-slate-200"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <EducationsEditor
+                        educations={educations}
+                        onChange={setEducations}
+                        compact
+                      />
 
                       {languages.length > 0 && (
                         <div className="p-3 rounded-lg bg-slate-950/50 border border-slate-800 space-y-1.5">
