@@ -1,0 +1,30 @@
+{
+  "name": "new-career-promo-video",
+  "version": "1.0.0",
+  "description": "SaaS promotional motion graphics video for New Career (career.andydias.pt) built with Remotion",
+  "private": true,
+  "scripts": {
+    "start": "remotion studio",
+    "build": "remotion bundle",
+    "typecheck": "tsc --noEmit",
+    "render:horizontal": "remotion render src/index.ts PromoHorizontal out/new-career-promo-16x9.mp4 --codec=h264 --crf=16 --pixel-format=yuv420p",
+    "render:vertical": "remotion render src/index.ts PromoVertical out/new-career-promo-9x16.mp4 --codec=h264 --crf=16 --pixel-format=yuv420p"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.250",
+    "@remotion/google-fonts": "^4.0.250",
+    "@remotion/tailwind": "^4.0.250",
+    "lucide-react": "^0.475.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "^4.0.250"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3"
+  }
+}
