@@ -326,6 +326,7 @@ export const CVBuilderView: React.FC = () => {
       setTemplates(remaining);
       setSelectedTemplate(remaining[0] || null);
       setConfirmingDelete(false);
+      trackEvent('cv_template_deleted');
       showToast(t('cvBuilder.toastDeleted'), 'info');
     } catch (err: any) {
       showToast(err.message || t('cvBuilder.toastDeleteError'), 'error');

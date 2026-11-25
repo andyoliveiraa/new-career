@@ -83,14 +83,16 @@ const AppContent: React.FC = () => {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!isAuthenticated) {
+    if (legalOverlay) {
+      trackPageView(legalOverlay, `New Career - ${legalOverlay}`);
+    } else if (!isAuthenticated) {
       trackPageView(authView, `New Career - ${authView}`);
     } else if (user && !user.has_completed_onboarding) {
       trackPageView('onboarding', 'New Career - Onboarding');
     } else {
       trackPageView(activeTab, `New Career - ${activeTab}`);
     }
-  }, [authLoading, isAuthenticated, authView, user, activeTab]);
+  }, [authLoading, isAuthenticated, authView, legalOverlay, user, activeTab]);
 
   const handleMarkApplied = async (jobId: number) => {
     try {
