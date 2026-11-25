@@ -87,6 +87,9 @@ export const en = {
   },
   onboarding: {
     badge: 'Initial Account Setup',
+    languageStepTitle: 'Choose your preferred language',
+    languageStepSubtitle: 'Select the interface language for your workspace. You can change it later in Settings.',
+    languageStepContinue: 'Continue',
     greeting: 'Hello, {name}!',
     greetingFallback: 'Professional',
     subtitle: "Let's set up your account to track jobs, tailor resumes, and manage your application pipeline.",

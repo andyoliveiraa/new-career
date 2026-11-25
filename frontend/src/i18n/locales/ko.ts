@@ -89,6 +89,9 @@ export const ko: TranslationDict = {
   },
   onboarding: {
     badge: '초기 계정 설정',
+    languageStepTitle: '선호하는 언어를 선택하세요',
+    languageStepSubtitle: '계정에서 사용할 인터페이스 언어를 선택하세요. 나중에 설정에서 변경할 수 있습니다.',
+    languageStepContinue: '계속하기',
     greeting: '안녕하세요, {name}님!',
     greetingFallback: '지원자',
     subtitle: '채용 공고를 추적하고, 이력서를 맞춤화하며, 지원 현황을 관리할 수 있도록 계정을 설정합니다.',

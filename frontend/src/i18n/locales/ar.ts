@@ -89,6 +89,9 @@ export const ar: TranslationDict = {
   },
   onboarding: {
     badge: 'الإعداد الأولي للحساب',
+    languageStepTitle: 'اختر لغتك المفضلة',
+    languageStepSubtitle: 'اختر لغة الواجهة لحسابك. يمكنك تغييرها لاحقاً من الإعدادات.',
+    languageStepContinue: 'متابعة',
     greeting: 'مرحباً، {name}!',
     greetingFallback: 'محترف',
     subtitle: 'لنجهّز حسابك لمراقبة الوظائف وتخصيص السير الذاتية وإدارة مسار التقديم.',

@@ -89,6 +89,9 @@ export const de: TranslationDict = {
   },
   onboarding: {
     badge: 'Ersteinrichtung des Kontos',
+    languageStepTitle: 'Wählen Sie Ihre bevorzugte Sprache',
+    languageStepSubtitle: 'Wählen Sie die Sprache der Plattform für Ihr Konto. Sie können diese später in den Einstellungen ändern.',
+    languageStepContinue: 'Weiter',
     greeting: 'Hallo, {name}!',
     greetingFallback: 'Profi',
     subtitle: 'Richten wir Ihr Konto ein, um Stellen zu überwachen, Lebensläufe anzupassen und Bewerbungen zu verwalten.',

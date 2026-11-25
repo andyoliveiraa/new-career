@@ -89,6 +89,9 @@ export const zh: TranslationDict = {
   },
   onboarding: {
     badge: '账号初始化设置',
+    languageStepTitle: '选择您的首选语言',
+    languageStepSubtitle: '为您的工作区选择界面语言。您也可以稍后在设置中更改。',
+    languageStepContinue: '继续',
     greeting: '你好，{name}！',
     greetingFallback: '求职者',
     subtitle: '让我们配置您的账号，开始监控职位、定制简历并管理求职进度。',

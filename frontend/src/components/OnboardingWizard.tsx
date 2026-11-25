@@ -1,22 +1,22 @@
 import React, { useState, useRef } from 'react';
 import {
   FolderSync, Sparkles, CheckCircle2, AlertCircle, ArrowRight,
-  Check, Layers, UploadCloud, Shield, FileText, Archive
+  Check, Layers, UploadCloud, Shield, FileText, Archive, Globe
 } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import type { OnboardingResult, ProfileExperience, ProfileEducation, ProfileLanguage, ProfileCertification, ProfileProject } from '../types';
-import { LanguageSelector } from './LanguageSelector';
 import { SkillsTagEditor } from './SkillsTagEditor';
 import { ExperiencesEditor } from './ExperiencesEditor';
 import { EducationsEditor } from './EducationsEditor';
 import { LanguagesEditor } from './LanguagesEditor';
-import type { LanguageCode } from '../i18n';
+import { LANGUAGES } from '../i18n';
 
 export const OnboardingWizard: React.FC = () => {
   const { user, setCompletedOnboarding, updatePreferredLanguage } = useAuth();
   const { language, t } = useLanguage();
+  const [languageChosen, setLanguageChosen] = useState(false);
   const [selectedMode, setSelectedMode] = useState<'career_ops' | 'manual' | null>(null);
 
   const [careerOpsSubMode, setCareerOpsSubMode] = useState<'privacy' | 'zip'>('privacy');
@@ -64,14 +64,6 @@ export const OnboardingWizard: React.FC = () => {
   const [initialCvText, setInitialCvText] = useState('');
   const [manualLoading, setManualLoading] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
-
-  const handleLanguageChange = async (lang: LanguageCode) => {
-    try {
-      await updatePreferredLanguage(lang);
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const handleImportFullZip = async () => {
     if (!fullZipFile) {
@@ -186,13 +178,71 @@ export const OnboardingWizard: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 py-12">
       <div className={`w-full transition-all ${selectedMode === 'manual' && manualStep === 'confirm' ? 'max-w-4xl' : 'max-w-2xl'}`}>
-        <div className="flex justify-end mb-4">
-          <LanguageSelector
-            value={language}
-            onChange={handleLanguageChange}
-            ariaLabel={t('app.languageLabel')}
-          />
-        </div>
+
+        {/* SCREEN 0: LANGUAGE PICK */}
+        {!languageChosen && (
+          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-md">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-medium mb-4">
+                <Globe className="w-3.5 h-3.5" />
+                <span>{t('onboarding.badge')}</span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-slate-100">
+                {t('onboarding.languageStepTitle')}
+              </h1>
+              <p className="text-sm text-slate-400 mt-1.5 max-w-md mx-auto">
+                {t('onboarding.languageStepSubtitle')}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+              {LANGUAGES.map((lang) => {
+                const isSelected = language === lang.code;
+                return (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await updatePreferredLanguage(lang.code);
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    className={`flex flex-col items-center gap-1.5 p-4 rounded-xl border transition-all text-sm font-medium ${
+                      isSelected
+                        ? 'bg-blue-500/10 border-blue-500 ring-1 ring-blue-500/40 text-slate-100'
+                        : 'bg-slate-950/50 border-slate-800 text-slate-300 hover:border-slate-600 hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <span
+                      className={`text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded ${
+                        isSelected
+                          ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                          : 'bg-slate-800/80 text-slate-400 border border-slate-700/60'
+                      }`}
+                    >
+                      {lang.code}
+                    </span>
+                    <span className="leading-tight mt-1">{lang.nativeName}</span>
+                    <span className="text-[11px] text-slate-500 font-normal">{lang.englishName}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setLanguageChosen(true)}
+              className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-sm"
+            >
+              <span>{t('onboarding.languageStepContinue')}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {languageChosen && (<>
 
         {/* Header */}
         <div className="text-center mb-8">
@@ -934,6 +984,7 @@ export const OnboardingWizard: React.FC = () => {
             </div>
           )}
         </div>
+        </>)}
       </div>
     </div>
   );

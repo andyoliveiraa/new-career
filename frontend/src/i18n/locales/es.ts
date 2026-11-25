@@ -89,6 +89,9 @@ export const es: TranslationDict = {
   },
   onboarding: {
     badge: 'Configuración Inicial de Cuenta',
+    languageStepTitle: 'Elige tu idioma preferido',
+    languageStepSubtitle: 'Selecciona el idioma de la interfaz para tu cuenta. Podrás cambiarlo más adelante en Configuración.',
+    languageStepContinue: 'Continuar',
     greeting: '¡Hola, {name}!',
     greetingFallback: 'Profesional',
     subtitle: 'Preparamos tu cuenta para monitorizar vacantes, adaptar currículums y gestionar tu pipeline de candidaturas.',

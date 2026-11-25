@@ -2,9 +2,6 @@ import React, { useState } from 'react';
 import { Briefcase, LayoutDashboard, User, Search, Palette, Sliders, LogOut, Menu, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { useToast } from '../context/ToastContext';
-import { LanguageSelector } from './LanguageSelector';
-import type { LanguageCode } from '../i18n';
 
 interface NavbarProps {
   activeTab: string;
@@ -13,9 +10,8 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, statsTotal = 0 }) => {
-  const { user, logout, updatePreferredLanguage } = useAuth();
-  const { language, t } = useLanguage();
-  const { showToast } = useToast();
+  const { user, logout } = useAuth();
+  const { t } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
@@ -40,15 +36,6 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, statsTo
   const handleSelectTab = (tabId: string) => {
     setActiveTab(tabId);
     setMobileMenuOpen(false);
-  };
-
-  const handleLanguageChange = async (lang: LanguageCode) => {
-    try {
-      await updatePreferredLanguage(lang);
-      showToast(t('app.toastLanguageUpdated'), 'success');
-    } catch {
-      showToast(t('app.toastLanguageError'), 'error');
-    }
   };
 
   return (
@@ -100,16 +87,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, statsTo
             })}
           </nav>
 
-          {/* Right Side: Language, User profile & Logout + Mobile Menu Button */}
+          {/* Right Side: User profile & Logout + Mobile Menu Button */}
           <div className="flex items-center gap-2 shrink-0">
-            <div className="hidden sm:block">
-              <LanguageSelector
-                value={language}
-                onChange={handleLanguageChange}
-                ariaLabel={t('app.languageLabel')}
-                compact
-              />
-            </div>
 
             {user && (
               <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-surface-border">
@@ -154,15 +133,6 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, statsTo
       {/* Mobile Dropdown Menu */}
       {mobileMenuOpen && (
         <div className="lg:hidden border-t border-surface-border bg-surface-100 px-4 py-3 space-y-2 shadow-lg">
-          <div className="sm:hidden pb-2 border-b border-surface-border flex items-center justify-between">
-            <span className="text-xs text-txt-muted">{t('app.languageLabel')}</span>
-            <LanguageSelector
-              value={language}
-              onChange={handleLanguageChange}
-              ariaLabel={t('app.languageLabel')}
-              compact
-            />
-          </div>
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
