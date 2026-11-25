@@ -46,12 +46,12 @@ function triggerBlobDownload(blob: Blob, filename: string) {
 
 export const api = {
   // Auth
-  async register(full_name: string, email: string, password: string): Promise<AuthResponse> {
+  async register(full_name: string, email: string, password: string, preferred_language = 'en'): Promise<AuthResponse> {
     const res = await apiFetch('/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ full_name, email, password })
-    }, 'Erro ao registrar conta');
+      body: JSON.stringify({ full_name, email, password, preferred_language })
+    }, 'Failed to register account');
     return res.json();
   },
 
@@ -60,12 +60,21 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
-    }, 'Email ou palavra-passe incorretos');
+    }, 'Invalid email or password');
     return res.json();
   },
 
   async getMe(): Promise<User> {
-    const res = await apiFetch('/auth/me', {}, 'Sessão expirada');
+    const res = await apiFetch('/auth/me', {}, 'Session expired');
+    return res.json();
+  },
+
+  async updatePreferredLanguage(preferred_language: string): Promise<User> {
+    const res = await apiFetch('/auth/me/language', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preferred_language })
+    }, 'Failed to update preferred language');
     return res.json();
   },
 

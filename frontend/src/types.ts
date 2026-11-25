@@ -157,6 +157,7 @@ export interface User {
   id: string;
   full_name: string;
   email: string;
+  preferred_language?: 'en' | 'pt' | 'de' | 'es' | 'zh' | 'ar' | 'ko';
   has_completed_onboarding: boolean;
   created_at?: string;
 }

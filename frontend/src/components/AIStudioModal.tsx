@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { Job, JDAnalysis, CVTailorResult, CoverLetterResult, InterviewPrepResult, CVTemplate } from '../types';
 import { api } from '../api';
 import { useToast } from '../context/ToastContext';
+import { useLanguage } from '../context/LanguageContext';
 import { X, Sparkles, FileText, Send, Download, Check, Copy, ExternalLink, HelpCircle, Layout } from 'lucide-react';
 
 interface AIStudioModalProps {
@@ -12,6 +13,7 @@ interface AIStudioModalProps {
 
 export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRefreshJob }) => {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [activeSubTab, setActiveSubTab] = useState<'fit' | 'cv' | 'cover' | 'interview'>('fit');
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<JDAnalysis | null>(null);
@@ -36,7 +38,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
     api.getCVTemplates()
       .then(tpls => {
         setTemplates(tpls);
-        const def = tpls.find(t => t.is_default);
+        const def = tpls.find(tpl => tpl.is_default);
         if (def) setSelectedTemplateId(def.id);
         else if (tpls.length > 0) setSelectedTemplateId(tpls[0].id);
       })
@@ -52,7 +54,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
       setAnalysis(res);
       onRefreshJob();
     } catch (err: any) {
-      showToast(err.message || 'Erro ao analisar vaga com IA.', 'error');
+      showToast(err.message || t('aiStudio.fitError'), 'error');
     } finally {
       setLoading(false);
     }
@@ -63,10 +65,10 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
     try {
       const res = await api.tailorCV(job.id, selectedTemplateId || undefined);
       setTailorResult(res);
-      showToast('Currículo ATS adaptado com sucesso.', 'success');
+      showToast(t('aiStudio.cvToastSuccess'), 'success');
       onRefreshJob();
     } catch (err: any) {
-      showToast(err.message || 'Erro ao adaptar currículo.', 'error');
+      showToast(err.message || t('aiStudio.cvToastError'), 'error');
     } finally {
       setLoading(false);
     }
@@ -77,7 +79,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
     try {
       await api.downloadProtectedFile(tailorResult.pdf_download_url, `cv_job_${job.id}.pdf`);
     } catch (err: any) {
-      showToast(err.message || 'Erro ao descarregar currículo.', 'error');
+      showToast(err.message || t('aiStudio.cvDownloadError'), 'error');
     }
   };
 
@@ -88,7 +90,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
       setCoverResult(res);
       onRefreshJob();
     } catch (err: any) {
-      showToast(err.message || 'Erro ao gerar carta de apresentação.', 'error');
+      showToast(err.message || t('aiStudio.coverError'), 'error');
     } finally {
       setLoading(false);
     }
@@ -100,7 +102,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
       const res = await api.generateInterviewPrep(job.id);
       setInterviewPrep(res);
     } catch (err: any) {
-      showToast(err.message || 'Erro ao gerar preparação STAR+R.', 'error');
+      showToast(err.message || t('aiStudio.interviewError'), 'error');
     } finally {
       setLoading(false);
     }
@@ -122,7 +124,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
       <div className="bg-surface-100 border border-surface-border rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-surface-border flex items-center justify-between bg-surface-200/50">
-          <div className="space-y-0.5 min-w-0 pr-4">
+          <div className="space-y-0.5 min-w-0 pe-4">
             <div className="flex items-center gap-2 min-w-0">
               <span className="font-display font-bold text-lg text-txt-primary truncate">{job.title}</span>
               <span className="text-xs px-2 py-0.5 rounded bg-surface-300 text-txt-secondary border border-surface-border shrink-0">
@@ -130,10 +132,11 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
               </span>
             </div>
             <div className="text-xs text-txt-muted flex items-center gap-2">
-              <span>{job.location || 'Portugal'}</span>
+              <span>{job.location || '-'}</span>
               <span>•</span>
-              <a href={job.url} target="_blank" rel="noreferrer" className="text-accent-light hover:underline flex items-center">
-                Ver anúncio original <ExternalLink className="w-3 h-3 ml-1" />
+              <a href={job.url} target="_blank" rel="noreferrer" className="text-accent-light hover:underline flex items-center gap-1">
+                <span>{t('aiStudio.viewOriginal')}</span>
+                <ExternalLink className="w-3 h-3" />
               </a>
             </div>
           </div>
@@ -142,7 +145,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
             type="button"
             onClick={onClose}
             className="p-1.5 rounded-lg hover:bg-surface-300 text-txt-muted hover:text-txt-primary transition-colors shrink-0"
-            aria-label="Fechar modal"
+            aria-label={t('aiStudio.closeModal')}
           >
             <X className="w-5 h-5" />
           </button>
@@ -158,7 +161,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
             }`}
           >
             <Sparkles className="w-4 h-4" />
-            1. Análise de Fit & Match
+            {t('aiStudio.tabFit')}
           </button>
           <button
             type="button"
@@ -168,7 +171,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
             }`}
           >
             <FileText className="w-4 h-4" />
-            2. CV ATS Adaptado
+            {t('aiStudio.tabCv')}
           </button>
           <button
             type="button"
@@ -178,7 +181,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
             }`}
           >
             <Send className="w-4 h-4" />
-            3. Carta & Mensagem
+            {t('aiStudio.tabCover')}
           </button>
           <button
             type="button"
@@ -188,23 +191,22 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
             }`}
           >
             <HelpCircle className="w-4 h-4" />
-            4. Preparação STAR
+            {t('aiStudio.tabInterview')}
           </button>
         </div>
 
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
-          {/* SubTab 1: Fit & Match */}
           {activeSubTab === 'fit' && (
             <div className="space-y-6">
               {!analysis && (
                 <div className="p-6 rounded-xl bg-surface-200 border border-surface-border text-center space-y-3">
                   <Sparkles className="w-8 h-8 text-accent-light mx-auto" />
                   <div className="font-display font-semibold text-base text-txt-primary">
-                    Avaliar Compatibilidade com o seu Perfil Mestre
+                    {t('aiStudio.fitTitle')}
                   </div>
                   <p className="text-xs text-txt-secondary max-w-md mx-auto">
-                    O motor de IA compara os requisitos da vaga com as suas competências e experiências reais, calculando o score e sugerindo pontos fortes e lacunas a cobrir.
+                    {t('aiStudio.fitDesc')}
                   </p>
                   <button
                     type="button"
@@ -212,7 +214,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
                     disabled={loading}
                     className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
                   >
-                    {loading ? 'A processar análise...' : 'Executar Análise de Fit'}
+                    {loading ? t('aiStudio.fitRunning') : t('aiStudio.fitRunBtn')}
                   </button>
                 </div>
               )}
@@ -221,33 +223,33 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
                 <div className="space-y-5">
                   <div className="p-5 rounded-xl bg-surface-200 border border-surface-border flex items-center justify-between">
                     <div>
-                      <div className="text-xs text-txt-muted uppercase font-bold tracking-wider">Score ATS Estimado</div>
+                      <div className="text-xs text-txt-muted uppercase font-bold tracking-wider">{t('aiStudio.estimatedScore')}</div>
                       <div className="font-display text-4xl font-extrabold text-txt-primary mt-1">
                         {Math.round(analysis.match_score)}%
                       </div>
                       <p className="text-xs text-txt-secondary mt-1">{analysis.recommendation}</p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-end">
                       <button
                         type="button"
                         onClick={handleRunAnalysis}
                         disabled={loading}
                         className="text-xs text-accent-light hover:underline"
                       >
-                        Recalcular
+                        {t('aiStudio.recalculate')}
                       </button>
                     </div>
                   </div>
 
                   <div className="p-4 rounded-xl bg-surface-200/50 border border-surface-border">
-                    <div className="text-xs font-bold text-txt-muted uppercase mb-1">Diagnóstico Geral</div>
+                    <div className="text-xs font-bold text-txt-muted uppercase mb-1">{t('aiStudio.overallDiagnosis')}</div>
                     <p className="text-sm text-txt-primary leading-relaxed">{analysis.summary}</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-2">
-                      <div className="text-xs font-bold text-emerald-400 uppercase">Pontos Fortes Alinhados</div>
-                      <ul className="text-xs text-txt-secondary space-y-1.5 list-disc pl-4">
+                      <div className="text-xs font-bold text-emerald-400 uppercase">{t('aiStudio.alignedStrengths')}</div>
+                      <ul className="text-xs text-txt-secondary space-y-1.5 list-disc ps-4">
                         {analysis.strengths.map((s, idx) => (
                           <li key={idx}><span className="text-txt-primary">{s}</span></li>
                         ))}
@@ -255,8 +257,8 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
                     </div>
 
                     <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-2">
-                      <div className="text-xs font-bold text-amber-400 uppercase">Lacunas / Pontos a Atenuar</div>
-                      <ul className="text-xs text-txt-secondary space-y-1.5 list-disc pl-4">
+                      <div className="text-xs font-bold text-amber-400 uppercase">{t('aiStudio.gapsToAddress')}</div>
+                      <ul className="text-xs text-txt-secondary space-y-1.5 list-disc ps-4">
                         {analysis.gaps.map((g, idx) => (
                           <li key={idx}><span className="text-txt-primary">{g}</span></li>
                         ))}
@@ -265,7 +267,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
                   </div>
 
                   <div>
-                    <div className="text-xs font-bold text-txt-muted uppercase mb-2">Palavras-Chave Identificadas no Anúncio</div>
+                    <div className="text-xs font-bold text-txt-muted uppercase mb-2">{t('aiStudio.identifiedKeywords')}</div>
                     <div className="flex flex-wrap gap-1.5">
                       {analysis.keywords.map((kw, idx) => (
                         <span key={idx} className="px-2.5 py-1 text-xs rounded bg-surface-200 border border-surface-border text-txt-primary">
@@ -279,24 +281,23 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
             </div>
           )}
 
-          {/* SubTab 2: CV Tailoring & PDF */}
           {activeSubTab === 'cv' && (
             <div className="space-y-6">
               {!tailorResult ? (
                 <div className="p-6 rounded-xl bg-surface-200 border border-surface-border text-center space-y-3">
                   <FileText className="w-8 h-8 text-accent-light mx-auto" />
                   <div className="font-display font-semibold text-base text-txt-primary">
-                    Gerar Currículo Otimizado para ATS
+                    {t('aiStudio.cvTitle')}
                   </div>
                   <p className="text-xs text-txt-secondary max-w-md mx-auto">
-                    Adapta cirurgicamente o resumo profissional e os destaques das suas experiências reais às palavras-chave deste anúncio, gerando um documento pronto para submissão.
+                    {t('aiStudio.cvDesc')}
                   </p>
 
                   {templates.length > 0 && (
-                    <div className="max-w-xs mx-auto text-left pt-2">
+                    <div className="max-w-xs mx-auto text-start pt-2">
                       <label className="block text-xs font-medium text-txt-muted mb-1 flex items-center gap-1.5">
                         <Layout className="w-3.5 h-3.5 text-accent-light" />
-                        Modelo de Design CV a Utilizar:
+                        {t('aiStudio.selectTemplateLabel')}
                       </label>
                       <select
                         value={selectedTemplateId}
@@ -305,7 +306,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
                       >
                         {templates.map(tpl => (
                           <option key={tpl.id} value={tpl.id}>
-                            {tpl.name} {tpl.is_default ? '(Padrão)' : ''}
+                            {tpl.name} {tpl.is_default ? t('common.defaultBadge') : ''}
                           </option>
                         ))}
                       </select>
@@ -318,15 +319,15 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
                     disabled={loading}
                     className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
                   >
-                    {loading ? 'A adaptar currículo...' : 'Adaptar CV e Compilar PDF'}
+                    {loading ? t('aiStudio.cvAdapting') : t('aiStudio.cvAdaptBtn')}
                   </button>
                 </div>
               ) : (
                 <div className="space-y-5">
                   <div className="p-4 rounded-xl bg-surface-200 border border-surface-border flex items-center justify-between gap-3">
                     <div>
-                      <div className="font-medium text-sm text-txt-primary">Currículo ATS Gerado com Sucesso</div>
-                      <div className="text-xs text-txt-muted">Formatação A4 com o modelo de design selecionado</div>
+                      <div className="font-medium text-sm text-txt-primary">{t('aiStudio.cvGeneratedTitle')}</div>
+                      <div className="text-xs text-txt-muted">{t('aiStudio.cvGeneratedDesc')}</div>
                     </div>
                     {tailorResult.pdf_download_url && (
                       <button
@@ -335,20 +336,20 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
                         className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-2 shadow-sm transition-colors"
                       >
                         <Download className="w-4 h-4" />
-                        Descarregar Documento
+                        {t('aiStudio.downloadPdf')}
                       </button>
                     )}
                   </div>
 
                   <div className="space-y-2">
-                    <div className="text-xs font-bold text-txt-muted uppercase">Resumo Adaptado</div>
+                    <div className="text-xs font-bold text-txt-muted uppercase">{t('aiStudio.tailoredSummary')}</div>
                     <div className="p-4 rounded-lg bg-surface-200/60 border border-surface-border text-sm text-txt-primary leading-relaxed">
                       {tailorResult.tailored_summary}
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <div className="text-xs font-bold text-txt-muted uppercase">Competências Destacadas</div>
+                    <div className="text-xs font-bold text-txt-muted uppercase">{t('aiStudio.highlightedSkills')}</div>
                     <div className="flex flex-wrap gap-1.5">
                       {tailorResult.highlighted_skills.map((s, idx) => (
                         <span key={idx} className="px-2 py-0.5 text-xs rounded bg-accent/10 border border-accent/20 text-accent-light font-medium">
@@ -362,17 +363,16 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
             </div>
           )}
 
-          {/* SubTab 3: Cover Letter & Outreach */}
           {activeSubTab === 'cover' && (
             <div className="space-y-6">
               {!coverResult ? (
                 <div className="p-6 rounded-xl bg-surface-200 border border-surface-border text-center space-y-3">
                   <Send className="w-8 h-8 text-accent-light mx-auto" />
                   <div className="font-display font-semibold text-base text-txt-primary">
-                    Carta de Motivação & Mensagem LinkedIn
+                    {t('aiStudio.coverTitle')}
                   </div>
                   <p className="text-xs text-txt-secondary max-w-md mx-auto">
-                    Redige uma carta concisa, persuasiva e sem clichês corporativos, além de uma nota curta para conectar com o recrutador.
+                    {t('aiStudio.coverDesc')}
                   </p>
                   <button
                     type="button"
@@ -380,21 +380,21 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
                     disabled={loading}
                     className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
                   >
-                    {loading ? 'A redigir texto...' : 'Gerar Carta & Outreach'}
+                    {loading ? t('aiStudio.coverGenerating') : t('aiStudio.coverGenerateBtn')}
                   </button>
                 </div>
               ) : (
                 <div className="space-y-5">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-txt-muted uppercase">Carta de Apresentação</span>
+                      <span className="text-xs font-bold text-txt-muted uppercase">{t('aiStudio.coverLetterLabel')}</span>
                       <button
                         type="button"
                         onClick={() => copyToClipboard(coverResult.cover_letter_text, 'cover')}
                         className="text-xs text-accent-light hover:underline flex items-center gap-1"
                       >
                         {copiedCover ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                        {copiedCover ? 'Copiado!' : 'Copiar Texto'}
+                        {copiedCover ? t('aiStudio.copied') : t('aiStudio.copyText')}
                       </button>
                     </div>
                     <div className="p-4 rounded-lg bg-surface-200/60 border border-surface-border text-sm text-txt-primary whitespace-pre-wrap leading-relaxed font-sans">
@@ -404,14 +404,14 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-txt-muted uppercase">Nota de Conexão LinkedIn (&lt;300 Caracteres)</span>
+                      <span className="text-xs font-bold text-txt-muted uppercase">{t('aiStudio.linkedinNoteLabel')}</span>
                       <button
                         type="button"
                         onClick={() => copyToClipboard(coverResult.linkedin_note, 'linkedin')}
                         className="text-xs text-accent-light hover:underline flex items-center gap-1"
                       >
                         {copiedLinkedin ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                        {copiedLinkedin ? 'Copiado!' : 'Copiar Nota'}
+                        {copiedLinkedin ? t('aiStudio.copied') : t('aiStudio.copyNote')}
                       </button>
                     </div>
                     <div className="p-3 rounded-lg bg-surface-200/60 border border-surface-border text-xs text-txt-primary">
@@ -423,17 +423,16 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
             </div>
           )}
 
-          {/* SubTab 4: STAR Interview Prep */}
           {activeSubTab === 'interview' && (
             <div className="space-y-5">
               {!interviewPrep ? (
                 <div className="p-6 rounded-xl bg-surface-200 border border-surface-border text-center space-y-3">
                   <HelpCircle className="w-8 h-8 text-accent-light mx-auto" />
                   <div className="font-display font-semibold text-base text-txt-primary">
-                    Simulador de Entrevista STAR+R
+                    {t('aiStudio.interviewTitle')}
                   </div>
                   <p className="text-xs text-txt-secondary max-w-md mx-auto">
-                    Gera perguntas comportamentais e técnicas personalizadas para esta vaga na {job.company}, com ângulos de resposta estruturados no método STAR.
+                    {t('aiStudio.interviewDesc', { company: job.company })}
                   </p>
                   <button
                     type="button"
@@ -441,14 +440,14 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
                     disabled={loading}
                     className="px-5 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-lg text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
                   >
-                    {loading ? 'A preparar guiões STAR...' : 'Gerar Perguntas STAR+R'}
+                    {loading ? t('aiStudio.interviewGenerating') : t('aiStudio.interviewGenerateBtn')}
                   </button>
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="text-xs font-bold text-txt-muted uppercase">
-                      Perguntas Prováveis & Estrutura STAR+R
+                      {t('aiStudio.likelyQuestionsTitle')}
                     </div>
                     <button
                       type="button"
@@ -456,7 +455,7 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
                       disabled={loading}
                       className="text-xs text-accent-light hover:underline"
                     >
-                      Gerar Novas Perguntas
+                      {t('aiStudio.regenerateQuestions')}
                     </button>
                   </div>
 
@@ -467,10 +466,10 @@ export const AIStudioModal: React.FC<AIStudioModalProps> = ({ job, onClose, onRe
                           {idx + 1}. {item.question}
                         </div>
                         <div className="text-xs text-accent-light font-medium">
-                          Objetivo do Recrutador: {item.purpose}
+                          {t('aiStudio.recruiterGoal')} {item.purpose}
                         </div>
                         <p className="text-xs text-txt-secondary leading-relaxed">
-                          <strong>Sugestão STAR:</strong> {item.recommended_star_angle}
+                          <strong>{t('aiStudio.starSuggestion')}</strong> {item.recommended_star_angle}
                         </p>
                       </div>
                     ))}

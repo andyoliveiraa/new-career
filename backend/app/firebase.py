@@ -140,7 +140,13 @@ class FirebaseManager:
         return await asyncio.to_thread(fn, *args, **kwargs)
 
     # ==================== USERS & AUTH ====================
-    async def create_user(self, email: str, password_hash: str, full_name: str) -> Dict[str, Any]:
+    async def create_user(
+        self,
+        email: str,
+        password_hash: str,
+        full_name: str,
+        preferred_language: str = "en",
+    ) -> Dict[str, Any]:
         email_clean = email.strip().lower()
         existing = await self.get_user_by_email(email_clean)
         if existing:
@@ -153,6 +159,7 @@ class FirebaseManager:
             "email": email_clean,
             "password_hash": password_hash,
             "full_name": full_name.strip(),
+            "preferred_language": preferred_language or "en",
             "has_completed_onboarding": False,
             "created_at": now,
             "updated_at": now

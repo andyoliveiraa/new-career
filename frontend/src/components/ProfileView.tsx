@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { ProfileData } from '../types';
 import { api } from '../api';
 import { useToast } from '../context/ToastContext';
+import { useLanguage } from '../context/LanguageContext';
 import {
   User, Save, Plus, Trash2, CheckCircle2, GraduationCap,
   Briefcase, FolderGit2, Award, Globe, ShieldCheck
@@ -13,22 +14,20 @@ interface ProfileViewProps {
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Skills & Facts
   const [newSkill, setNewSkill] = useState('');
   const [newFact, setNewFact] = useState('');
 
-  // Education form
   const [showAddEdu, setShowAddEdu] = useState(false);
   const [newDegree, setNewDegree] = useState('');
   const [newInstitution, setNewInstitution] = useState('');
   const [newPeriod, setNewPeriod] = useState('');
 
-  // Experience form
   const [showAddExp, setShowAddExp] = useState(false);
   const [expRole, setExpRole] = useState('');
   const [expCompany, setExpCompany] = useState('');
@@ -36,13 +35,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
   const [expLocation, setExpLocation] = useState('');
   const [expBullets, setExpBullets] = useState('');
 
-  // Project form
   const [showAddProj, setShowAddProj] = useState(false);
   const [projTitle, setProjTitle] = useState('');
   const [projTech, setProjTech] = useState('');
   const [projDesc, setProjDesc] = useState('');
 
-  // Certification & Language forms
   const [certName, setCertName] = useState('');
   const [certIssuer, setCertIssuer] = useState('');
   const [langName, setLangName] = useState('');
@@ -67,7 +64,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
         verified_facts: data.verified_facts || [],
       });
     } catch (err: any) {
-      showToast(err.message || 'Erro ao carregar perfil mestre.', 'error');
+      showToast(err.message || t('profile.toastLoadError'), 'error');
     } finally {
       setLoading(false);
     }
@@ -80,11 +77,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
     try {
       await api.updateProfile(profile);
       setSavedSuccess(true);
-      showToast('Perfil mestre guardado com sucesso.', 'success');
+      showToast(t('profile.toastSaved'), 'success');
       setTimeout(() => setSavedSuccess(false), 2500);
       if (onSaved) onSaved();
     } catch (err: any) {
-      showToast(err.message || 'Erro ao salvar perfil.', 'error');
+      showToast(err.message || t('profile.toastSaveError'), 'error');
     } finally {
       setSaving(false);
     }
@@ -112,7 +109,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
         {
           role: expRole.trim(),
           company: expCompany.trim(),
-          period: expPeriod.trim() || 'Presente',
+          period: expPeriod.trim() || t('profile.presentDefault'),
           location: expLocation.trim() || undefined,
           bullets
         },
@@ -141,7 +138,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
       ...profile,
       educations: [
         ...(profile.educations || []),
-        { degree: newDegree.trim(), institution: newInstitution.trim(), period: newPeriod.trim() || 'Concluído' }
+        { degree: newDegree.trim(), institution: newInstitution.trim(), period: newPeriod.trim() || t('profile.completedDefault') }
       ]
     });
     setNewDegree('');
@@ -203,7 +200,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
     if (!langName.trim() || !profile) return;
     setProfile({
       ...profile,
-      languages: [...(profile.languages || []), { name: langName.trim(), level: langLevel.trim() || 'Profissional' }]
+      languages: [...(profile.languages || []), { name: langName.trim(), level: langLevel.trim() || t('profile.profLevelDefault') }]
     });
     setLangName('');
     setLangLevel('');
@@ -235,7 +232,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
   };
 
   if (loading || !profile) {
-    return <div className="p-12 text-center text-txt-muted text-sm">A carregar perfil mestre...</div>;
+    return <div className="p-12 text-center text-txt-muted text-sm">{t('profile.loading')}</div>;
   }
 
   return (
@@ -244,10 +241,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
         <div>
           <h2 className="font-display font-bold text-xl text-txt-primary flex items-center gap-2">
             <User className="w-5 h-5 text-accent-light" />
-            Perfil Mestre do Candidato
+            {t('profile.title')}
           </h2>
           <p className="text-xs text-txt-secondary mt-0.5">
-            Dados autênticos e factos verificados que alimentam o Construtor de CV e a adaptação por IA sem alucinações.
+            {t('profile.subtitle')}
           </p>
         </div>
 
@@ -258,7 +255,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
           className="px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm shrink-0"
         >
           {savedSuccess ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <Save className="w-4 h-4" />}
-          {saving ? 'A guardar...' : savedSuccess ? 'Guardado!' : 'Guardar Alterações'}
+          {saving ? t('common.saving') : savedSuccess ? t('common.saved') : t('profile.saveChanges')}
         </button>
       </div>
 
@@ -266,12 +263,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
         {/* Basic Info */}
         <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-4">
           <h3 className="font-semibold text-xs text-txt-primary uppercase tracking-wider">
-            Informações Pessoais & Links
+            {t('profile.personalInfoTitle')}
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-txt-secondary mb-1">Nome Completo</label>
+              <label className="block text-xs font-medium text-txt-secondary mb-1">{t('profile.fullName')}</label>
               <input
                 type="text"
                 value={profile.full_name}
@@ -282,7 +279,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-txt-secondary mb-1">Título Profissional (Headline)</label>
+              <label className="block text-xs font-medium text-txt-secondary mb-1">{t('profile.headline')}</label>
               <input
                 type="text"
                 value={profile.headline || ''}
@@ -292,7 +289,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-txt-secondary mb-1">Email</label>
+              <label className="block text-xs font-medium text-txt-secondary mb-1">{t('profile.email')}</label>
               <input
                 type="email"
                 value={profile.email || ''}
@@ -302,7 +299,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-txt-secondary mb-1">Telefone</label>
+              <label className="block text-xs font-medium text-txt-secondary mb-1">{t('profile.phone')}</label>
               <input
                 type="text"
                 value={profile.phone || ''}
@@ -312,7 +309,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-txt-secondary mb-1">Localização Base</label>
+              <label className="block text-xs font-medium text-txt-secondary mb-1">{t('profile.location')}</label>
               <input
                 type="text"
                 value={profile.location || ''}
@@ -322,7 +319,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-txt-secondary mb-1">LinkedIn URL</label>
+              <label className="block text-xs font-medium text-txt-secondary mb-1">{t('profile.linkedin')}</label>
               <input
                 type="url"
                 value={profile.linkedin_url || ''}
@@ -332,7 +329,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-txt-secondary mb-1">GitHub URL</label>
+              <label className="block text-xs font-medium text-txt-secondary mb-1">{t('profile.github')}</label>
               <input
                 type="url"
                 value={profile.github_url || ''}
@@ -343,7 +340,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-txt-secondary mb-1">Portfolio / Website</label>
+              <label className="block text-xs font-medium text-txt-secondary mb-1">{t('profile.portfolio')}</label>
               <input
                 type="url"
                 value={profile.portfolio_url || ''}
@@ -358,7 +355,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
         {/* Professional Summary */}
         <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-2">
           <label className="block text-xs font-semibold text-txt-primary uppercase tracking-wider">
-            Resumo Profissional Base
+            {t('profile.summaryTitle')}
           </label>
           <textarea
             rows={4}
@@ -371,13 +368,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
         {/* Skills Tag Cloud */}
         <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-3">
           <label className="block text-xs font-semibold text-txt-primary uppercase tracking-wider">
-            Competências Técnicas & Ferramentas
+            {t('profile.skillsTitle')}
           </label>
 
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="Adicionar nova competência (ex: Docker, FastAPI)..."
+              placeholder={t('profile.skillPlaceholder')}
               value={newSkill}
               onChange={(e) => setNewSkill(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSkill(); } }}
@@ -388,7 +385,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
               onClick={addSkill}
               className="px-3 py-1.5 bg-surface-200 hover:bg-surface-300 text-txt-primary border border-surface-border rounded-lg text-xs font-medium flex items-center gap-1"
             >
-              <Plus className="w-3.5 h-3.5" /> Adicionar
+              <Plus className="w-3.5 h-3.5" /> {t('common.add')}
             </button>
           </div>
 
@@ -413,14 +410,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-xs text-txt-primary uppercase tracking-wider flex items-center gap-2">
               <Briefcase className="w-4 h-4 text-accent-light" />
-              Experiências Profissionais ({profile.experiences.length})
+              {t('profile.experiencesTitle', { count: profile.experiences.length })}
             </h3>
             <button
               type="button"
               onClick={() => setShowAddExp(!showAddExp)}
               className="text-xs text-accent-light hover:underline flex items-center gap-1 font-medium"
             >
-              <Plus className="w-3.5 h-3.5" /> Adicionar Experiência
+              <Plus className="w-3.5 h-3.5" /> {t('profile.addExperience')}
             </button>
           </div>
 
@@ -429,28 +426,28 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <input
                   type="text"
-                  placeholder="Cargo (ex: Software Engineer)"
+                  placeholder={t('profile.expRolePlaceholder')}
                   value={expRole}
                   onChange={(e) => setExpRole(e.target.value)}
                   className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
                 />
                 <input
                   type="text"
-                  placeholder="Empresa"
+                  placeholder={t('profile.expCompanyPlaceholder')}
                   value={expCompany}
                   onChange={(e) => setExpCompany(e.target.value)}
                   className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
                 />
                 <input
                   type="text"
-                  placeholder="Período (ex: 2023 - Presente)"
+                  placeholder={t('profile.expPeriodPlaceholder')}
                   value={expPeriod}
                   onChange={(e) => setExpPeriod(e.target.value)}
                   className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
                 />
                 <input
                   type="text"
-                  placeholder="Localização (ex: Lisboa / Remoto)"
+                  placeholder={t('profile.expLocationPlaceholder')}
                   value={expLocation}
                   onChange={(e) => setExpLocation(e.target.value)}
                   className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
@@ -458,7 +455,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
               </div>
               <textarea
                 rows={3}
-                placeholder="Pontos de impacto / conquistas (um por linha, com métricas quando possível)..."
+                placeholder={t('profile.expBulletsPlaceholder')}
                 value={expBullets}
                 onChange={(e) => setExpBullets(e.target.value)}
                 className="w-full bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
@@ -469,14 +466,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
                   onClick={() => setShowAddExp(false)}
                   className="px-2.5 py-1 text-xs text-txt-secondary hover:text-txt-primary"
                 >
-                  Cancelar
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="button"
                   onClick={addExperience}
                   className="px-3 py-1 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold"
                 >
-                  Adicionar Experiência
+                  {t('profile.addExperience')}
                 </button>
               </div>
             </div>
@@ -484,7 +481,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
 
           <div className="space-y-3">
             {profile.experiences.length === 0 ? (
-              <div className="text-xs text-txt-muted py-2">Nenhuma experiência registada.</div>
+              <div className="text-xs text-txt-muted py-2">{t('profile.noExperiences')}</div>
             ) : (
               profile.experiences.map((exp, idx) => (
                 <div key={idx} className="p-3 rounded-lg bg-surface-200/50 border border-surface-border space-y-1">
@@ -501,13 +498,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
                       type="button"
                       onClick={() => removeExperience(idx)}
                       className="p-1.5 text-txt-muted hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
-                      title="Remover experiência"
+                      title={t('profile.removeExperience')}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                   {exp.bullets && exp.bullets.length > 0 && (
-                    <ul className="text-xs text-txt-secondary list-disc pl-4 space-y-1 pt-1">
+                    <ul className="text-xs text-txt-secondary list-disc ps-4 space-y-1 pt-1">
                       {exp.bullets.map((b, bIdx) => (
                         <li key={bIdx}>{b}</li>
                       ))}
@@ -524,14 +521,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-xs text-txt-primary uppercase tracking-wider flex items-center gap-2">
               <GraduationCap className="w-4 h-4 text-accent-light" />
-              Formação Académica Registada ({(profile.educations || []).length})
+              {t('profile.educationsTitle', { count: (profile.educations || []).length })}
             </h3>
             <button
               type="button"
               onClick={() => setShowAddEdu(!showAddEdu)}
               className="text-xs text-accent-light hover:underline flex items-center gap-1 font-medium"
             >
-              <Plus className="w-3.5 h-3.5" /> Adicionar Formação
+              <Plus className="w-3.5 h-3.5" /> {t('profile.addEducation')}
             </button>
           </div>
 
@@ -540,21 +537,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <input
                   type="text"
-                  placeholder="Grau / Curso"
+                  placeholder={t('profile.eduDegreePlaceholder')}
                   value={newDegree}
                   onChange={(e) => setNewDegree(e.target.value)}
                   className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
                 />
                 <input
                   type="text"
-                  placeholder="Instituição"
+                  placeholder={t('profile.eduInstitutionPlaceholder')}
                   value={newInstitution}
                   onChange={(e) => setNewInstitution(e.target.value)}
                   className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
                 />
                 <input
                   type="text"
-                  placeholder="Período (ex: 2019 - 2023)"
+                  placeholder={t('profile.eduPeriodPlaceholder')}
                   value={newPeriod}
                   onChange={(e) => setNewPeriod(e.target.value)}
                   className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
@@ -562,10 +559,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
               </div>
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setShowAddEdu(false)} className="px-2.5 py-1 text-xs text-txt-secondary hover:text-txt-primary">
-                  Cancelar
+                  {t('common.cancel')}
                 </button>
                 <button type="button" onClick={addEducation} className="px-3 py-1 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold">
-                  Guardar Formação
+                  {t('profile.saveEducation')}
                 </button>
               </div>
             </div>
@@ -573,7 +570,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
 
           <div className="space-y-2">
             {(!profile.educations || profile.educations.length === 0) ? (
-              <div className="text-xs text-txt-muted py-2">Nenhuma formação académica adicionada.</div>
+              <div className="text-xs text-txt-muted py-2">{t('profile.noEducations')}</div>
             ) : (
               profile.educations.map((edu, idx) => (
                 <div key={idx} className="p-3 rounded-lg bg-surface-200/50 border border-surface-border flex items-center justify-between">
@@ -587,7 +584,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
                     type="button"
                     onClick={() => removeEducation(idx)}
                     className="p-1.5 text-txt-muted hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
-                    title="Remover formação"
+                    title={t('profile.removeEducation')}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -602,14 +599,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-xs text-txt-primary uppercase tracking-wider flex items-center gap-2">
               <FolderGit2 className="w-4 h-4 text-accent-light" />
-              Projetos de Destaque ({(profile.projects || []).length})
+              {t('profile.projectsTitle', { count: (profile.projects || []).length })}
             </h3>
             <button
               type="button"
               onClick={() => setShowAddProj(!showAddProj)}
               className="text-xs text-accent-light hover:underline flex items-center gap-1 font-medium"
             >
-              <Plus className="w-3.5 h-3.5" /> Adicionar Projeto
+              <Plus className="w-3.5 h-3.5" /> {t('profile.addProject')}
             </button>
           </div>
 
@@ -618,14 +615,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
                   type="text"
-                  placeholder="Nome do Projeto"
+                  placeholder={t('profile.projTitlePlaceholder')}
                   value={projTitle}
                   onChange={(e) => setProjTitle(e.target.value)}
                   className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
                 />
                 <input
                   type="text"
-                  placeholder="Tecnologias (ex: React, FastAPI)"
+                  placeholder={t('profile.projTechPlaceholder')}
                   value={projTech}
                   onChange={(e) => setProjTech(e.target.value)}
                   className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
@@ -633,17 +630,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
               </div>
               <textarea
                 rows={2}
-                placeholder="Breve descrição e impacto do projeto..."
+                placeholder={t('profile.projDescPlaceholder')}
                 value={projDesc}
                 onChange={(e) => setProjDesc(e.target.value)}
                 className="w-full bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
               />
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setShowAddProj(false)} className="px-2.5 py-1 text-xs text-txt-secondary hover:text-txt-primary">
-                  Cancelar
+                  {t('common.cancel')}
                 </button>
                 <button type="button" onClick={addProject} className="px-3 py-1 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold">
-                  Guardar Projeto
+                  {t('profile.saveProject')}
                 </button>
               </div>
             </div>
@@ -675,19 +672,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
           <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-3">
             <h3 className="font-semibold text-xs text-txt-primary uppercase tracking-wider flex items-center gap-2">
               <Award className="w-4 h-4 text-accent-light" />
-              Certificações
+              {t('profile.certificationsTitle')}
             </h3>
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="Nome do certificado"
+                placeholder={t('profile.certNamePlaceholder')}
                 value={certName}
                 onChange={(e) => setCertName(e.target.value)}
                 className="flex-1 bg-surface-200 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
               />
               <input
                 type="text"
-                placeholder="Emissor"
+                placeholder={t('profile.certIssuerPlaceholder')}
                 value={certIssuer}
                 onChange={(e) => setCertIssuer(e.target.value)}
                 className="w-28 bg-surface-200 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
@@ -718,19 +715,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
           <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-3">
             <h3 className="font-semibold text-xs text-txt-primary uppercase tracking-wider flex items-center gap-2">
               <Globe className="w-4 h-4 text-accent-light" />
-              Idiomas
+              {t('profile.languagesTitle')}
             </h3>
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="Idioma (ex: Inglês)"
+                placeholder={t('profile.langNamePlaceholder')}
                 value={langName}
                 onChange={(e) => setLangName(e.target.value)}
                 className="flex-1 bg-surface-200 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
               />
               <input
                 type="text"
-                placeholder="Nível (ex: C1)"
+                placeholder={t('profile.langLevelPlaceholder')}
                 value={langLevel}
                 onChange={(e) => setLangLevel(e.target.value)}
                 className="w-28 bg-surface-200 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
@@ -763,12 +760,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
         <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-3">
           <h3 className="font-semibold text-xs text-txt-primary uppercase tracking-wider flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            Factos Verificados (Anti-Alucinação IA)
+            {t('profile.verifiedFactsTitle')}
           </h3>
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="Ex: Reduziu latência da API em 40% em produção..."
+              placeholder={t('profile.factPlaceholder')}
               value={newFact}
               onChange={(e) => setNewFact(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addFact(); } }}
@@ -779,7 +776,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
               onClick={addFact}
               className="px-3 py-1.5 bg-surface-200 hover:bg-surface-300 text-txt-primary border border-surface-border rounded-lg text-xs font-medium flex items-center gap-1"
             >
-              <Plus className="w-3.5 h-3.5" /> Adicionar
+              <Plus className="w-3.5 h-3.5" /> {t('common.add')}
             </button>
           </div>
           <ul className="space-y-1.5">

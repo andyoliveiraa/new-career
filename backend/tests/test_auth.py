@@ -170,3 +170,51 @@ async def test_onboarding_upload_privacy_mode():
         jobs = jobs_res.json()
         assert len(jobs) == 1
         assert jobs[0]["company"] == "Privacy Corp"
+
+
+@pytest.mark.asyncio
+async def test_user_preferred_language_persistence():
+    await init_db()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # Register choosing Korean
+        reg = await client.post("/api/auth/register", json={
+            "full_name": "Minjun Kim",
+            "email": "minjun@example.com",
+            "password": "Password123!",
+            "preferred_language": "ko"
+        })
+        assert reg.status_code == 200
+        reg_data = reg.json()
+        assert reg_data["user"]["preferred_language"] == "ko"
+        token = reg_data["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        # Login returns the persisted preferred language
+        login_res = await client.post("/api/auth/login", json={
+            "email": "minjun@example.com",
+            "password": "Password123!"
+        })
+        assert login_res.status_code == 200
+        assert login_res.json()["user"]["preferred_language"] == "ko"
+
+        # Update preferred language to Arabic
+        patch_res = await client.patch(
+            "/api/auth/me/language",
+            headers=headers,
+            json={"preferred_language": "ar"}
+        )
+        assert patch_res.status_code == 200
+        assert patch_res.json()["preferred_language"] == "ar"
+
+        me_res = await client.get("/api/auth/me", headers=headers)
+        assert me_res.status_code == 200
+        assert me_res.json()["preferred_language"] == "ar"
+
+        # Invalid language rejected
+        invalid_res = await client.patch(
+            "/api/auth/me/language",
+            headers=headers,
+            json={"preferred_language": "fr"}
+        )
+        assert invalid_res.status_code == 422

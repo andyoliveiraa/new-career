@@ -3,6 +3,7 @@ from typing import Dict, Any, Optional
 from backend.app.config import settings
 from backend.app.schemas.auth import (
     UserRegister, UserLogin, UserResponse, TokenResponse,
+    UserPreferencesUpdate,
     CareerOpsOnboardingRequest, ManualOnboardingRequest, OnboardingResultResponse
 )
 from backend.app.auth_utils import hash_password, verify_password, create_access_token, get_current_user
@@ -17,6 +18,7 @@ def _to_user_response(user: Dict[str, Any]) -> UserResponse:
         id=user["id"],
         full_name=user["full_name"],
         email=user["email"],
+        preferred_language=user.get("preferred_language", "en"),
         has_completed_onboarding=user.get("has_completed_onboarding", False),
         created_at=user.get("created_at")
     )
@@ -35,7 +37,8 @@ async def register(req: UserRegister):
     user = await firebase_manager.create_user(
         email=req.email,
         password_hash=pwd_hash,
-        full_name=req.full_name
+        full_name=req.full_name,
+        preferred_language=req.preferred_language,
     )
 
     token = create_access_token({"sub": user["id"], "email": user["email"]})
@@ -66,6 +69,20 @@ async def login(req: UserLogin):
 @router.get("/me", response_model=UserResponse)
 async def get_me(current_user: Dict[str, Any] = Depends(get_current_user)):
     return _to_user_response(current_user)
+
+
+@router.patch("/me/language", response_model=UserResponse)
+async def update_my_language(
+    req: UserPreferencesUpdate,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    updated = await firebase_manager.update_user(
+        current_user["id"],
+        {"preferred_language": req.preferred_language}
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Utilizador não encontrado.")
+    return _to_user_response(updated)
 
 
 @router.post("/onboarding/career-ops", response_model=OnboardingResultResponse)

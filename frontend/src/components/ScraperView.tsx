@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import type { ScanRecord } from '../types';
 import { api } from '../api';
 import { useToast } from '../context/ToastContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Search, Play, Terminal } from 'lucide-react';
 
 interface ScraperViewProps {
@@ -10,7 +11,8 @@ interface ScraperViewProps {
 
 export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => {
   const { showToast } = useToast();
-  const [query, setQuery] = useState('Desenvolvedor');
+  const { t, locale } = useLanguage();
+  const [query, setQuery] = useState('Software Engineer');
   const [location, setLocation] = useState('Lisboa');
   const [sources, setSources] = useState<string[]>(['netempregos', 'ats']);
   const [limit, setLimit] = useState(25);
@@ -49,7 +51,7 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
 
   const handleStartScan = async () => {
     if (sources.length === 0) {
-      showToast('Selecione pelo menos uma fonte para varredura.', 'error');
+      showToast(t('scraper.selectOneSource'), 'error');
       return;
     }
 
@@ -58,7 +60,7 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
     }
 
     setScanning(true);
-    setLogs([`A iniciar varredura para "${query}" em "${location}"...`]);
+    setLogs([t('scraper.startingLog', { query, location })]);
 
     try {
       const res = await api.triggerScan(sources, query, location, limit);
@@ -79,31 +81,31 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
             setScanning(false);
             await loadHistory();
             if (statusRec.status === 'completed') {
-              showToast(`Varredura concluída: ${statusRec.total_new} novas vagas adicionadas.`, 'success');
+              showToast(t('scraper.scanDoneToast', { count: statusRec.total_new }), 'success');
               if (onScanCompleted) onScanCompleted();
             } else {
-              showToast(statusRec.error_message || 'A varredura falhou.', 'error');
+              showToast(statusRec.error_message || t('scraper.scanFailedToast'), 'error');
             }
           }
         } catch (pollErr) {
-          console.error('Erro ao consultar progresso:', pollErr);
+          console.error('Failed to poll scan status:', pollErr);
         }
       };
 
       pollTimerRef.current = window.setInterval(pollOnce, 1200);
       setTimeout(pollOnce, 600);
     } catch (err: any) {
-      setLogs((prev) => [...prev, `Erro ao disparar varredura: ${err.message || String(err)}`]);
-      showToast(err.message || 'Erro ao iniciar varredura.', 'error');
+      setLogs((prev) => [...prev, `${t('scraper.scanStartError')} ${err.message || String(err)}`]);
+      showToast(err.message || t('scraper.scanStartError'), 'error');
       setScanning(false);
     }
   };
 
   const sourceCards = [
-    { id: 'netempregos', label: 'Net-Empregos (Portugal)', desc: 'Maior portal nacional de empregos' },
-    { id: 'ats', label: 'Career-Ops ATS Portals', desc: 'Boards diretos: Greenhouse, Lever e Ashby' },
-    { id: 'google', label: 'Google Jobs (APIs)', desc: 'Agregador SerpApi / JSearch (usa as suas chaves)' },
-    { id: 'jobspy', label: 'JobSpy Engine', desc: 'LinkedIn, Indeed e Glassdoor nativos' },
+    { id: 'netempregos', label: t('scraper.sourceNetEmpregosLabel'), desc: t('scraper.sourceNetEmpregosDesc') },
+    { id: 'ats', label: t('scraper.sourceAtsLabel'), desc: t('scraper.sourceAtsDesc') },
+    { id: 'google', label: t('scraper.sourceGoogleLabel'), desc: t('scraper.sourceGoogleDesc') },
+    { id: 'jobspy', label: t('scraper.sourceJobSpyLabel'), desc: t('scraper.sourceJobSpyDesc') },
   ];
 
   return (
@@ -111,10 +113,10 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
       <div>
         <h2 className="font-display font-bold text-xl text-txt-primary flex items-center gap-2">
           <Search className="w-5 h-5 text-accent-light" />
-          Central de Varreduras Multi-Fonte
+          {t('scraper.title')}
         </h2>
         <p className="text-xs text-txt-secondary mt-0.5">
-          Agregação simultânea com prevenção de duplicados e cálculo automático de distância geográfica.
+          {t('scraper.subtitle')}
         </p>
       </div>
 
@@ -122,7 +124,7 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
       <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-5">
         <div>
           <label className="block text-xs font-semibold text-txt-primary uppercase tracking-wider mb-2">
-            Fontes a Monitorar
+            {t('scraper.sourcesLabel')}
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             {sourceCards.map((src) => {
@@ -155,29 +157,29 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-medium text-txt-secondary mb-1">Cargo / Termo de Pesquisa</label>
+            <label className="block text-xs font-medium text-txt-secondary mb-1">{t('scraper.queryLabel')}</label>
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="ex: Python, DevOps, Full Stack"
+              placeholder={t('scraper.queryPlaceholder')}
               className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-1.5 text-sm text-txt-primary focus:outline-none focus:border-accent"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-txt-secondary mb-1">Localização</label>
+            <label className="block text-xs font-medium text-txt-secondary mb-1">{t('scraper.locationLabel')}</label>
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              placeholder="ex: Lisboa, Porto, Remoto"
+              placeholder={t('scraper.locationPlaceholder')}
               className="w-full bg-surface-200 border border-surface-border rounded-lg px-3 py-1.5 text-sm text-txt-primary focus:outline-none focus:border-accent"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-txt-secondary mb-1">Limite por Fonte</label>
+            <label className="block text-xs font-medium text-txt-secondary mb-1">{t('scraper.limitLabel')}</label>
             <input
               type="number"
               min={1}
@@ -197,7 +199,7 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
             className="px-6 py-2.5 bg-accent hover:bg-accent-hover disabled:opacity-60 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition-colors"
           >
             <Play className={`w-4 h-4 ${scanning ? 'animate-spin' : ''}`} />
-            {scanning ? 'Varredura em Execução...' : 'Iniciar Varredura'}
+            {scanning ? t('scraper.scanning') : t('scraper.startScan')}
           </button>
         </div>
       </div>
@@ -207,7 +209,7 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
         <div className="bg-surface-100 border border-surface-border rounded-xl p-4 space-y-2">
           <div className="flex items-center gap-2 text-xs font-bold text-txt-muted uppercase">
             <Terminal className="w-4 h-4 text-accent-light" />
-            Console de Execução em Tempo Real
+            {t('scraper.liveConsole')}
           </div>
           <div className="bg-black/60 rounded-lg p-3 font-mono text-xs text-emerald-400 space-y-1 max-h-52 overflow-y-auto">
             {logs.map((log, idx) => (
@@ -220,32 +222,32 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
       {/* Scan History Table */}
       <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-4">
         <h3 className="font-semibold text-xs text-txt-primary uppercase tracking-wider">
-          Histórico de Varreduras
+          {t('scraper.historyTitle')}
         </h3>
 
         {history.length === 0 ? (
           <div className="py-6 text-center text-txt-muted text-xs">
-            Nenhuma varredura registrada ainda.
+            {t('scraper.emptyHistory')}
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-start text-xs">
               <thead className="border-b border-surface-border text-txt-muted uppercase font-medium">
                 <tr>
-                  <th className="pb-2">Data</th>
-                  <th className="pb-2">Fontes</th>
-                  <th className="pb-2">Termo</th>
-                  <th className="pb-2">Local</th>
-                  <th className="pb-2 text-center">Estado</th>
-                  <th className="pb-2 text-center">Encontradas</th>
-                  <th className="pb-2 text-center">Novas</th>
-                  <th className="pb-2 text-right">Duração</th>
+                  <th className="pb-2">{t('scraper.colDate')}</th>
+                  <th className="pb-2">{t('scraper.colSources')}</th>
+                  <th className="pb-2">{t('scraper.colQuery')}</th>
+                  <th className="pb-2">{t('scraper.colLocation')}</th>
+                  <th className="pb-2 text-center">{t('scraper.colStatus')}</th>
+                  <th className="pb-2 text-center">{t('scraper.colFound')}</th>
+                  <th className="pb-2 text-center">{t('scraper.colNew')}</th>
+                  <th className="pb-2 text-end">{t('scraper.colDuration')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-border">
                 {history.map((h) => (
                   <tr key={h.id} className="hover:bg-surface-200/40">
-                    <td className="py-2.5 text-txt-secondary">{new Date(h.executed_at).toLocaleString()}</td>
+                    <td className="py-2.5 text-txt-secondary">{new Date(h.executed_at).toLocaleString(locale)}</td>
                     <td className="py-2.5 font-medium text-txt-primary uppercase text-[11px]">{h.engine}</td>
                     <td className="py-2.5 text-txt-primary">{h.query}</td>
                     <td className="py-2.5 text-txt-secondary">{h.location || '-'}</td>
@@ -262,7 +264,7 @@ export const ScraperView: React.FC<ScraperViewProps> = ({ onScanCompleted }) => 
                     </td>
                     <td className="py-2.5 text-center font-bold text-txt-primary">{h.total_found}</td>
                     <td className="py-2.5 text-center font-bold text-emerald-400">+{h.total_new}</td>
-                    <td className="py-2.5 text-right text-txt-muted">{h.duration_seconds ? `${h.duration_seconds}s` : '-'}</td>
+                    <td className="py-2.5 text-end text-txt-muted">{h.duration_seconds ? `${h.duration_seconds}s` : '-'}</td>
                   </tr>
                 ))}
               </tbody>

@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ApplicationStats, Job } from '../types';
 import { Briefcase, Send, Users, CheckCircle2, XCircle, Search, ArrowRight, ShieldCheck, Clock } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface DashboardViewProps {
   stats: ApplicationStats;
@@ -15,13 +16,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigateTab,
   onOpenJobAI,
 }) => {
+  const { t } = useLanguage();
+
   const cards = [
-    { label: 'Total de Vagas', value: stats.total_jobs, icon: Briefcase, color: 'text-blue-400' },
-    { label: 'Disponíveis', value: stats.disponivel, icon: Clock, color: 'text-amber-400' },
-    { label: 'Já me Candidatei', value: stats.candidatado, icon: Send, color: 'text-indigo-400' },
-    { label: 'Em Entrevista', value: stats.entrevista, icon: Users, color: 'text-purple-400' },
-    { label: 'Respostas Positivas', value: stats.positiva, icon: CheckCircle2, color: 'text-emerald-400' },
-    { label: 'Descartadas / Encerradas', value: stats.descartada, icon: XCircle, color: 'text-slate-500' },
+    { label: t('dashboard.kpiTotal'), value: stats.total_jobs, icon: Briefcase, color: 'text-blue-400' },
+    { label: t('dashboard.kpiAvailable'), value: stats.disponivel, icon: Clock, color: 'text-amber-400' },
+    { label: t('dashboard.kpiApplied'), value: stats.candidatado, icon: Send, color: 'text-indigo-400' },
+    { label: t('dashboard.kpiInterview'), value: stats.entrevista, icon: Users, color: 'text-purple-400' },
+    { label: t('dashboard.kpiPositive'), value: stats.positiva, icon: CheckCircle2, color: 'text-emerald-400' },
+    { label: t('dashboard.kpiDiscarded'), value: stats.descartada, icon: XCircle, color: 'text-slate-500' },
   ];
 
   const applicationRate = stats.total_jobs > 0 ? ((stats.candidatado / stats.total_jobs) * 100).toFixed(1) : '0';
@@ -33,10 +36,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="bg-surface-100 border border-surface-border rounded-xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="font-display font-bold text-2xl text-txt-primary">
-            Central de Operações de Carreira
+            {t('dashboard.title')}
           </h1>
           <p className="text-sm text-txt-secondary mt-1">
-            Monitoramento de vagas com verificação de disponibilidade em tempo real e adaptação cirúrgica de CVs ATS.
+            {t('dashboard.subtitle')}
           </p>
         </div>
         <div className="flex gap-3">
@@ -45,13 +48,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             className="flex items-center px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
           >
             <Search className="w-4 h-4 mr-2" />
-            Nova Varredura
+            {t('dashboard.newScan')}
           </button>
           <button
             onClick={() => onNavigateTab('jobs')}
             className="flex items-center px-4 py-2 bg-surface-200 hover:bg-surface-300 text-txt-primary border border-surface-border rounded-lg text-sm font-medium transition-colors"
           >
-            Ver Vagas
+            {t('dashboard.viewJobs')}
             <ArrowRight className="w-4 h-4 ml-2" />
           </button>
         </div>
@@ -80,12 +83,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="bg-surface-100 border border-surface-border rounded-xl p-5">
           <h3 className="font-display font-semibold text-base text-txt-primary mb-4 flex items-center">
             <ShieldCheck className="w-4 h-4 text-emerald-400 mr-2" />
-            Taxas de Eficiência do Funil
+            {t('dashboard.funnelTitle')}
           </h3>
           <div className="space-y-4">
             <div>
               <div className="flex justify-between text-sm mb-1">
-                <span className="text-txt-secondary">Taxa de Candidatura (Submetidas / Encontradas)</span>
+                <span className="text-txt-secondary">{t('dashboard.applicationRate')}</span>
                 <span className="font-semibold text-txt-primary">{applicationRate}%</span>
               </div>
               <div className="w-full bg-surface-200 h-2 rounded-full overflow-hidden">
@@ -95,7 +98,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
             <div>
               <div className="flex justify-between text-sm mb-1">
-                <span className="text-txt-secondary">Taxa de Conversão Positiva (Ofertas / Submetidas)</span>
+                <span className="text-txt-secondary">{t('dashboard.conversionRate')}</span>
                 <span className="font-semibold text-emerald-400">{successRate}%</span>
               </div>
               <div className="w-full bg-surface-200 h-2 rounded-full overflow-hidden">
@@ -107,24 +110,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
         <div className="bg-surface-100 border border-surface-border rounded-xl p-5">
           <h3 className="font-display font-semibold text-base text-txt-primary mb-4">
-            Fontes Monitoradas Ativas
+            {t('dashboard.sourcesTitle')}
           </h3>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="p-3 rounded-lg bg-surface-200 border border-surface-border">
-              <div className="font-medium text-txt-primary">Net-Empregos</div>
-              <div className="text-xs text-txt-muted mt-0.5">Maior portal em Portugal</div>
+              <div className="font-medium text-txt-primary">{t('dashboard.sourceNetEmpregos')}</div>
+              <div className="text-xs text-txt-muted mt-0.5">{t('dashboard.sourceNetEmpregosDesc')}</div>
             </div>
             <div className="p-3 rounded-lg bg-surface-200 border border-surface-border">
-              <div className="font-medium text-txt-primary">Google Jobs</div>
-              <div className="text-xs text-txt-muted mt-0.5">Agregador nacional & APIs</div>
+              <div className="font-medium text-txt-primary">{t('dashboard.sourceGoogle')}</div>
+              <div className="text-xs text-txt-muted mt-0.5">{t('dashboard.sourceGoogleDesc')}</div>
             </div>
             <div className="p-3 rounded-lg bg-surface-200 border border-surface-border">
-              <div className="font-medium text-txt-primary">LinkedIn & Indeed</div>
-              <div className="text-xs text-txt-muted mt-0.5">Motor JobSpy</div>
+              <div className="font-medium text-txt-primary">{t('dashboard.sourceJobSpy')}</div>
+              <div className="text-xs text-txt-muted mt-0.5">{t('dashboard.sourceJobSpyDesc')}</div>
             </div>
             <div className="p-3 rounded-lg bg-surface-200 border border-surface-border">
-              <div className="font-medium text-txt-primary">Career-Ops ATS</div>
-              <div className="text-xs text-txt-muted mt-0.5">Greenhouse, Lever, Ashby, Workday</div>
+              <div className="font-medium text-txt-primary">{t('dashboard.sourceAts')}</div>
+              <div className="text-xs text-txt-muted mt-0.5">{t('dashboard.sourceAtsDesc')}</div>
             </div>
           </div>
         </div>
@@ -134,20 +137,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="bg-surface-100 border border-surface-border rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display font-semibold text-base text-txt-primary">
-            Vagas Recentes Descobertas
+            {t('dashboard.recentJobsTitle')}
           </h3>
           <button
             onClick={() => onNavigateTab('jobs')}
             className="text-xs font-medium text-accent-light hover:underline flex items-center"
           >
-            Ver todas
+            {t('dashboard.viewAll')}
             <ArrowRight className="w-3.5 h-3.5 ml-1" />
           </button>
         </div>
 
         {recentJobs.length === 0 ? (
           <div className="text-center py-8 text-txt-muted text-sm">
-            Nenhuma vaga registrada ainda. Execute uma varredura na aba "Central de Varredura" para começar!
+            {t('dashboard.emptyRecent')}
           </div>
         ) : (
           <div className="divide-y divide-surface-border">
@@ -158,7 +161,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <span className="font-medium text-txt-primary text-sm truncate">{j.title}</span>
                     {j.is_remote && (
                       <span className="px-1.5 py-0.5 text-[10px] uppercase font-semibold bg-blue-500/10 text-blue-400 rounded border border-blue-500/20">
-                        Remoto
+                        {t('common.remote')}
                       </span>
                     )}
                     <span className={`px-1.5 py-0.5 text-[10px] uppercase font-semibold rounded border ${
@@ -166,13 +169,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       j.liveness_status === 'expired' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
                       'bg-slate-500/10 text-slate-400 border-slate-500/20'
                     }`}>
-                      {j.liveness_status === 'active' ? 'Ativa' : j.liveness_status === 'expired' ? 'Expirada' : 'A Verificar'}
+                      {j.liveness_status === 'active' ? t('common.active') : j.liveness_status === 'expired' ? t('common.expired') : t('common.toVerify')}
                     </span>
                   </div>
                   <div className="text-xs text-txt-secondary mt-0.5 flex items-center gap-3">
                     <span>{j.company}</span>
                     <span>•</span>
-                    <span>{j.location || 'Portugal'}</span>
+                    <span>{j.location || '-'}</span>
                     <span>•</span>
                     <span className="uppercase text-[10px] text-txt-muted">{j.source}</span>
                   </div>
@@ -183,7 +186,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     onClick={() => onOpenJobAI(j)}
                     className="px-3 py-1.5 text-xs font-medium bg-surface-200 hover:bg-surface-300 text-txt-primary border border-surface-border rounded-md transition-colors"
                   >
-                    AI Studio
+                    {t('dashboard.aiStudio')}
                   </button>
                   <a
                     href={j.url}
@@ -191,7 +194,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     rel="noreferrer"
                     className="px-3 py-1.5 text-xs font-medium bg-accent/10 hover:bg-accent/20 text-accent-light rounded-md transition-colors"
                   >
-                    Abrir Vaga
+                    {t('dashboard.openJob')}
                   </a>
                 </div>
               </div>

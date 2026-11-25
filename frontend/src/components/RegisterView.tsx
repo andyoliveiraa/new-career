@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { UserPlus, ArrowLeft, ShieldCheck, AlertCircle } from 'lucide-react';
+import { UserPlus, ArrowLeft, ShieldCheck, AlertCircle, Globe } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import { LANGUAGES, type LanguageCode } from '../i18n';
+import { LanguageSelector } from './LanguageSelector';
 
 interface RegisterViewProps {
   onSwitchToLogin: () => void;
@@ -8,37 +11,44 @@ interface RegisterViewProps {
 
 export const RegisterView: React.FC<RegisterViewProps> = ({ onSwitchToLogin }) => {
   const { register } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [preferredLanguage, setPreferredLanguage] = useState<LanguageCode>(language);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const handleLanguagePick = (lang: LanguageCode) => {
+    setPreferredLanguage(lang);
+    setLanguage(lang);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (!fullName || !email || !password || !confirmPassword) {
-      setError('Por favor preencha todos os campos.');
+      setError(t('auth.fillAllFields'));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('As palavras-passe não coincidem.');
+      setError(t('auth.passwordsMismatch'));
       return;
     }
 
     if (password.length < 6) {
-      setError('A palavra-passe deve conter pelo menos 6 caracteres.');
+      setError(t('auth.passwordTooShort'));
       return;
     }
 
     setLoading(true);
     try {
-      await register(fullName, email, password);
+      await register(fullName, email, password, preferredLanguage);
     } catch (err: any) {
-      setError(err.message || 'Erro ao criar conta.');
+      setError(err.message || t('auth.registerError'));
     } finally {
       setLoading(false);
     }
@@ -46,6 +56,14 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onSwitchToLogin }) =
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 py-12">
+      <div className="w-full max-w-md flex justify-end mb-4">
+        <LanguageSelector
+          value={preferredLanguage}
+          onChange={handleLanguagePick}
+          ariaLabel={t('app.languageLabel')}
+        />
+      </div>
+
       <div className="w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-8">
@@ -53,16 +71,16 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onSwitchToLogin }) =
             <ShieldCheck className="w-6 h-6" />
           </div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-100">
-            Criar Conta no New Career
+            {t('auth.registerPageTitle')}
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Registe-se para aceder ao monitor de vagas, AI Studio e tracking de candidaturas.
+            {t('auth.registerPageSubtitle')}
           </p>
         </div>
 
         {/* Card */}
         <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl backdrop-blur-sm">
-          <h2 className="text-lg font-medium text-slate-100 mb-6">Registo de Utilizador</h2>
+          <h2 className="text-lg font-medium text-slate-100 mb-6">{t('auth.registerCardTitle')}</h2>
 
           {error && (
             <div className="mb-5 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm flex items-start gap-2.5">
@@ -74,56 +92,77 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onSwitchToLogin }) =
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Nome Completo
+                {t('auth.fullNameLabel')}
               </label>
               <input
                 type="text"
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Nome Completo"
+                placeholder={t('auth.fullNamePlaceholder')}
                 className="w-full px-3.5 py-2.5 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600"
               />
             </div>
 
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Endereço de Email
+                {t('auth.emailLabel')}
               </label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="username@email.com"
+                placeholder={t('auth.emailPlaceholder')}
                 className="w-full px-3.5 py-2.5 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600"
               />
             </div>
 
             <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5 flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-blue-400" />
+                <span>{t('auth.preferredLanguageLabel')}</span>
+              </label>
+              <select
+                value={preferredLanguage}
+                onChange={(e) => handleLanguagePick(e.target.value as LanguageCode)}
+                className="w-full px-3.5 py-2.5 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors cursor-pointer"
+              >
+                {LANGUAGES.map((lang) => (
+                  <option key={lang.code} value={lang.code} className="bg-slate-900 text-slate-100">
+                    {lang.nativeName}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-slate-500 mt-1">
+                {t('auth.preferredLanguageHint')}
+              </p>
+            </div>
+
+            <div>
               <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Palavra-passe
+                {t('auth.passwordLabel')}
               </label>
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
+                placeholder={t('auth.passwordMinPlaceholder')}
                 className="w-full px-3.5 py-2.5 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600"
               />
             </div>
 
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Confirmar Palavra-passe
+                {t('auth.confirmPasswordLabel')}
               </label>
               <input
                 type="password"
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repita a palavra-passe"
+                placeholder={t('auth.confirmPasswordPlaceholder')}
                 className="w-full px-3.5 py-2.5 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600"
               />
             </div>
@@ -137,7 +176,7 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onSwitchToLogin }) =
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  <span>Criar Conta e Prosseguir</span>
+                  <span>{t('auth.registerButton')}</span>
                   <UserPlus className="w-4 h-4" />
                 </>
               )}
@@ -146,14 +185,14 @@ export const RegisterView: React.FC<RegisterViewProps> = ({ onSwitchToLogin }) =
 
           <div className="mt-6 pt-5 border-t border-slate-800/80 text-center">
             <p className="text-xs text-slate-400">
-              Já possui uma conta registada?{' '}
+              {t('auth.alreadyRegistered')}{' '}
               <button
                 type="button"
                 onClick={onSwitchToLogin}
                 className="text-blue-400 hover:text-blue-300 font-medium transition-colors inline-flex items-center gap-1"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Voltar ao login</span>
+                <span>{t('auth.backToLogin')}</span>
               </button>
             </p>
           </div>

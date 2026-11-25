@@ -1,19 +1,49 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field, field_validator
+from typing import Optional, List, Literal
+
+SUPPORTED_LANGUAGES = ("en", "pt", "de", "es", "zh", "ar", "ko")
+SupportedLanguage = Literal["en", "pt", "de", "es", "zh", "ar", "ko"]
+
+
+def _normalize_language(v: object) -> str:
+    if v is None:
+        return "en"
+    if isinstance(v, str):
+        return v.strip().lower()
+    return str(v)
+
 
 class UserRegister(BaseModel):
     full_name: str = Field(..., min_length=2, description="Nome completo do utilizador")
     email: str = Field(..., min_length=3, description="Email para autenticação")
     password: str = Field(..., min_length=6, description="Palavra-passe (mínimo 6 caracteres)")
+    preferred_language: SupportedLanguage = Field(default="en", description="Idioma preferido do utilizador")
+
+    @field_validator("preferred_language", mode="before")
+    @classmethod
+    def validate_language(cls, v: object) -> str:
+        return _normalize_language(v)
+
+
+class UserPreferencesUpdate(BaseModel):
+    preferred_language: SupportedLanguage = Field(..., description="Idioma preferido do utilizador")
+
+    @field_validator("preferred_language", mode="before")
+    @classmethod
+    def validate_language(cls, v: object) -> str:
+        return _normalize_language(v)
+
 
 class UserLogin(BaseModel):
     email: str = Field(..., description="Email")
     password: str = Field(..., description="Palavra-passe")
 
+
 class UserResponse(BaseModel):
     id: str
     full_name: str
     email: str
+    preferred_language: str = "en"
     has_completed_onboarding: bool = False
     created_at: Optional[str] = None
 

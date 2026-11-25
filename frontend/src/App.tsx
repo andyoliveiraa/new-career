@@ -3,6 +3,7 @@ import type { Job, ApplicationStats, ManualJobPayload } from './types';
 import { api } from './api';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider, useToast } from './context/ToastContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { LoginView } from './components/LoginView';
 import { RegisterView } from './components/RegisterView';
 import { OnboardingWizard } from './components/OnboardingWizard';
@@ -18,6 +19,7 @@ import { AIStudioModal } from './components/AIStudioModal';
 const AppContent: React.FC = () => {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'jobs' | 'cv-builder' | 'scrapers' | 'profile' | 'settings'>('dashboard');
@@ -79,10 +81,10 @@ const AppContent: React.FC = () => {
   const handleMarkApplied = async (jobId: number) => {
     try {
       await api.markApplied(jobId);
-      showToast('Candidatura marcada como submetida.', 'success');
+      showToast(t('app.toastApplied'), 'success');
       await loadData();
     } catch (err: any) {
-      showToast(err.message || 'Erro ao marcar como candidatado.', 'error');
+      showToast(err.message || t('app.toastApplyError'), 'error');
     }
   };
 
@@ -96,9 +98,9 @@ const AppContent: React.FC = () => {
             : j
         )
       );
-      showToast(`Disponibilidade atualizada: ${res.liveness_status}`, 'info');
+      showToast(t('app.toastLivenessUpdated', { status: res.liveness_status }), 'info');
     } catch (err: any) {
-      showToast(err.message || 'Erro ao verificar disponibilidade.', 'error');
+      showToast(err.message || t('app.toastLivenessError'), 'error');
     }
   };
 
@@ -106,20 +108,23 @@ const AppContent: React.FC = () => {
     try {
       const ids = jobs.slice(0, 20).map((j) => j.id);
       const res = await api.checkLivenessBatch(ids);
-      showToast(`Verificação concluída (${res.checked}): ${res.active} ativas, ${res.expired} expiradas.`, 'success');
+      showToast(
+        t('app.toastLivenessBatch', { checked: res.checked, active: res.active, expired: res.expired }),
+        'success'
+      );
       await loadData();
     } catch (err: any) {
-      showToast(err.message || 'Erro ao verificar disponibilidade em lote.', 'error');
+      showToast(err.message || t('app.toastLivenessBatchError'), 'error');
     }
   };
 
   const handleCreateManualJob = async (payload: ManualJobPayload) => {
     try {
       await api.createManualJob(payload);
-      showToast('Vaga adicionada ao pipeline.', 'success');
+      showToast(t('app.toastJobAdded'), 'success');
       await loadData();
     } catch (err: any) {
-      showToast(err.message || 'Erro ao adicionar vaga.', 'error');
+      showToast(err.message || t('app.toastJobAddError'), 'error');
       throw err;
     }
   };
@@ -127,29 +132,29 @@ const AppContent: React.FC = () => {
   const handleExportJobs = async (format: 'csv' | 'json') => {
     try {
       await api.exportJobs(format, filterStatus || undefined);
-      showToast(`Exportação ${format.toUpperCase()} concluída.`, 'success');
+      showToast(t('app.toastExported', { format: format.toUpperCase() }), 'success');
     } catch (err: any) {
-      showToast(err.message || 'Erro ao exportar vagas.', 'error');
+      showToast(err.message || t('app.toastExportError'), 'error');
     }
   };
 
   const handleUpdateStatus = async (jobId: number, status: string) => {
     try {
       await api.updateApplication(jobId, { status });
-      showToast('Estado da candidatura atualizado.', 'success');
+      showToast(t('app.toastStatusUpdated'), 'success');
       await loadData();
     } catch (err: any) {
-      showToast(err.message || 'Erro ao atualizar estado.', 'error');
+      showToast(err.message || t('app.toastStatusError'), 'error');
     }
   };
 
   const handleDeleteJob = async (jobId: number) => {
     try {
       await api.deleteJob(jobId);
-      showToast('Vaga removida do sistema.', 'info');
+      showToast(t('app.toastJobDeleted'), 'info');
       await loadData();
     } catch (err: any) {
-      showToast(err.message || 'Erro ao excluir vaga.', 'error');
+      showToast(err.message || t('app.toastJobDeleteError'), 'error');
     }
   };
 
@@ -158,7 +163,7 @@ const AppContent: React.FC = () => {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-6 h-6 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-          <span className="text-xs text-slate-400">A carregar New Career...</span>
+          <span className="text-xs text-slate-400">{t('app.loadingApp')}</span>
         </div>
       </div>
     );
@@ -238,7 +243,7 @@ const AppContent: React.FC = () => {
       )}
 
       <footer className="border-t border-surface-border py-4 text-center text-xs text-txt-muted bg-surface-100/40">
-        New Career — Plataforma Multi-Utilizador de Emprego & AI Career Ops • Padrão Unslop Craft
+        {t('app.footer')}
       </footer>
     </div>
   );
@@ -247,9 +252,11 @@ const AppContent: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <ToastProvider>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </LanguageProvider>
     </ToastProvider>
   );
 };

@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { Briefcase, LayoutDashboard, User, Search, Palette, Sliders, LogOut, Menu, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import { useToast } from '../context/ToastContext';
+import { LanguageSelector } from './LanguageSelector';
+import type { LanguageCode } from '../i18n';
 
 interface NavbarProps {
   activeTab: string;
@@ -9,16 +13,18 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, statsTotal = 0 }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, updatePreferredLanguage } = useAuth();
+  const { language, t } = useLanguage();
+  const { showToast } = useToast();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
-    { id: 'jobs', label: 'Vagas & Pipeline', icon: Briefcase, badge: statsTotal > 0 ? statsTotal : undefined },
-    { id: 'cv-builder', label: 'Modelos CV', icon: Palette },
-    { id: 'scrapers', label: 'Varredura', icon: Search },
-    { id: 'profile', label: 'Perfil Mestre', icon: User },
-    { id: 'settings', label: 'Configurações', icon: Sliders },
+    { id: 'dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
+    { id: 'jobs', label: t('nav.jobs'), icon: Briefcase, badge: statsTotal > 0 ? statsTotal : undefined },
+    { id: 'cv-builder', label: t('nav.cvBuilder'), icon: Palette },
+    { id: 'scrapers', label: t('nav.scrapers'), icon: Search },
+    { id: 'profile', label: t('nav.profile'), icon: User },
+    { id: 'settings', label: t('nav.settings'), icon: Sliders },
   ];
 
   const getInitials = (name: string) => {
@@ -36,6 +42,15 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, statsTo
     setMobileMenuOpen(false);
   };
 
+  const handleLanguageChange = async (lang: LanguageCode) => {
+    try {
+      await updatePreferredLanguage(lang);
+      showToast(t('app.toastLanguageUpdated'), 'success');
+    } catch {
+      showToast(t('app.toastLanguageError'), 'error');
+    }
+  };
+
   return (
     <header className="border-b border-surface-border bg-surface-100/95 backdrop-blur sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
@@ -50,7 +65,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, statsTo
             </div>
             <div className="flex items-center gap-1.5">
               <span className="font-display font-bold text-base sm:text-lg tracking-tight text-txt-primary whitespace-nowrap">
-                New Career
+                {t('auth.brandName')}
               </span>
               <span className="hidden sm:inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded bg-surface-200 text-txt-muted border border-surface-border">
                 v1.0
@@ -85,13 +100,22 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, statsTo
             })}
           </nav>
 
-          {/* Right Side: User profile & Logout + Mobile Menu Button */}
+          {/* Right Side: Language, User profile & Logout + Mobile Menu Button */}
           <div className="flex items-center gap-2 shrink-0">
+            <div className="hidden sm:block">
+              <LanguageSelector
+                value={language}
+                onChange={handleLanguageChange}
+                ariaLabel={t('app.languageLabel')}
+                compact
+              />
+            </div>
+
             {user && (
               <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-surface-border">
                 <div
                   className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-600/20 border border-blue-500/30 text-blue-400 font-semibold text-xs flex items-center justify-center shrink-0"
-                  title={user.full_name || 'Utilizador'}
+                  title={user.full_name || t('nav.userFallback')}
                 >
                   {getInitials(user.full_name || 'NC')}
                 </div>
@@ -106,7 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, statsTo
                 <button
                   type="button"
                   onClick={logout}
-                  title="Terminar Sessão"
+                  title={t('nav.logout')}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors ml-0.5"
                 >
                   <LogOut className="w-4 h-4" />
@@ -119,7 +143,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, statsTo
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="lg:hidden p-2 rounded-lg text-txt-secondary hover:text-txt-primary hover:bg-surface-200 border border-surface-border transition-colors"
-              aria-label="Abrir menu de navegação"
+              aria-label={t('nav.openMenu')}
             >
               {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
@@ -129,7 +153,16 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, statsTo
 
       {/* Mobile Dropdown Menu */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-surface-border bg-surface-100 px-4 py-3 space-y-1 shadow-lg">
+        <div className="lg:hidden border-t border-surface-border bg-surface-100 px-4 py-3 space-y-2 shadow-lg">
+          <div className="sm:hidden pb-2 border-b border-surface-border flex items-center justify-between">
+            <span className="text-xs text-txt-muted">{t('app.languageLabel')}</span>
+            <LanguageSelector
+              value={language}
+              onChange={handleLanguageChange}
+              ariaLabel={t('app.languageLabel')}
+              compact
+            />
+          </div>
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;

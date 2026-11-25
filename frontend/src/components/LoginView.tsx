@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { LogIn, ArrowRight, ShieldCheck, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import { LanguageSelector } from './LanguageSelector';
 
 interface LoginViewProps {
   onSwitchToRegister: () => void;
@@ -8,6 +10,7 @@ interface LoginViewProps {
 
 export const LoginView: React.FC<LoginViewProps> = ({ onSwitchToRegister }) => {
   const { login } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +20,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSwitchToRegister }) => {
     e.preventDefault();
     setError(null);
     if (!email || !password) {
-      setError('Por favor preencha todos os campos.');
+      setError(t('auth.fillAllFields'));
       return;
     }
 
@@ -25,14 +28,22 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSwitchToRegister }) => {
     try {
       await login(email, password);
     } catch (err: any) {
-      setError(err.message || 'Falha ao iniciar sessão. Verifique as suas credenciais.');
+      setError(err.message || t('auth.loginError'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 py-12">
+    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 py-12 relative">
+      <div className="w-full max-w-md flex justify-end mb-4">
+        <LanguageSelector
+          value={language}
+          onChange={setLanguage}
+          ariaLabel={t('app.languageLabel')}
+        />
+      </div>
+
       <div className="w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-8">
@@ -40,16 +51,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSwitchToRegister }) => {
             <ShieldCheck className="w-6 h-6" />
           </div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-100">
-            New Career
+            {t('auth.brandName')}
           </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Plataforma inteligente de rastreio de vagas e aceleração de carreira.
+            {t('auth.brandSubtitle')}
           </p>
         </div>
 
         {/* Card */}
         <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl backdrop-blur-sm">
-          <h2 className="text-lg font-medium text-slate-100 mb-6">Iniciar Sessão</h2>
+          <h2 className="text-lg font-medium text-slate-100 mb-6">{t('auth.loginTitle')}</h2>
 
           {error && (
             <div className="mb-5 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm flex items-start gap-2.5">
@@ -61,28 +72,28 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSwitchToRegister }) => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Endereço de Email
+                {t('auth.emailLabel')}
               </label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="username@email.com"
+                placeholder={t('auth.emailPlaceholder')}
                 className="w-full px-3.5 py-2.5 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600"
               />
             </div>
 
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                Palavra-passe
+                {t('auth.passwordLabel')}
               </label>
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder={t('auth.passwordPlaceholder')}
                 className="w-full px-3.5 py-2.5 bg-slate-950/60 border border-slate-800 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-blue-500 transition-colors placeholder:text-slate-600"
               />
             </div>
@@ -96,7 +107,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSwitchToRegister }) => {
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  <span>Entrar</span>
+                  <span>{t('auth.loginButton')}</span>
                   <LogIn className="w-4 h-4" />
                 </>
               )}
@@ -105,13 +116,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSwitchToRegister }) => {
 
           <div className="mt-6 pt-5 border-t border-slate-800/80 text-center">
             <p className="text-xs text-slate-400">
-              Ainda não tem conta?{' '}
+              {t('auth.noAccount')}{' '}
               <button
                 type="button"
                 onClick={onSwitchToRegister}
                 className="text-blue-400 hover:text-blue-300 font-medium transition-colors inline-flex items-center gap-1"
               >
-                <span>Criar uma nova conta</span>
+                <span>{t('auth.createAccountLink')}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </p>

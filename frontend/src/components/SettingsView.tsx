@@ -2,17 +2,20 @@ import React, { useState, useEffect } from 'react';
 import type { UserSettings, TestKeyResult, TestWebhookResult } from '../types';
 import { api } from '../api';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
+import { LANGUAGES, type LanguageCode } from '../i18n';
 import {
   Sliders, Bell, Key, Sparkles, CheckCircle2, AlertCircle,
   Eye, EyeOff, Save, RefreshCw, ExternalLink, HelpCircle,
-  ChevronDown, ChevronUp, Bot, ShieldCheck, Check, Trash2
+  ChevronDown, ChevronUp, Bot, ShieldCheck, Check, Trash2, Globe
 } from 'lucide-react';
 
 interface KeyCardConfig {
   provider: 'gemini' | 'openai' | 'groq' | 'serpapi' | 'jsearch';
-  title: string;
-  badge: string;
-  description: string;
+  titleKey: 'settings.providerGeminiTitle' | 'settings.providerGroqTitle' | 'settings.providerOpenaiTitle' | 'settings.providerSerpapiTitle' | 'settings.providerJsearchTitle';
+  badgeKey: 'settings.providerGeminiBadge' | 'settings.providerGroqBadge' | 'settings.providerOpenaiBadge' | 'settings.providerSerpapiBadge' | 'settings.providerJsearchBadge';
+  descKey: 'settings.providerGeminiDesc' | 'settings.providerGroqDesc' | 'settings.providerOpenaiDesc' | 'settings.providerSerpapiDesc' | 'settings.providerJsearchDesc';
   docsUrl: string;
   placeholder: string;
   field: 'gemini_api_key' | 'openai_api_key' | 'groq_api_key' | 'serpapi_api_key' | 'jsearch_api_key';
@@ -23,9 +26,9 @@ interface KeyCardConfig {
 const PROVIDERS: KeyCardConfig[] = [
   {
     provider: 'gemini',
-    title: 'Google Gemini AI',
-    badge: 'Recomendado / Rápido',
-    description: 'Motor principal para análise de aderência de vagas, extração de palavras-chave e tailoring de CVs.',
+    titleKey: 'settings.providerGeminiTitle',
+    badgeKey: 'settings.providerGeminiBadge',
+    descKey: 'settings.providerGeminiDesc',
     docsUrl: 'https://aistudio.google.com/app/apikey',
     placeholder: 'AIzaSy...',
     field: 'gemini_api_key',
@@ -34,9 +37,9 @@ const PROVIDERS: KeyCardConfig[] = [
   },
   {
     provider: 'groq',
-    title: 'Groq Cloud (Llama 3.3)',
-    badge: 'Inferência Ultra-Rápida',
-    description: 'Processamento de alta velocidade com modelos Llama 3.3 70B para geração instantânea.',
+    titleKey: 'settings.providerGroqTitle',
+    badgeKey: 'settings.providerGroqBadge',
+    descKey: 'settings.providerGroqDesc',
     docsUrl: 'https://console.groq.com/keys',
     placeholder: 'gsk_...',
     field: 'groq_api_key',
@@ -45,9 +48,9 @@ const PROVIDERS: KeyCardConfig[] = [
   },
   {
     provider: 'openai',
-    title: 'OpenAI (GPT-4o)',
-    badge: 'Alta Precisão',
-    description: 'Alternativa para redação de cartas de apresentação e simulação comportamental de entrevistas.',
+    titleKey: 'settings.providerOpenaiTitle',
+    badgeKey: 'settings.providerOpenaiBadge',
+    descKey: 'settings.providerOpenaiDesc',
     docsUrl: 'https://platform.openai.com/api-keys',
     placeholder: 'sk-proj-...',
     field: 'openai_api_key',
@@ -56,20 +59,20 @@ const PROVIDERS: KeyCardConfig[] = [
   },
   {
     provider: 'serpapi',
-    title: 'SerpApi (Google Jobs)',
-    badge: 'Scraper de Vagas',
-    description: 'Permite busca estruturada e indexação de anúncios publicados diretamente no Google Jobs.',
+    titleKey: 'settings.providerSerpapiTitle',
+    badgeKey: 'settings.providerSerpapiBadge',
+    descKey: 'settings.providerSerpapiDesc',
     docsUrl: 'https://serpapi.com/manage-api-key',
-    placeholder: 'Chave de 64 caracteres...',
+    placeholder: '64-char key...',
     field: 'serpapi_api_key',
     hasField: 'has_serpapi_key',
     maskedField: 'serpapi_api_key_masked'
   },
   {
     provider: 'jsearch',
-    title: 'RapidAPI JSearch',
-    badge: 'Multi-Portal Jobs',
-    description: 'Agregação global de vagas em portais como LinkedIn, Indeed e Glassdoor.',
+    titleKey: 'settings.providerJsearchTitle',
+    badgeKey: 'settings.providerJsearchBadge',
+    descKey: 'settings.providerJsearchDesc',
     docsUrl: 'https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch',
     placeholder: 'RapidAPI-Key...',
     field: 'jsearch_api_key',
@@ -80,28 +83,25 @@ const PROVIDERS: KeyCardConfig[] = [
 
 export const SettingsView: React.FC = () => {
   const { showToast } = useToast();
+  const { updatePreferredLanguage } = useAuth();
+  const { language, t } = useLanguage();
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
 
-  // Draft values for secret inputs (empty means keep saved secret; explicit '' in clearedFields means clear)
   const [secretDrafts, setSecretDrafts] = useState<Record<string, string>>({});
   const [clearedSecrets, setClearedSecrets] = useState<Record<string, boolean>>({});
 
-  // Visibility toggles
   const [showWebhookUrl, setShowWebhookUrl] = useState(false);
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
 
-  // Webhook Test State
   const [testingWebhook, setTestingWebhook] = useState(false);
   const [webhookTestResult, setWebhookTestResult] = useState<TestWebhookResult | null>(null);
 
-  // Key Test States
   const [testingKey, setTestingKey] = useState<Record<string, boolean>>({});
   const [keyResults, setKeyResults] = useState<Record<string, TestKeyResult>>({});
 
-  // Guide accordion
   const [showDiscordGuide, setShowDiscordGuide] = useState(false);
 
   useEffect(() => {
@@ -116,9 +116,18 @@ export const SettingsView: React.FC = () => {
       setSecretDrafts({});
       setClearedSecrets({});
     } catch (err: any) {
-      showToast(err.message || 'Erro ao carregar configurações.', 'error');
+      showToast(err.message || t('settings.toastLoadError'), 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLanguageSelect = async (lang: LanguageCode) => {
+    try {
+      await updatePreferredLanguage(lang);
+      showToast(t('app.toastLanguageUpdated'), 'success');
+    } catch {
+      showToast(t('app.toastLanguageError'), 'error');
     }
   };
 
@@ -174,11 +183,11 @@ export const SettingsView: React.FC = () => {
       setSettings(updated);
       setSecretDrafts({});
       setClearedSecrets({});
-      setSaveSuccessMsg('Configurações e credenciais guardadas com sucesso!');
-      showToast('Configurações guardadas com segurança.', 'success');
+      setSaveSuccessMsg(t('settings.saveSuccess'));
+      showToast(t('settings.toastSaved'), 'success');
       setTimeout(() => setSaveSuccessMsg(''), 3500);
     } catch (err: any) {
-      showToast(err.message || 'Erro ao guardar configurações.', 'error');
+      showToast(err.message || t('settings.toastSaveError'), 'error');
     } finally {
       setSaving(false);
     }
@@ -194,7 +203,7 @@ export const SettingsView: React.FC = () => {
     } catch (err: any) {
       setWebhookTestResult({
         success: false,
-        message: err.message || 'Erro ao comunicar com o servidor para testar o webhook.'
+        message: err.message || t('settings.webhookErrorFallback')
       });
     } finally {
       setTestingWebhook(false);
@@ -214,7 +223,7 @@ export const SettingsView: React.FC = () => {
           provider,
           valid: false,
           status: 'error',
-          message: err.message || 'Falha na requisição de teste.'
+          message: err.message || t('settings.testRequestError')
         }
       }));
     } finally {
@@ -238,7 +247,7 @@ export const SettingsView: React.FC = () => {
       <div className="flex items-center justify-center min-h-[500px]">
         <div className="flex flex-col items-center gap-3 text-txt-muted text-sm">
           <RefreshCw className="w-6 h-6 animate-spin text-accent-light" />
-          <span>A carregar as suas configurações de integrações...</span>
+          <span>{t('settings.loading')}</span>
         </div>
       </div>
     );
@@ -254,11 +263,11 @@ export const SettingsView: React.FC = () => {
           <div className="flex items-center gap-2.5">
             <Sliders className="w-6 h-6 text-accent-light" />
             <h1 className="font-display font-bold text-xl text-txt-primary">
-              Configurações & Integrações
+              {t('settings.title')}
             </h1>
           </div>
           <p className="text-xs text-txt-secondary mt-1">
-            Configure o seu Webhook do Discord e faça a gestão das suas chaves de API (encriptadas em repouso no servidor).
+            {t('settings.subtitle')}
           </p>
         </div>
 
@@ -271,12 +280,12 @@ export const SettingsView: React.FC = () => {
           {saving ? (
             <>
               <RefreshCw className="w-4 h-4 animate-spin" />
-              <span>A guardar...</span>
+              <span>{t('common.saving')}</span>
             </>
           ) : (
             <>
               <Save className="w-4 h-4" />
-              <span>Guardar Configurações</span>
+              <span>{t('settings.saveSettings')}</span>
             </>
           )}
         </button>
@@ -289,6 +298,40 @@ export const SettingsView: React.FC = () => {
         </div>
       )}
 
+      {/* 0. INTERFACE LANGUAGE */}
+      <div className="bg-surface-100 border border-surface-border rounded-2xl p-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+            <Globe className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-txt-primary">{t('settings.languageCardTitle')}</h2>
+            <p className="text-xs text-txt-muted">{t('settings.languageCardDesc')}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+          {LANGUAGES.map((lang) => {
+            const isSelected = language === lang.code;
+            return (
+              <button
+                key={lang.code}
+                type="button"
+                onClick={() => handleLanguageSelect(lang.code)}
+                className={`p-2.5 rounded-xl border text-center transition-all ${
+                  isSelected
+                    ? 'border-accent bg-accent/10 text-txt-primary font-semibold ring-1 ring-accent'
+                    : 'border-surface-border bg-surface-200/50 text-txt-secondary hover:bg-surface-200 hover:text-txt-primary'
+                }`}
+              >
+                <div className="text-xs">{lang.nativeName}</div>
+                <div className="text-[10px] text-txt-muted uppercase mt-0.5">{lang.code}</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* 1. DISCORD WEBHOOK INTEGRATION */}
       <div className="bg-surface-100 border border-surface-border rounded-2xl p-6 space-y-5">
         <div className="flex items-center justify-between gap-3">
@@ -297,9 +340,9 @@ export const SettingsView: React.FC = () => {
               <Bell className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-txt-primary">Webhook do Discord</h2>
+              <h2 className="text-sm font-bold text-txt-primary">{t('settings.discordTitle')}</h2>
               <p className="text-xs text-txt-muted">
-                Receba alertas automáticos de novas vagas e atualizações de candidaturas no seu servidor de Discord.
+                {t('settings.discordDesc')}
               </p>
             </div>
           </div>
@@ -309,13 +352,15 @@ export const SettingsView: React.FC = () => {
               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
               : 'bg-surface-200 text-txt-muted border-surface-border'
           }`}>
-            {webhookConfigured ? `Configurado (${settings?.discord_webhook_url_masked || 'ativo'})` : 'Não Configurado'}
+            {webhookConfigured
+              ? t('settings.configured', { masked: settings?.discord_webhook_url_masked || t('common.active') })
+              : t('settings.notConfigured')}
           </span>
         </div>
 
         <div className="space-y-2">
           <label className="block text-[11px] font-bold text-txt-muted uppercase tracking-wider">
-            URL do Webhook do Discord
+            {t('settings.discordUrlLabel')}
           </label>
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
@@ -325,8 +370,8 @@ export const SettingsView: React.FC = () => {
                 onChange={(e) => handleSecretDraftChange('discord_webhook_url', e.target.value)}
                 placeholder={
                   webhookConfigured
-                    ? `Guardado (${settings?.discord_webhook_url_masked}) — cole aqui apenas para substituir`
-                    : 'https://discord.com/api/webhooks/1234567890/token-do-seu-canal...'
+                    ? t('settings.discordPlaceholderSaved', { masked: settings?.discord_webhook_url_masked || '' })
+                    : 'https://discord.com/api/webhooks/1234567890/...'
                 }
                 className="w-full bg-surface-200 border border-surface-border rounded-xl px-3.5 py-2.5 text-xs text-txt-primary pr-10 focus:outline-none focus:border-accent"
               />
@@ -334,7 +379,7 @@ export const SettingsView: React.FC = () => {
                 type="button"
                 onClick={() => setShowWebhookUrl(!showWebhookUrl)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-txt-muted hover:text-txt-primary transition-colors"
-                title={showWebhookUrl ? 'Ocultar URL' : 'Mostrar URL'}
+                title={showWebhookUrl ? t('settings.hideUrl') : t('settings.showUrl')}
               >
                 {showWebhookUrl ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -345,7 +390,7 @@ export const SettingsView: React.FC = () => {
                 type="button"
                 onClick={() => handleClearSecret('discord_webhook_url')}
                 className="p-2.5 bg-surface-200 hover:bg-rose-500/10 text-txt-muted hover:text-rose-400 border border-surface-border rounded-xl transition-colors"
-                title="Remover Webhook guardado"
+                title={t('settings.removeWebhook')}
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -360,12 +405,12 @@ export const SettingsView: React.FC = () => {
               {testingWebhook ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin text-accent-light" />
-                  <span>A testar...</span>
+                  <span>{t('settings.testing')}</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-3.5 h-3.5 text-accent-light" />
-                  <span>Testar Webhook</span>
+                  <span>{t('settings.testWebhook')}</span>
                 </>
               )}
             </button>
@@ -385,7 +430,7 @@ export const SettingsView: React.FC = () => {
             )}
             <div className="space-y-0.5">
               <div className="font-semibold">
-                {webhookTestResult.success ? 'Conexão Bem-Sucedida!' : 'Falha no Teste do Webhook'}
+                {webhookTestResult.success ? t('settings.webhookSuccessTitle') : t('settings.webhookFailTitle')}
               </div>
               <p className="text-[11px] opacity-90 leading-relaxed">{webhookTestResult.message}</p>
             </div>
@@ -395,8 +440,8 @@ export const SettingsView: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
           <label className="flex items-center justify-between p-3 rounded-xl bg-surface-200 border border-surface-border cursor-pointer">
             <div>
-              <span className="text-xs font-semibold text-txt-primary block">Alertas de Novas Vagas</span>
-              <span className="text-[10px] text-txt-muted">Enviar mensagem no Discord quando a varredura encontrar vagas</span>
+              <span className="text-xs font-semibold text-txt-primary block">{t('settings.alertNewJobsTitle')}</span>
+              <span className="text-[10px] text-txt-muted">{t('settings.alertNewJobsDesc')}</span>
             </div>
             <input
               type="checkbox"
@@ -408,8 +453,8 @@ export const SettingsView: React.FC = () => {
 
           <label className="flex items-center justify-between p-3 rounded-xl bg-surface-200 border border-surface-border cursor-pointer">
             <div>
-              <span className="text-xs font-semibold text-txt-primary block">Avanço de Candidaturas</span>
-              <span className="text-[10px] text-txt-muted">Notificar quando uma vaga for marcada como Entrevista ou Oferta</span>
+              <span className="text-xs font-semibold text-txt-primary block">{t('settings.alertStatusTitle')}</span>
+              <span className="text-[10px] text-txt-muted">{t('settings.alertStatusDesc')}</span>
             </div>
             <input
               type="checkbox"
@@ -424,26 +469,20 @@ export const SettingsView: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowDiscordGuide(!showDiscordGuide)}
-            className="flex items-center justify-between w-full text-left text-xs font-medium text-txt-muted hover:text-txt-primary transition-colors focus:outline-none"
+            className="flex items-center justify-between w-full text-start text-xs font-medium text-txt-muted hover:text-txt-primary transition-colors focus:outline-none"
           >
             <div className="flex items-center gap-1.5">
               <HelpCircle className="w-3.5 h-3.5 text-accent-light" />
-              <span>Como obter o URL do Webhook no Discord em 3 passos</span>
+              <span>{t('settings.discordGuideToggle')}</span>
             </div>
             {showDiscordGuide ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
 
           {showDiscordGuide && (
             <div className="mt-3 p-3.5 rounded-xl bg-surface-200/60 border border-surface-border text-xs text-txt-secondary space-y-2">
-              <p className="leading-relaxed">
-                <strong>1.</strong> No seu servidor do Discord, clique com o botão direito no canal desejado e selecione <em>Editar Canal</em>.
-              </p>
-              <p className="leading-relaxed">
-                <strong>2.</strong> Aceda à aba <em>Integrações</em> e clique em <em>Webhooks</em> &rarr; <em>Novo Webhook</em>.
-              </p>
-              <p className="leading-relaxed">
-                <strong>3.</strong> Dê o nome <strong>New Career</strong>, clique em <strong>Copiar URL do Webhook</strong>, cole acima e clique em <em>Testar Webhook</em>.
-              </p>
+              <p className="leading-relaxed">{t('settings.discordStep1')}</p>
+              <p className="leading-relaxed">{t('settings.discordStep2')}</p>
+              <p className="leading-relaxed">{t('settings.discordStep3')}</p>
             </div>
           )}
         </div>
@@ -458,10 +497,10 @@ export const SettingsView: React.FC = () => {
             </div>
             <div>
               <h2 className="text-sm font-bold text-txt-primary">
-                Chaves de API (Inteligência Artificial & Scrapers)
+                {t('settings.apiKeysTitle')}
               </h2>
               <p className="text-xs text-txt-muted">
-                As chaves são armazenadas encriptadas e nunca são reexpostas após guardadas.
+                {t('settings.apiKeysDesc')}
               </p>
             </div>
           </div>
@@ -472,7 +511,7 @@ export const SettingsView: React.FC = () => {
             className="flex items-center gap-1.5 px-3.5 py-2 bg-surface-200 hover:bg-surface-300 text-txt-primary border border-surface-border rounded-xl text-xs font-semibold transition-colors shrink-0"
           >
             <ShieldCheck className="w-3.5 h-3.5 text-accent-light" />
-            <span>Testar Todas as Chaves</span>
+            <span>{t('settings.testAllKeys')}</span>
           </button>
         </div>
 
@@ -492,13 +531,13 @@ export const SettingsView: React.FC = () => {
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold text-xs text-txt-primary">{item.title}</span>
+                    <span className="font-bold text-xs text-txt-primary">{t(item.titleKey)}</span>
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-surface-300 text-txt-muted border border-surface-border">
-                      {item.badge}
+                      {t(item.badgeKey)}
                     </span>
                     {hasSaved && (
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono">
-                        Configurada ({maskedPreview})
+                        {t('settings.keyConfigured', { masked: maskedPreview || '' })}
                       </span>
                     )}
                   </div>
@@ -509,11 +548,11 @@ export const SettingsView: React.FC = () => {
                     rel="noreferrer"
                     className="text-[11px] text-accent-light hover:underline inline-flex items-center gap-1"
                   >
-                    Obter Chave <ExternalLink className="w-3 h-3" />
+                    {t('settings.getKey')} <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
 
-                <p className="text-[11px] text-txt-muted leading-relaxed">{item.description}</p>
+                <p className="text-[11px] text-txt-muted leading-relaxed">{t(item.descKey)}</p>
 
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
@@ -523,7 +562,7 @@ export const SettingsView: React.FC = () => {
                       onChange={(e) => handleSecretDraftChange(item.field, e.target.value)}
                       placeholder={
                         hasSaved
-                          ? `Chave guardada (${maskedPreview}) — insira apenas para substituir`
+                          ? t('settings.keyPlaceholderSaved', { masked: maskedPreview || '' })
                           : item.placeholder
                       }
                       className="w-full bg-surface-200 border border-surface-border rounded-xl px-3.5 py-2 text-xs text-txt-primary pr-10 focus:outline-none focus:border-accent font-mono"
@@ -532,7 +571,7 @@ export const SettingsView: React.FC = () => {
                       type="button"
                       onClick={() => toggleShowKey(item.provider)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-txt-muted hover:text-txt-primary transition-colors"
-                      title={isVisible ? 'Ocultar' : 'Mostrar'}
+                      title={isVisible ? t('settings.hide') : t('settings.show')}
                     >
                       {isVisible ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     </button>
@@ -543,7 +582,7 @@ export const SettingsView: React.FC = () => {
                       type="button"
                       onClick={() => handleClearSecret(item.field)}
                       className="p-2 bg-surface-200 hover:bg-rose-500/10 text-txt-muted hover:text-rose-400 border border-surface-border rounded-xl transition-colors"
-                      title="Remover chave guardada"
+                      title={t('settings.removeKey')}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -558,12 +597,12 @@ export const SettingsView: React.FC = () => {
                     {isTesting ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin text-accent-light" />
-                        <span>A testar...</span>
+                        <span>{t('settings.testing')}</span>
                       </>
                     ) : (
                       <>
                         <Sparkles className="w-3.5 h-3.5 text-accent-light" />
-                        <span>Testar Conexão</span>
+                        <span>{t('settings.testConnection')}</span>
                       </>
                     )}
                   </button>
@@ -599,18 +638,18 @@ export const SettingsView: React.FC = () => {
             <Bot className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-txt-primary">Provedor de IA Primário</h2>
+            <h2 className="text-sm font-bold text-txt-primary">{t('settings.primaryAiTitle')}</h2>
             <p className="text-xs text-txt-muted">
-              Selecione o motor preferencial a utilizar na análise de compatibilidade e tailoring de currículos.
+              {t('settings.primaryAiDesc')}
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
-            { id: 'gemini', title: 'Google Gemini', desc: 'Rápido, alta cota gratuita, excelente entendimento semântico.' },
-            { id: 'groq', title: 'Groq (Llama 3.3)', desc: 'Ultra-rápido, modelos abertos de ponta com baixa latência.' },
-            { id: 'openai', title: 'OpenAI (GPT-4o)', desc: 'Precisão máxima para redação executiva e cartas.' }
+            { id: 'gemini', title: 'Google Gemini', desc: t('settings.optGeminiDesc') },
+            { id: 'groq', title: 'Groq (Llama 3.3)', desc: t('settings.optGroqDesc') },
+            { id: 'openai', title: 'OpenAI (GPT-4o)', desc: t('settings.optOpenaiDesc') }
           ].map(opt => {
             const isSelected = (settings?.primary_ai_provider || 'gemini') === opt.id;
             return (
@@ -634,7 +673,7 @@ export const SettingsView: React.FC = () => {
         </div>
 
         <div className="p-3 rounded-xl bg-surface-200/50 border border-surface-border text-[11px] text-txt-muted">
-          <strong>Hierarquia de Fallback Automática:</strong> Se o provedor primário falhar ou atingir limite de requisições, o sistema tenta automaticamente os restantes provedores configurados antes de recorrer ao modo heurístico offline.
+          {t('settings.fallbackNotice')}
         </div>
       </div>
     </div>
