@@ -38,8 +38,17 @@ for i in $(seq 1 10); do
 done
 
 curl -fsS http://127.0.0.1:8000/api/health && echo ""
-ROOT_CODE="$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 https://career.andydias.pt/ || echo "000")"
-API_CODE="$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 https://career.andydias.pt/api/health || echo "000")"
+
+RESOLVE_ARGS=()
+if ! getent ahostsv4 career.andydias.pt >/dev/null 2>&1; then
+  CF_IP="$(dig @1.1.1.1 +short career.andydias.pt A | head -n 1 || true)"
+  if [ -n "$CF_IP" ]; then
+    RESOLVE_ARGS=(--resolve "career.andydias.pt:443:${CF_IP}")
+  fi
+fi
+
+ROOT_CODE="$(curl -4 -sS "${RESOLVE_ARGS[@]}" -o /dev/null -w "%{http_code}" --max-time 10 https://career.andydias.pt/ || echo "000")"
+API_CODE="$(curl -4 -sS "${RESOLVE_ARGS[@]}" -o /dev/null -w "%{http_code}" --max-time 10 https://career.andydias.pt/api/health || echo "000")"
 echo "https://career.andydias.pt/ -> HTTP $ROOT_CODE"
 echo "https://career.andydias.pt/api/health -> HTTP $API_CODE"
 
