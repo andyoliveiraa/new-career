@@ -847,7 +847,7 @@ class FirebaseManager:
     async def list_all_users(self) -> List[Dict[str, Any]]:
         """List all registered users for admin panel — strips password_hash and sensitive keys."""
         SAFE_FIELDS = {"id", "full_name", "email", "created_at", "updated_at", "last_login_at",
-                       "has_completed_onboarding", "preferred_language"}
+                       "last_seen_at", "has_completed_onboarding", "preferred_language"}
 
         if self._is_live and self._db:
             try:
@@ -862,13 +862,22 @@ class FirebaseManager:
             return [{k: u.get(k) for k in SAFE_FIELDS} for u in self._local_data["users"].values()]
 
     async def get_platform_metrics(self) -> dict:
-        """Return global aggregated metrics for admin panel."""
+        """Return global aggregated metrics for admin panel, including online user count."""
+        from datetime import datetime, timezone, timedelta
+        now = datetime.now(timezone.utc)
+        today = now.strftime("%Y-%m-%d")
+        cutoff_5min = (now - timedelta(minutes=5)).isoformat()
+
         with self._lock:
             metrics_root = self._local_data.get("metrics", {})
             global_metrics: dict = dict(metrics_root.get("global", {}))
-            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             daily_metrics: dict = dict(metrics_root.get("daily", {}).get(today, {}))
-            user_count = len(self._local_data.get("users", {}))
+            all_local_users = list(self._local_data.get("users", {}).values())
+            user_count = len(all_local_users)
+            online_count = sum(
+                1 for u in all_local_users
+                if (u.get("last_seen_at") or "") >= cutoff_5min
+            )
 
         if self._is_live and self._db:
             try:
@@ -882,10 +891,14 @@ class FirebaseManager:
                 )
                 if d_doc.exists:
                     daily_metrics = d_doc.to_dict() or daily_metrics
-                u_count_docs = await self._run_cloud(
+                u_docs = await self._run_cloud(
                     lambda: list(self._db.collection("users").stream())
                 )
-                user_count = len(u_count_docs)
+                user_count = len(u_docs)
+                online_count = sum(
+                    1 for doc in u_docs
+                    if (doc.to_dict() or {}).get("last_seen_at", "") >= cutoff_5min
+                )
             except Exception as e:
                 logger.warning(f"Aviso ao ler métricas da plataforma: {e}")
 
@@ -894,6 +907,7 @@ class FirebaseManager:
 
         return {
             "total_users": user_count,
+            "online_users": online_count,
             "platform_totals": _int_only(global_metrics),
             "today_metrics": _int_only(daily_metrics),
             "date": today,

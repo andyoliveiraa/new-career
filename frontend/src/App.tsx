@@ -78,6 +78,24 @@ const AppContent: React.FC = () => {
     }
   }, [filterQuery, filterLocation, filterSource, filterStatus, filterLiveness, filterRemoteOnly, sortBy]);
 
+  // Heartbeat: update last_seen_at every 30s when authenticated
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/+$/, '') || '/api';
+    const send = () => {
+      const token = localStorage.getItem('new_career_token');
+      if (!token) return;
+      void fetch(`${API_BASE}/analytics/heartbeat`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        keepalive: true,
+      }).catch(() => {});
+    };
+    send(); // immediate on auth
+    const id = setInterval(send, 30_000);
+    return () => clearInterval(id);
+  }, [isAuthenticated]);
+
   useEffect(() => {
     if (isAuthenticated && user?.has_completed_onboarding) {
       loadData();

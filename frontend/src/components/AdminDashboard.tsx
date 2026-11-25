@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Users, ShieldCheck, LogOut, Search, RefreshCw,
-  CheckCircle2, Clock, Globe, AlertCircle, ChevronLeft, ChevronRight,
+  CheckCircle2, Clock, Globe, AlertCircle, ChevronLeft, ChevronRight, Wifi,
 } from 'lucide-react';
 
 interface AdminUser {
@@ -10,12 +10,23 @@ interface AdminUser {
   email: string;
   created_at: string | null;
   last_login_at: string | null;
+  last_seen_at?: string | null;
   has_completed_onboarding: boolean;
   preferred_language: string;
 }
 
+function isUserOnline(iso?: string | null): boolean {
+  if (!iso) return false;
+  try {
+    return Date.now() - new Date(iso).getTime() <= 5 * 60 * 1000;
+  } catch {
+    return false;
+  }
+}
+
 interface PlatformMetrics {
   total_users: number;
+  online_users: number;
   platform_totals: Record<string, number>;
   today_metrics: Record<string, number>;
   date: string;
@@ -90,6 +101,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ token, onLogout 
     }
   }, [token, onLogout]);
 
+  // Auto-refresh every 30s to keep online count live
+  useEffect(() => {
+    const id = setInterval(loadData, 30_000);
+    return () => clearInterval(id);
+  }, [loadData]);
+
   useEffect(() => { loadData(); }, [loadData]);
 
   const filtered = users.filter(u => {
@@ -108,22 +125,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ token, onLogout 
       color: 'text-accent',
     },
     {
+      label: 'Online Agora',
+      value: metrics?.online_users ?? 0,
+      icon: Wifi,
+      color: 'text-emerald-400',
+      badge: true,
+    },
+    {
       label: 'Onboarding Concluído',
       value: users.filter(u => u.has_completed_onboarding).length,
       icon: CheckCircle2,
-      color: 'text-emerald-400',
+      color: 'text-sky-400',
     },
     {
-      label: 'Registos Hoje',
-      value: metrics?.today_metrics?.registers ?? 0,
+      label: 'Page Views Hoje',
+      value: Object.entries(metrics?.today_metrics ?? {})
+        .filter(([k]) => k.startsWith('page_view_'))
+        .reduce((s, [, v]) => s + v, 0),
       icon: Clock,
       color: 'text-amber-400',
-    },
-    {
-      label: 'Logins Hoje',
-      value: metrics?.today_metrics?.logins ?? 0,
-      icon: ShieldCheck,
-      color: 'text-txt-secondary',
     },
   ];
 
@@ -236,7 +256,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ token, onLogout 
                     </td>
                   </tr>
                 ) : (
-                  paginated.map(user => (
+                  paginated.map(user => {
+                    const online = isUserOnline(user.last_seen_at);
+                    const lastActivity = user.last_seen_at || user.last_login_at;
+                    return (
                     <tr key={user.id} className="border-b border-surface-border/50 hover:bg-surface-200/40 transition-colors">
                       <td className="px-4 py-3 text-txt-primary font-medium whitespace-nowrap max-w-[180px] truncate" title={user.full_name}>
                         {user.full_name || '—'}
@@ -247,8 +270,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ token, onLogout 
                       <td className="px-4 py-3 text-txt-muted text-xs whitespace-nowrap tabular-nums">
                         {fmtDate(user.created_at)}
                       </td>
-                      <td className="px-4 py-3 text-txt-muted text-xs whitespace-nowrap tabular-nums" title={user.last_login_at ?? undefined}>
-                        {fmtRelative(user.last_login_at)}
+                      <td className="px-4 py-3 text-txt-muted text-xs whitespace-nowrap tabular-nums" title={lastActivity ?? undefined}>
+                        {online ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                            Online
+                          </span>
+                        ) : (
+                          fmtRelative(lastActivity)
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-1 text-xs text-txt-secondary bg-surface-200 border border-surface-border rounded px-1.5 py-0.5">
@@ -267,7 +297,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ token, onLogout 
                         )}
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -316,9 +347,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ token, onLogout 
                 ai_interview_preps: 'Preps entrevista', ai_pdf_downloads: 'Downloads PDF',
                 cv_templates_saved: 'Templates CV', profile_updates: 'Perfis atualizados',
                 settings_updates: 'Config atualizadas', onboarding_completed: 'Onboardings concluídos',
+                page_view_dashboard: 'Visitas: Painel',
+                page_view_jobs: 'Visitas: Vagas',
+                page_view_scrapers: 'Visitas: Varreduras',
+                page_view_cv_builder: 'Visitas: Construtor CV',
+                page_view_profile: 'Visitas: Perfil',
+                page_view_settings: 'Visitas: Configurações',
+                page_view_onboarding: 'Visitas: Onboarding',
+                page_view_login: 'Visitas: Login',
+                page_view_register: 'Visitas: Registo',
+                page_view_rgpd: 'Visitas: RGPD',
+                page_view_privacy: 'Visitas: Privacidade',
               };
               const entries = Object.entries(metrics.platform_totals)
-                .filter(([k]) => !k.startsWith('page_view_') && k !== 'updated_at')
+                .filter(([k]) => k !== 'updated_at')
                 .sort(([, a], [, b]) => b - a);
 
               if (entries.length === 0) {
@@ -331,12 +373,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ token, onLogout 
               }
               return (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {entries.map(([key, val]) => (
-                    <div key={key} className="bg-surface-200/50 border border-surface-border rounded-lg px-3 py-2.5">
-                      <p className="text-xs text-txt-muted truncate">{LABELS[key] ?? key.replace(/_/g, ' ')}</p>
-                      <p className="text-lg font-bold text-txt-primary tabular-nums mt-0.5">{val}</p>
-                    </div>
-                  ))}
+                  {entries.map(([key, val]) => {
+                    const todayVal = metrics.today_metrics?.[key] ?? 0;
+                    return (
+                      <div key={key} className="bg-surface-200/50 border border-surface-border rounded-lg px-3 py-2.5">
+                        <p className="text-xs text-txt-muted truncate">{LABELS[key] ?? key.replace(/_/g, ' ')}</p>
+                        <div className="flex items-baseline justify-between gap-2 mt-0.5">
+                          <p className="text-lg font-bold text-txt-primary tabular-nums">{val}</p>
+                          {todayVal > 0 && (
+                            <span className="text-[11px] text-emerald-400 tabular-nums">+{todayVal} hoje</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })()}

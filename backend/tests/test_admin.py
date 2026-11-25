@@ -165,3 +165,31 @@ async def test_last_login_at_recorded_on_login():
         track_user = next((u for u in users if u["email"] == "logintrack@example.com"), None)
         assert track_user is not None
         assert track_user["last_login_at"] is not None
+        assert track_user["last_seen_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_heartbeat_updates_online_users_count():
+    """POST /api/analytics/heartbeat updates last_seen_at and increments online_users."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        reg = await client.post("/api/auth/register", json={
+            "full_name": "Online User",
+            "email": "online@example.com",
+            "password": "Password123!"
+        })
+        assert reg.status_code == 200
+        user_token = reg.json()["access_token"]
+
+        hb = await client.post("/api/analytics/heartbeat", headers={"Authorization": f"Bearer {user_token}"})
+        assert hb.status_code == 200
+        assert hb.json()["ok"] is True
+
+        admin_login = await client.post("/api/admin/login", json={
+            "email": settings.ADMIN_EMAIL,
+            "password": "Mirandela2023!"
+        })
+        admin_token = admin_login.json()["access_token"]
+
+        metrics_res = await client.get("/api/admin/metrics", headers={"Authorization": f"Bearer {admin_token}"})
+        assert metrics_res.status_code == 200
+        assert metrics_res.json()["online_users"] >= 1

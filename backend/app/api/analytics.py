@@ -1,4 +1,5 @@
 from typing import Any, Dict, Literal, Optional
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel
 
@@ -53,6 +54,16 @@ async def record_first_party_event(
 
     await firebase_manager.record_metric(payload.event, user_id=user_id, amount=1)
     return {"recorded": True, "event": payload.event}
+
+
+@router.post("/heartbeat")
+async def user_heartbeat(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Update the user's last_seen_at timestamp for real-time presence tracking."""
+    now = datetime.now(timezone.utc).isoformat()
+    await firebase_manager.update_user(current_user["id"], {"last_seen_at": now})
+    return {"ok": True, "ts": now}
 
 
 @router.get("/summary")

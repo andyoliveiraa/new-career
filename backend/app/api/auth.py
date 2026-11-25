@@ -64,7 +64,8 @@ async def login(req: UserLogin):
     token = create_access_token({"sub": user["id"], "email": user["email"]})
     await firebase_manager.record_metric("logins", user["id"])
     from datetime import datetime, timezone
-    await firebase_manager.update_user(user["id"], {"last_login_at": datetime.now(timezone.utc).isoformat()})
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await firebase_manager.update_user(user["id"], {"last_login_at": now_iso, "last_seen_at": now_iso})
     return TokenResponse(
         access_token=token,
         token_type="bearer",
