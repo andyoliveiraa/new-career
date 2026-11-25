@@ -5,6 +5,7 @@ import os
 import re
 import statistics
 from collections import Counter
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import pdfplumber
@@ -952,11 +953,40 @@ class CVParserService:
         _flush()
         return experiences
 
+    @staticmethod
+    def _infer_education_status(period: str, context: str = "") -> Tuple[bool, str]:
+        """Detect whether an education entry is still in progress and extract its start year."""
+        combined = f"{period} {context}".strip().lower()
+        ongoing_re = re.compile(
+            r"\b(?:present(?:e)?|atual(?:mente)?|actual(?:mente|idad)?|current(?:ly)?|ongoing|heute|now|"
+            r"em\s+curso|a\s+decorrer|en\s+curso|in\s+progress|laufend|expected|previs[aã]o)\b|至今|현재|الحاضر",
+            re.IGNORECASE,
+        )
+        years = re.findall(r"\b(?:19|20)\d{2}\b", period or context)
+        start_year = years[0] if years else ""
+        current_year = datetime.now().year
+        future_end = bool(len(years) >= 2 and int(years[-1]) > current_year)
+        since_only = bool(
+            start_year and len(years) == 1 and re.search(r"\b(?:desde|since|seit|ab|desde\s+o\s+ano|in[ií]cio)\b", combined)
+        )
+        in_progress = bool(ongoing_re.search(combined) or future_end or since_only)
+        return in_progress, start_year
+
     @classmethod
     def _parse_educations(cls, edu_lines: List[str]) -> List[Dict[str, Any]]:
         """Parse education entries cleanly while filtering Europass metadata/grade lines."""
         educations: List[Dict[str, Any]] = []
         pending_edu_period = ""
+
+        def _make_edu(deg: str, inst: str, per: str, extra: str = "") -> Dict[str, Any]:
+            in_prog, st_year = cls._infer_education_status(per, f"{deg} {extra}")
+            return {
+                "degree": deg,
+                "institution": inst,
+                "period": per,
+                "in_progress": in_prog,
+                "start_year": st_year,
+            }
 
         for ln in edu_lines:
             is_bullet = ln.startswith(("- ", "* "))
@@ -968,12 +998,19 @@ class CVParserService:
                 continue
 
             dm = DATE_RANGE_RE.search(clean)
-            period = dm.group(1).strip() if dm else ""
-            txt = DATE_RANGE_RE.sub("", clean).strip(" -|•—–()")
+            since_m = re.search(r"\b(?:desde|since|seit|ab)\s+((?:19|20)\d{2})\b", clean, re.IGNORECASE)
+            period = dm.group(1).strip() if dm else (since_m.group(0).strip() if since_m else "")
+            txt = DATE_RANGE_RE.sub("", clean)
+            if not dm and since_m:
+                txt = txt.replace(since_m.group(0), "")
+            txt = txt.strip(" -|•—–()")
 
-            if dm and (not txt or cls._looks_like_location(txt)):
+            if (dm or since_m) and (not txt or cls._looks_like_location(txt)):
                 if educations and not educations[-1]["period"]:
                     educations[-1]["period"] = period
+                    in_prog, st_year = cls._infer_education_status(period, educations[-1]["degree"])
+                    educations[-1]["in_progress"] = in_prog
+                    educations[-1]["start_year"] = st_year
                 else:
                     pending_edu_period = period
                 continue
@@ -990,9 +1027,9 @@ class CVParserService:
                 if sep in txt:
                     deg, inst = [p.strip() for p in txt.split(sep, 1)]
                     if cls._looks_like_location(inst):
-                        educations.append({"degree": deg, "institution": "", "period": resolved_period})
+                        educations.append(_make_edu(deg, "", resolved_period, clean))
                     else:
-                        educations.append({"degree": deg, "institution": inst, "period": resolved_period})
+                        educations.append(_make_edu(deg, inst, resolved_period, clean))
                     split_done = True
                     break
 
@@ -1002,17 +1039,20 @@ class CVParserService:
             if ", " in txt:
                 left, right = [p.strip() for p in txt.split(", ", 1)]
                 if cls._looks_like_institution(right):
-                    educations.append({"degree": left, "institution": right, "period": resolved_period})
+                    educations.append(_make_edu(left, right, resolved_period, clean))
                     continue
 
             if educations and not educations[-1]["institution"] and not dm and not ln.startswith("##"):
                 educations[-1]["institution"] = txt
                 if resolved_period and not educations[-1]["period"]:
                     educations[-1]["period"] = resolved_period
+                    in_prog, st_year = cls._infer_education_status(resolved_period, educations[-1]["degree"])
+                    educations[-1]["in_progress"] = in_prog
+                    educations[-1]["start_year"] = st_year
             elif educations and cls._looks_like_location(txt) and not dm:
                 continue
             else:
-                educations.append({"degree": txt, "institution": "", "period": resolved_period})
+                educations.append(_make_edu(txt, "", resolved_period, clean))
 
         return educations
 
@@ -1184,7 +1224,7 @@ Return valid JSON with this exact schema:
     "summary": "string",
     "skills": ["string"],
     "experiences": [{{"role": "string", "company": "string", "period": "string", "location": "string", "bullets": ["string"]}}],
-    "educations": [{{"degree": "string", "institution": "string", "period": "string"}}],
+    "educations": [{{"degree": "string", "institution": "string", "period": "string", "in_progress": true, "start_year": "string"}}],
     "certifications": [{{"name": "string", "issuer": "string"}}],
     "projects": [{{"title": "string", "tech": "string", "description": "string"}}],
     "languages": [{{"name": "string", "level": "string"}}],
@@ -1208,6 +1248,16 @@ CV TEXT:
             ai_md = (parsed.get("cv_markdown") or "").strip() or fallback_md
             ai_prof = parsed.get("profile") or {}
             merged_profile = {**fallback_profile, **{k: v for k, v in ai_prof.items() if v not in (None, "", [])}}
+            enriched_edus = []
+            for edu in merged_profile.get("educations") or []:
+                if isinstance(edu, dict):
+                    in_prog, st_year = cls._infer_education_status(str(edu.get("period") or ""), str(edu.get("degree") or ""))
+                    enriched_edus.append({
+                        **edu,
+                        "in_progress": edu["in_progress"] if isinstance(edu.get("in_progress"), bool) else in_prog,
+                        "start_year": edu.get("start_year") or st_year,
+                    })
+            merged_profile["educations"] = enriched_edus
             return {
                 "filename": os.path.basename(filename or "cv"),
                 "cv_markdown": ai_md,

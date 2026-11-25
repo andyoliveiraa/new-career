@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GraduationCap, Plus, Trash2, Pencil, Check } from 'lucide-react';
+import { GraduationCap, Plus, Trash2, Pencil, Check, Clock } from 'lucide-react';
 import type { ProfileEducation } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -7,6 +7,31 @@ interface EducationsEditorProps {
   educations: ProfileEducation[];
   onChange: (nextEducations: ProfileEducation[]) => void;
   compact?: boolean;
+}
+
+const ONGOING_PERIOD_RE =
+  /\b(?:present(?:e)?|atual(?:mente)?|actual(?:mente|idad)?|current(?:ly)?|ongoing|heute|now|em\s+curso|a\s+decorrer|en\s+curso|in\s+progress|laufend|expected|desde|since|seit)\b|至今|현재|الحاضر/i;
+
+function extractStartYear(period?: string): string {
+  const match = (period || '').match(/\b(?:19|20)\d{2}\b/);
+  return match ? match[0] : '';
+}
+
+function isEducationInProgress(edu: ProfileEducation): boolean {
+  if (typeof edu.in_progress === 'boolean') return edu.in_progress;
+  const period = (edu.period || '').trim();
+  if (!period) return false;
+  if (ONGOING_PERIOD_RE.test(period)) return true;
+  const years = period.match(/\b(?:19|20)\d{2}\b/g);
+  if (years && years.length >= 2) {
+    const endYear = Number(years[years.length - 1]);
+    if (endYear > new Date().getFullYear()) return true;
+  }
+  return false;
+}
+
+function resolveStartYear(edu: ProfileEducation): string {
+  return (edu.start_year || '').trim() || extractStartYear(edu.period);
 }
 
 export const EducationsEditor: React.FC<EducationsEditorProps> = ({
@@ -19,23 +44,68 @@ export const EducationsEditor: React.FC<EducationsEditorProps> = ({
   const [newDegree, setNewDegree] = useState('');
   const [newInstitution, setNewInstitution] = useState('');
   const [newPeriod, setNewPeriod] = useState('');
+  const [newInProgress, setNewInProgress] = useState(false);
+  const [newStartYear, setNewStartYear] = useState('');
 
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<ProfileEducation | null>(null);
+  const [editInProgress, setEditInProgress] = useState(false);
+  const [editStartYear, setEditStartYear] = useState('');
+
+  const toggleNewInProgress = () => {
+    setNewInProgress((prev) => {
+      const next = !prev;
+      if (next) {
+        if (!newStartYear.trim()) {
+          const detected = extractStartYear(newPeriod);
+          if (detected) setNewStartYear(detected);
+        }
+      } else if (!newPeriod.trim() && newStartYear.trim()) {
+        setNewPeriod(newStartYear.trim());
+      }
+      return next;
+    });
+  };
+
+  const toggleEditInProgress = () => {
+    setEditInProgress((prev) => {
+      const next = !prev;
+      if (next && editDraft) {
+        if (!editStartYear.trim()) {
+          const detected = extractStartYear(editDraft.period);
+          if (detected) setEditStartYear(detected);
+        }
+      } else if (!next && editDraft && !editDraft.period.trim() && editStartYear.trim()) {
+        setEditDraft({ ...editDraft, period: editStartYear.trim() });
+      }
+      return next;
+    });
+  };
 
   const addEducation = () => {
     if (!newDegree.trim() || !newInstitution.trim()) return;
+    const cleanYear = extractStartYear(newStartYear) || newStartYear.trim();
+    const resolvedPeriod = newInProgress
+      ? cleanYear
+        ? `${cleanYear} - ${t('profile.presentDefault')}`
+        : t('profile.presentDefault')
+      : newPeriod.trim() || t('profile.completedDefault');
+
     onChange([
       ...educations,
       {
         degree: newDegree.trim(),
         institution: newInstitution.trim(),
-        period: newPeriod.trim() || t('profile.completedDefault'),
+        period: resolvedPeriod,
+        in_progress: newInProgress,
+        start_year: newInProgress ? cleanYear : extractStartYear(resolvedPeriod) || undefined,
       },
     ]);
     setNewDegree('');
     setNewInstitution('');
     setNewPeriod('');
+    setNewInProgress(false);
+    setNewStartYear('');
     setShowAddEdu(false);
   };
 
@@ -48,21 +118,60 @@ export const EducationsEditor: React.FC<EducationsEditorProps> = ({
   };
 
   const startEdit = (index: number) => {
+    const target = educations[index];
+    const detectedInProgress = isEducationInProgress(target);
+    const detectedStartYear = resolveStartYear(target);
     setEditingIndex(index);
-    setEditDraft({ ...educations[index] });
+    setEditDraft({ ...target });
+    setEditInProgress(detectedInProgress);
+    setEditStartYear(detectedStartYear);
   };
 
   const saveEdit = () => {
     if (editingIndex === null || !editDraft) return;
+    const cleanYear = extractStartYear(editStartYear) || editStartYear.trim();
+    const resolvedPeriod = editInProgress
+      ? cleanYear
+        ? `${cleanYear} - ${t('profile.presentDefault')}`
+        : t('profile.presentDefault')
+      : editDraft.period.trim();
+
     const next = [...educations];
     next[editingIndex] = {
       degree: editDraft.degree.trim() || next[editingIndex].degree,
       institution: editDraft.institution.trim(),
-      period: editDraft.period.trim(),
+      period: resolvedPeriod,
+      in_progress: editInProgress,
+      start_year: editInProgress ? cleanYear : extractStartYear(resolvedPeriod) || undefined,
     };
     onChange(next);
     setEditingIndex(null);
     setEditDraft(null);
+  };
+
+  const toggleQuickInProgress = (index: number) => {
+    const target = educations[index];
+    const nextInProgress = !isEducationInProgress(target);
+    const year = resolveStartYear(target);
+    if (nextInProgress && !year) {
+      setEditingIndex(index);
+      setEditDraft({ ...target });
+      setEditInProgress(true);
+      setEditStartYear('');
+      return;
+    }
+    const next = [...educations];
+    next[index] = {
+      ...target,
+      in_progress: nextInProgress,
+      start_year: year || undefined,
+      period: nextInProgress
+        ? year
+          ? `${year} - ${t('profile.presentDefault')}`
+          : t('profile.presentDefault')
+        : target.period.replace(/\s*[-–—]\s*(?:present(?:e)?|atual(?:mente)?|current(?:ly)?|ongoing|heute|actual|至今|현재|الحاضر)$/i, '').trim() || year,
+    };
+    onChange(next);
   };
 
   return (
@@ -114,29 +223,64 @@ export const EducationsEditor: React.FC<EducationsEditorProps> = ({
               onChange={(e) => setNewInstitution(e.target.value)}
               className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
             />
-            <input
-              type="text"
-              placeholder={t('profile.eduPeriodPlaceholder')}
-              value={newPeriod}
-              onChange={(e) => setNewPeriod(e.target.value)}
-              className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
-            />
+            {newInProgress ? (
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder={t('profile.eduStartYearPlaceholder')}
+                value={newStartYear}
+                onChange={(e) => setNewStartYear(e.target.value)}
+                className="bg-surface-100 border border-accent/60 rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
+              />
+            ) : (
+              <input
+                type="text"
+                placeholder={t('profile.eduPeriodPlaceholder')}
+                value={newPeriod}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setNewPeriod(val);
+                  if (ONGOING_PERIOD_RE.test(val)) {
+                    const yr = extractStartYear(val);
+                    if (yr) setNewStartYear(yr);
+                    setNewInProgress(true);
+                  }
+                }}
+                className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
+              />
+            )}
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <button
               type="button"
-              onClick={() => setShowAddEdu(false)}
-              className="px-2.5 py-1 text-xs text-txt-secondary hover:text-txt-primary"
+              aria-pressed={newInProgress}
+              onClick={toggleNewInProgress}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                newInProgress
+                  ? 'bg-accent/15 border-accent text-accent-light'
+                  : 'bg-surface-100 border-surface-border text-txt-secondary hover:text-txt-primary'
+              }`}
             >
-              {t('common.cancel')}
+              <Clock className="w-3.5 h-3.5" />
+              <span>{t('profile.eduInProgress')}</span>
             </button>
-            <button
-              type="button"
-              onClick={addEducation}
-              className="px-3 py-1 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold"
-            >
-              {t('profile.saveEducation')}
-            </button>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAddEdu(false)}
+                className="px-2.5 py-1 text-xs text-txt-secondary hover:text-txt-primary"
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={addEducation}
+                className="px-3 py-1 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold"
+              >
+                {t('profile.saveEducation')}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -145,8 +289,11 @@ export const EducationsEditor: React.FC<EducationsEditorProps> = ({
         {educations.length === 0 ? (
           <div className="text-xs text-txt-muted py-2">{t('profile.noEducations')}</div>
         ) : (
-          educations.map((edu, idx) =>
-            editingIndex === idx && editDraft ? (
+          educations.map((edu, idx) => {
+            const inProgress = isEducationInProgress(edu);
+            const startYear = resolveStartYear(edu);
+
+            return editingIndex === idx && editDraft ? (
               <div
                 key={idx}
                 className={
@@ -170,33 +317,68 @@ export const EducationsEditor: React.FC<EducationsEditorProps> = ({
                     onChange={(e) => setEditDraft({ ...editDraft, institution: e.target.value })}
                     className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
                   />
-                  <input
-                    type="text"
-                    placeholder={t('profile.eduPeriodPlaceholder')}
-                    value={editDraft.period}
-                    onChange={(e) => setEditDraft({ ...editDraft, period: e.target.value })}
-                    className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
-                  />
+                  {editInProgress ? (
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={4}
+                      placeholder={t('profile.eduStartYearPlaceholder')}
+                      value={editStartYear}
+                      onChange={(e) => setEditStartYear(e.target.value)}
+                      className="bg-surface-100 border border-accent/60 rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder={t('profile.eduPeriodPlaceholder')}
+                      value={editDraft.period}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setEditDraft({ ...editDraft, period: val });
+                        if (ONGOING_PERIOD_RE.test(val)) {
+                          const yr = extractStartYear(val);
+                          if (yr) setEditStartYear(yr);
+                          setEditInProgress(true);
+                        }
+                      }}
+                      className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
+                    />
+                  )}
                 </div>
-                <div className="flex justify-end gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setEditingIndex(null);
-                      setEditDraft(null);
-                    }}
-                    className="px-2.5 py-1 text-xs text-txt-secondary hover:text-txt-primary"
+                    aria-pressed={editInProgress}
+                    onClick={toggleEditInProgress}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                      editInProgress
+                        ? 'bg-accent/15 border-accent text-accent-light'
+                        : 'bg-surface-100 border-surface-border text-txt-secondary hover:text-txt-primary'
+                    }`}
                   >
-                    {t('common.cancel')}
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>{t('profile.eduInProgress')}</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={saveEdit}
-                    className="px-3 py-1 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold flex items-center gap-1"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    {t('common.save')}
-                  </button>
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingIndex(null);
+                        setEditDraft(null);
+                      }}
+                      className="px-2.5 py-1 text-xs text-txt-secondary hover:text-txt-primary"
+                    >
+                      {t('common.cancel')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={saveEdit}
+                      className="px-3 py-1 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold flex items-center gap-1"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      {t('common.save')}
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -208,7 +390,7 @@ export const EducationsEditor: React.FC<EducationsEditorProps> = ({
                     : 'p-3 rounded-lg bg-surface-200/50 border border-surface-border flex items-start justify-between gap-2 min-w-0 overflow-hidden'
                 }
               >
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 space-y-1">
                   <div className="text-sm font-medium text-txt-primary break-words">
                     {edu.degree}
                     {edu.institution ? (
@@ -217,7 +399,28 @@ export const EducationsEditor: React.FC<EducationsEditorProps> = ({
                       </>
                     ) : null}
                   </div>
-                  {edu.period && <div className="text-xs text-txt-muted break-words">{edu.period}</div>}
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-txt-muted break-words">
+                    {inProgress ? (
+                      <span>
+                        {startYear ? t('profile.eduSinceYear', { year: startYear }) : edu.period}
+                      </span>
+                    ) : (
+                      edu.period && <span>{edu.period}</span>
+                    )}
+                    <button
+                      type="button"
+                      aria-pressed={inProgress}
+                      onClick={() => toggleQuickInProgress(idx)}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border transition-colors ${
+                        inProgress
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                          : 'bg-surface-100/60 border-surface-border text-txt-muted hover:text-txt-primary'
+                      }`}
+                    >
+                      <Clock className="w-3 h-3" />
+                      <span>{inProgress ? t('profile.eduInProgressBadge') : t('profile.eduInProgress')}</span>
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   <button
@@ -238,8 +441,8 @@ export const EducationsEditor: React.FC<EducationsEditorProps> = ({
                   </button>
                 </div>
               </div>
-            )
-          )
+            );
+          })
         )}
       </div>
     </div>

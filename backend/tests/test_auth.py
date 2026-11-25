@@ -349,6 +349,21 @@ async def test_europass_cv_parsing_date_location_and_habilitacoes():
         assert edu["degree"] == "Licenciatura em Engenharia Informática"
         assert edu["institution"] == "Universidade da Beira Interior"
         assert edu["period"] == "15/09/2020 - 30/06/2024"
+        assert edu["in_progress"] is False
+        assert edu["start_year"] == "2020"
+
+
+@pytest.mark.asyncio
+async def test_education_ongoing_detection():
+    from backend.app.services.cv_parser import CVParserService
+
+    parsed = CVParserService._heuristic_extract(
+        "# Teste\n\n## Habilitações e Formação\n15/09/2024 - Atual\nMestrado em IA - Universidade do Porto\n",
+        {"full_name": "Teste", "email": "t@example.com"},
+    )
+    assert len(parsed["educations"]) == 1
+    assert parsed["educations"][0]["in_progress"] is True
+    assert parsed["educations"][0]["start_year"] == "2024"
 
 
 def _build_minimal_pdf(page_streams: list[str]) -> bytes:

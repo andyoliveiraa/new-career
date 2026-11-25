@@ -65,6 +65,8 @@ export interface ProfileEducation {
   degree: string;
   institution: string;
   period: string;
+  in_progress?: boolean;
+  start_year?: string;
 }
 
 export interface ProfileProject {
