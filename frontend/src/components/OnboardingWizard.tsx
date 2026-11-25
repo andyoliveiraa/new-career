@@ -9,6 +9,7 @@ import { useLanguage } from '../context/LanguageContext';
 import type { OnboardingResult, ProfileExperience, ProfileEducation, ProfileLanguage, ProfileCertification, ProfileProject } from '../types';
 import { LanguageSelector } from './LanguageSelector';
 import { SkillsTagEditor } from './SkillsTagEditor';
+import { ExperiencesEditor } from './ExperiencesEditor';
 import type { LanguageCode } from '../i18n';
 
 export const OnboardingWizard: React.FC = () => {
@@ -882,47 +883,11 @@ export const OnboardingWizard: React.FC = () => {
                         compact
                       />
 
-                      {experiences.length > 0 && (
-                        <div className="p-3 rounded-lg bg-slate-950/50 border border-slate-800 space-y-2">
-                          <div className="text-xs font-semibold text-slate-300">
-                            {t('profile.experiencesTitle', { count: experiences.length })}
-                          </div>
-                          {experiences.map((exp, idx) => (
-                            <div key={idx} className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                              <input
-                                type="text"
-                                value={exp.role}
-                                onChange={(e) => {
-                                  const next = [...experiences];
-                                  next[idx] = { ...exp, role: e.target.value };
-                                  setExperiences(next);
-                                }}
-                                className="px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded text-slate-200"
-                              />
-                              <input
-                                type="text"
-                                value={exp.company}
-                                onChange={(e) => {
-                                  const next = [...experiences];
-                                  next[idx] = { ...exp, company: e.target.value };
-                                  setExperiences(next);
-                                }}
-                                className="px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded text-slate-200"
-                              />
-                              <input
-                                type="text"
-                                value={exp.period}
-                                onChange={(e) => {
-                                  const next = [...experiences];
-                                  next[idx] = { ...exp, period: e.target.value };
-                                  setExperiences(next);
-                                }}
-                                className="px-2.5 py-1.5 bg-slate-900 border border-slate-800 rounded text-slate-200"
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <ExperiencesEditor
+                        experiences={experiences}
+                        onChange={setExperiences}
+                        compact
+                      />
 
                       {educations.length > 0 && (
                         <div className="p-3 rounded-lg bg-slate-950/50 border border-slate-800 space-y-2">

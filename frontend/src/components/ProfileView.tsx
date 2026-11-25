@@ -4,9 +4,10 @@ import { api } from '../api';
 import { useToast } from '../context/ToastContext';
 import { useLanguage } from '../context/LanguageContext';
 import { SkillsTagEditor } from './SkillsTagEditor';
+import { ExperiencesEditor } from './ExperiencesEditor';
 import {
   User, Save, Plus, Trash2, CheckCircle2, GraduationCap,
-  Briefcase, FolderGit2, Award, Globe, ShieldCheck
+  FolderGit2, Award, Globe, ShieldCheck
 } from 'lucide-react';
 
 interface ProfileViewProps {
@@ -27,13 +28,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
   const [newDegree, setNewDegree] = useState('');
   const [newInstitution, setNewInstitution] = useState('');
   const [newPeriod, setNewPeriod] = useState('');
-
-  const [showAddExp, setShowAddExp] = useState(false);
-  const [expRole, setExpRole] = useState('');
-  const [expCompany, setExpCompany] = useState('');
-  const [expPeriod, setExpPeriod] = useState('');
-  const [expLocation, setExpLocation] = useState('');
-  const [expBullets, setExpBullets] = useState('');
 
   const [showAddProj, setShowAddProj] = useState(false);
   const [projTitle, setProjTitle] = useState('');
@@ -85,38 +79,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
     } finally {
       setSaving(false);
     }
-  };
-
-  const addExperience = () => {
-    if (!expRole.trim() || !expCompany.trim() || !profile) return;
-    const bullets = expBullets.split('\n').map(b => b.trim()).filter(Boolean);
-    setProfile({
-      ...profile,
-      experiences: [
-        {
-          role: expRole.trim(),
-          company: expCompany.trim(),
-          period: expPeriod.trim() || t('profile.presentDefault'),
-          location: expLocation.trim() || undefined,
-          bullets
-        },
-        ...profile.experiences
-      ]
-    });
-    setExpRole('');
-    setExpCompany('');
-    setExpPeriod('');
-    setExpLocation('');
-    setExpBullets('');
-    setShowAddExp(false);
-  };
-
-  const removeExperience = (index: number) => {
-    if (!profile) return;
-    setProfile({
-      ...profile,
-      experiences: profile.experiences.filter((_, idx) => idx !== index)
-    });
   };
 
   const addEducation = () => {
@@ -359,115 +321,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ onSaved }) => {
         />
 
         {/* Experiences Editor */}
-        <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-xs text-txt-primary uppercase tracking-wider flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-accent-light" />
-              {t('profile.experiencesTitle', { count: profile.experiences.length })}
-            </h3>
-            <button
-              type="button"
-              onClick={() => setShowAddExp(!showAddExp)}
-              className="text-xs text-accent-light hover:underline flex items-center gap-1 font-medium"
-            >
-              <Plus className="w-3.5 h-3.5" /> {t('profile.addExperience')}
-            </button>
-          </div>
-
-          {showAddExp && (
-            <div className="p-4 rounded-xl bg-surface-200 border border-surface-border space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <input
-                  type="text"
-                  placeholder={t('profile.expRolePlaceholder')}
-                  value={expRole}
-                  onChange={(e) => setExpRole(e.target.value)}
-                  className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
-                />
-                <input
-                  type="text"
-                  placeholder={t('profile.expCompanyPlaceholder')}
-                  value={expCompany}
-                  onChange={(e) => setExpCompany(e.target.value)}
-                  className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
-                />
-                <input
-                  type="text"
-                  placeholder={t('profile.expPeriodPlaceholder')}
-                  value={expPeriod}
-                  onChange={(e) => setExpPeriod(e.target.value)}
-                  className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
-                />
-                <input
-                  type="text"
-                  placeholder={t('profile.expLocationPlaceholder')}
-                  value={expLocation}
-                  onChange={(e) => setExpLocation(e.target.value)}
-                  className="bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
-                />
-              </div>
-              <textarea
-                rows={3}
-                placeholder={t('profile.expBulletsPlaceholder')}
-                value={expBullets}
-                onChange={(e) => setExpBullets(e.target.value)}
-                className="w-full bg-surface-100 border border-surface-border rounded-lg px-2.5 py-1.5 text-xs text-txt-primary focus:outline-none focus:border-accent"
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddExp(false)}
-                  className="px-2.5 py-1 text-xs text-txt-secondary hover:text-txt-primary"
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  type="button"
-                  onClick={addExperience}
-                  className="px-3 py-1 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold"
-                >
-                  {t('profile.addExperience')}
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {profile.experiences.length === 0 ? (
-              <div className="text-xs text-txt-muted py-2">{t('profile.noExperiences')}</div>
-            ) : (
-              profile.experiences.map((exp, idx) => (
-                <div key={idx} className="p-3 rounded-lg bg-surface-200/50 border border-surface-border space-y-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="text-sm font-medium text-txt-primary">
-                        {exp.role} — <span className="text-accent-light">{exp.company}</span>
-                      </div>
-                      <div className="text-xs text-txt-muted">
-                        {exp.period}{exp.location ? ` • ${exp.location}` : ''}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeExperience(idx)}
-                      className="p-1.5 text-txt-muted hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
-                      title={t('profile.removeExperience')}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  {exp.bullets && exp.bullets.length > 0 && (
-                    <ul className="text-xs text-txt-secondary list-disc ps-4 space-y-1 pt-1">
-                      {exp.bullets.map((b, bIdx) => (
-                        <li key={bIdx}>{b}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
+        <ExperiencesEditor
+          experiences={profile.experiences}
+          onChange={(nextExperiences) => setProfile({ ...profile, experiences: nextExperiences })}
+        />
 
         {/* Educations Summary */}
         <div className="bg-surface-100 border border-surface-border rounded-xl p-5 space-y-4">
