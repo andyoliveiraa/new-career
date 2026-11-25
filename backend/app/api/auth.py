@@ -1,14 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+import os
 from typing import Dict, Any, Optional
 from backend.app.config import settings
 from backend.app.schemas.auth import (
     UserRegister, UserLogin, UserResponse, TokenResponse,
-    UserPreferencesUpdate,
+    UserPreferencesUpdate, ParseCVResponse,
     CareerOpsOnboardingRequest, ManualOnboardingRequest, OnboardingResultResponse
 )
 from backend.app.auth_utils import hash_password, verify_password, create_access_token, get_current_user
 from backend.app.firebase import firebase_manager
 from backend.app.services.career_ops_importer import CareerOpsImporter
+from backend.app.services.cv_parser import CVParserService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -150,32 +152,57 @@ async def onboarding_upload_privacy(
     return OnboardingResultResponse(**result)
 
 
+@router.post("/onboarding/parse-cv", response_model=ParseCVResponse)
+async def onboarding_parse_cv(
+    cv_file: UploadFile = File(...),
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Converte o CV anexado (PDF, DOCX, MD, TXT, HTML) para Markdown e extrai todos os dados para confirmação."""
+    content = await cv_file.read()
+    user_keys = await firebase_manager.get_user_settings(current_user["id"])
+    parsed = await CVParserService.parse_cv_upload(
+        filename=cv_file.filename or "cv.pdf",
+        content=content,
+        user_doc=current_user,
+        user_keys=user_keys,
+    )
+    return ParseCVResponse(**parsed)
+
+
 @router.post("/onboarding/manual", response_model=OnboardingResultResponse)
 async def onboarding_manual(
     req: ManualOnboardingRequest,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     user_id = current_user["id"]
+    cv_md = req.initial_cv_text or ""
+    if cv_md.strip():
+        user_storage_dir = os.path.join(settings.STORAGE_DIR, "users", user_id)
+        os.makedirs(user_storage_dir, exist_ok=True)
+        with open(os.path.join(user_storage_dir, "master_cv.md"), "w", encoding="utf-8") as f:
+            f.write(cv_md)
+
+    resolved_name = (req.full_name or "").strip() or current_user["full_name"]
     profile_dict = {
         "id": 1,
         "user_id": user_id,
-        "full_name": current_user["full_name"],
+        "full_name": resolved_name,
         "headline": req.headline or "Profissional em Transição / Procura Ativa",
-        "email": current_user["email"],
+        "email": (req.email or "").strip() or current_user["email"],
         "phone": req.phone,
         "location": req.location or settings.DEFAULT_COUNTRY,
-        "linkedin_url": None,
-        "github_url": None,
-        "portfolio_url": None,
+        "linkedin_url": req.linkedin_url or None,
+        "github_url": req.github_url or None,
+        "portfolio_url": req.portfolio_url or None,
         "summary": req.summary or "Perfil profissional inicial criado na plataforma New Career.",
         "skills": req.initial_skills or [],
-        "experiences": [],
-        "educations": [],
-        "certifications": [],
-        "projects": [],
-        "languages": [],
-        "verified_facts": [],
-        "master_cv_text": req.initial_cv_text or ""
+        "experiences": req.experiences or [],
+        "educations": req.educations or [],
+        "certifications": req.certifications or [],
+        "projects": req.projects or [],
+        "languages": req.languages or [],
+        "verified_facts": req.verified_facts or [],
+        "master_cv_text": cv_md
     }
     await firebase_manager.save_profile(user_id, profile_dict)
     await firebase_manager.update_user(user_id, {"has_completed_onboarding": True})
@@ -183,11 +210,11 @@ async def onboarding_manual(
     return OnboardingResultResponse(
         success=True,
         message="Perfil inicial configurado com sucesso!",
-        experiences_count=0,
-        educations_count=0,
+        experiences_count=len(req.experiences or []),
+        educations_count=len(req.educations or []),
         skills_count=len(req.initial_skills),
         jobs_count=0,
         applications_count=0,
-        cv_base_loaded=bool(req.initial_cv_text),
-        profile_name=current_user["full_name"]
+        cv_base_loaded=bool(cv_md.strip()),
+        profile_name=resolved_name
     )

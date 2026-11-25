@@ -180,6 +180,13 @@ export interface OnboardingResult {
   profile_name?: string;
 }
 
+export interface ParsedCVResponse {
+  filename: string;
+  cv_markdown: string;
+  profile: ProfileData;
+  used_ai: boolean;
+}
+
 export interface CVTemplate {
   id: string;
   name: string;

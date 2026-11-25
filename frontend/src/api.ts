@@ -1,7 +1,7 @@
 import type {
   Job, ApplicationStats, ProfileData, JDAnalysis, CVTailorResult,
   CoverLetterResult, InterviewPrepResult, ScanRecord, AuthResponse, User, OnboardingResult,
-  CVTemplate, ATSAuditResult, UserSettings, TestKeyResult, TestWebhookResult,
+  ParsedCVResponse, CVTemplate, ATSAuditResult, UserSettings, TestKeyResult, TestWebhookResult,
   ManualJobPayload, BatchLivenessResult
 } from './types';
 
@@ -116,19 +116,40 @@ export const api = {
     return res.json();
   },
 
+  async parseCVUpload(file: File): Promise<ParsedCVResponse> {
+    const formData = new FormData();
+    formData.append('cv_file', file);
+    const res = await apiFetch('/auth/onboarding/parse-cv', {
+      method: 'POST',
+      body: formData
+    }, 'Failed to convert CV to Markdown');
+    return res.json();
+  },
+
   async onboardingManual(payload: {
+    full_name?: string;
     headline?: string;
+    email?: string;
     location?: string;
     phone?: string;
+    linkedin_url?: string;
+    github_url?: string;
+    portfolio_url?: string;
     summary?: string;
     initial_skills: string[];
+    experiences?: any[];
+    educations?: any[];
+    certifications?: any[];
+    projects?: any[];
+    languages?: any[];
+    verified_facts?: string[];
     initial_cv_text?: string;
   }): Promise<OnboardingResult> {
     const res = await apiFetch('/auth/onboarding/manual', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
-    }, 'Erro ao configurar perfil');
+    }, 'Failed to save profile configuration');
     return res.json();
   },
 

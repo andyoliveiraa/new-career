@@ -218,3 +218,82 @@ async def test_user_preferred_language_persistence():
             json={"preferred_language": "fr"}
         )
         assert invalid_res.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_onboarding_parse_cv_and_confirm():
+    await init_db()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        reg = await client.post("/api/auth/register", json={
+            "full_name": "Maria Silva",
+            "email": "maria@example.com",
+            "password": "Password123!",
+            "preferred_language": "en"
+        })
+        assert reg.status_code == 200
+        headers = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+
+        sample_cv_txt = (
+            b"Maria Silva\n"
+            b"Senior Backend Engineer\n"
+            b"maria@example.com | +351 912 345 678 | https://github.com/mariasilva\n\n"
+            b"Summary\n"
+            b"Backend engineer with 6 years building FastAPI services.\n\n"
+            b"Skills\n"
+            b"Python, FastAPI, PostgreSQL, Docker\n\n"
+            b"Experience\n"
+            b"Senior Backend Engineer - TechCo (2022 - Present)\n"
+            b"- Reduced API latency by 45% in production\n\n"
+            b"Education\n"
+            b"BSc Computer Science - University of Lisbon (2015 - 2019)\n\n"
+            b"Languages\n"
+            b"Portuguese: Native, English: C1\n"
+        )
+        parse_res = await client.post(
+            "/api/auth/onboarding/parse-cv",
+            headers=headers,
+            files={"cv_file": ("resume.txt", sample_cv_txt, "text/plain")},
+        )
+        assert parse_res.status_code == 200
+        parsed = parse_res.json()
+        assert "# Maria Silva" in parsed["cv_markdown"]
+        assert "Python" in parsed["profile"]["skills"]
+        assert parsed["profile"]["github_url"] == "https://github.com/mariasilva"
+        assert len(parsed["profile"]["experiences"]) >= 1
+        assert len(parsed["profile"]["educations"]) >= 1
+
+        # Onboarding should still be False until user confirms
+        me_before = await client.get("/api/auth/me", headers=headers)
+        assert me_before.json()["has_completed_onboarding"] is False
+
+        # Confirm extracted profile + converted markdown
+        confirm_res = await client.post(
+            "/api/auth/onboarding/manual",
+            headers=headers,
+            json={
+                "full_name": parsed["profile"]["full_name"],
+                "headline": parsed["profile"]["headline"],
+                "email": parsed["profile"]["email"],
+                "phone": parsed["profile"]["phone"],
+                "location": "Lisboa",
+                "github_url": parsed["profile"]["github_url"],
+                "summary": parsed["profile"]["summary"],
+                "initial_skills": parsed["profile"]["skills"],
+                "experiences": parsed["profile"]["experiences"],
+                "educations": parsed["profile"]["educations"],
+                "languages": parsed["profile"]["languages"],
+                "verified_facts": parsed["profile"]["verified_facts"],
+                "initial_cv_text": parsed["cv_markdown"],
+            },
+        )
+        assert confirm_res.status_code == 200
+        assert confirm_res.json()["cv_base_loaded"] is True
+
+        me_after = await client.get("/api/auth/me", headers=headers)
+        assert me_after.json()["has_completed_onboarding"] is True
+
+        prof = await client.get("/api/profile", headers=headers)
+        assert prof.status_code == 200
+        assert "FastAPI" in prof.json()["skills"]
+        assert prof.json()["github_url"] == "https://github.com/mariasilva"

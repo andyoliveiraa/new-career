@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, List, Literal
+from typing import Optional, List, Dict, Any, Literal
 
 SUPPORTED_LANGUAGES = ("en", "pt", "de", "es", "zh", "ar", "ko")
 SupportedLanguage = Literal["en", "pt", "de", "es", "zh", "ar", "ko"]
@@ -56,12 +56,49 @@ class CareerOpsOnboardingRequest(BaseModel):
     directory_path: str = Field(..., description="Caminho da pasta do Career-Ops na máquina local")
 
 class ManualOnboardingRequest(BaseModel):
+    full_name: Optional[str] = None
     headline: Optional[str] = None
+    email: Optional[str] = None
     location: Optional[str] = None
     phone: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+    portfolio_url: Optional[str] = None
     summary: Optional[str] = None
     initial_skills: List[str] = []
+    experiences: List[Dict[str, Any]] = []
+    educations: List[Dict[str, Any]] = []
+    certifications: List[Dict[str, Any]] = []
+    projects: List[Dict[str, Any]] = []
+    languages: List[Dict[str, Any]] = []
+    verified_facts: List[str] = []
     initial_cv_text: Optional[str] = None
+
+
+class ParsedCVProfile(BaseModel):
+    full_name: str = ""
+    headline: Optional[str] = ""
+    email: Optional[str] = ""
+    phone: Optional[str] = ""
+    location: Optional[str] = ""
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+    portfolio_url: Optional[str] = None
+    summary: Optional[str] = ""
+    skills: List[str] = []
+    experiences: List[Dict[str, Any]] = []
+    educations: List[Dict[str, Any]] = []
+    certifications: List[Dict[str, Any]] = []
+    projects: List[Dict[str, Any]] = []
+    languages: List[Dict[str, Any]] = []
+    verified_facts: List[str] = []
+
+
+class ParseCVResponse(BaseModel):
+    filename: str
+    cv_markdown: str
+    profile: ParsedCVProfile
+    used_ai: bool = False
 
 class OnboardingResultResponse(BaseModel):
     success: bool
