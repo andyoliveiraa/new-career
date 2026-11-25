@@ -349,3 +349,203 @@ async def test_europass_cv_parsing_date_location_and_habilitacoes():
         assert edu["degree"] == "Licenciatura em Engenharia Informática"
         assert edu["institution"] == "Universidade da Beira Interior"
         assert edu["period"] == "15/09/2020 - 30/06/2024"
+
+
+def _build_minimal_pdf(page_streams: list[str]) -> bytes:
+    """Build a valid multi-page PDF 1.4 document from raw PDF content streams."""
+    objects: list[bytes] = []
+    # 1: Catalog, 2: Pages, 3: Helvetica regular, 4: Helvetica-Bold
+    objects.append(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
+
+    page_obj_nums = []
+    next_id = 5
+    page_objs: list[bytes] = []
+    content_objs: list[bytes] = []
+    for stream_text in page_streams:
+        p_id = next_id
+        c_id = next_id + 1
+        next_id += 2
+        page_obj_nums.append(p_id)
+        stream_bytes = stream_text.encode("latin-1", errors="replace")
+        page_objs.append(
+            f"{p_id} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] "
+            f"/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents {c_id} 0 R >>\nendobj\n".encode("ascii")
+        )
+        content_objs.append(
+            f"{c_id} 0 obj\n<< /Length {len(stream_bytes)} >>\nstream\n".encode("ascii")
+            + stream_bytes
+            + b"\nendstream\nendobj\n"
+        )
+
+    kids = " ".join(f"{n} 0 R" for n in page_obj_nums)
+    objects.append(f"2 0 obj\n<< /Type /Pages /Kids [{kids}] /Count {len(page_obj_nums)} >>\nendobj\n".encode("ascii"))
+    objects.append(b"3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n")
+    objects.append(b"4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>\nendobj\n")
+    for p_obj, c_obj in zip(page_objs, content_objs):
+        objects.append(p_obj)
+        objects.append(c_obj)
+
+    buf = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for obj in objects:
+        offsets.append(len(buf))
+        buf.extend(obj)
+    xref_pos = len(buf)
+    buf.extend(f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode("ascii"))
+    for off in offsets[1:]:
+        buf.extend(f"{off:010d} 00000 n \n".encode("ascii"))
+    buf.extend(f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_pos}\n%%EOF\n".encode("ascii"))
+    return bytes(buf)
+
+
+def _pdf_text_cmd(x: int, y: int, text: str, font: str = "F1", size: int = 10) -> str:
+    escaped = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    return f"BT /{font} {size} Tf 1 0 0 1 {x} {y} Tm ({escaped}) Tj ET\n"
+
+
+@pytest.mark.asyncio
+async def test_pdf_two_column_spatial_extraction_and_markdown_conversion():
+    await init_db()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        reg = await client.post("/api/auth/register", json={
+            "full_name": "Andy Dias",
+            "email": "andy.pdf@example.com",
+            "password": "Password123!",
+            "preferred_language": "pt",
+        })
+        assert reg.status_code == 200
+        headers = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+
+        # Page 1: Full-width name banner + Two-column sidebar (left x=40, right x=230) + repeated footer
+        p1 = "".join([
+            _pdf_text_cmd(40, 800, "Curriculum Vitae", "F1", 9),
+            _pdf_text_cmd(40, 770, "Andy Dias", "F2", 18),
+            _pdf_text_cmd(40, 750, "Engenheiro de Software", "F1", 11),
+            # Left sidebar column (Contact + Skills + Languages)
+            _pdf_text_cmd(40, 700, "Contactos", "F2", 11),
+            _pdf_text_cmd(40, 682, "andy.dias@example.com", "F1", 9),
+            _pdf_text_cmd(40, 666, "+351 912 345 678", "F1", 9),
+            _pdf_text_cmd(40, 650, "Covilha, Portugal", "F1", 9),
+            _pdf_text_cmd(40, 615, "Competencias Tecnicas", "F2", 11),
+            _pdf_text_cmd(40, 595, "Python, FastAPI, React", "F1", 9),
+            _pdf_text_cmd(40, 578, "Docker, TypeScript", "F1", 9),
+            _pdf_text_cmd(40, 540, "Idiomas", "F2", 11),
+            _pdf_text_cmd(40, 522, "Portugues: Nativo", "F1", 9),
+            _pdf_text_cmd(40, 506, "Ingles: C1", "F1", 9),
+            # Right main column (Experience with wrapped bullet + metadata)
+            _pdf_text_cmd(230, 700, "E X P E R I E N C I A   P R O F I S S I O N A L", "F2", 11),
+            _pdf_text_cmd(230, 678, "10/09/2025 - 10/09/2026 - Covilha, Portugal", "F1", 9),
+            _pdf_text_cmd(230, 660, "Diretor de Tecnologia", "F2", 10),
+            _pdf_text_cmd(230, 645, "Associacao Academica", "F1", 10),
+            _pdf_text_cmd(230, 630, "Cidade: Covilha | Pais: Portugal", "F1", 9),
+            _pdf_text_cmd(230, 612, "\x95 Coordenacao direta da equipa criativa com desen-", "F1", 9),
+            _pdf_text_cmd(230, 598, "volvimento de plataformas web modernas.", "F1", 9),
+            _pdf_text_cmd(230, 580, "\x95 Supervisao do calendario editorial para os", "F1", 9),
+            _pdf_text_cmd(230, 566, "meios online, aumentando em 35% o alcance.", "F1", 9),
+            _pdf_text_cmd(40, 35, "Pagina 1 / 2", "F1", 8),
+        ])
+        # Page 2: Education + repeated footer
+        p2 = "".join([
+            _pdf_text_cmd(40, 800, "Curriculum Vitae", "F1", 9),
+            _pdf_text_cmd(40, 750, "Habilitacoes e Formacao", "F2", 12),
+            _pdf_text_cmd(40, 728, "15/09/2020 - 30/06/2024 - Covilha, Portugal", "F1", 9),
+            _pdf_text_cmd(40, 710, "Licenciatura em Engenharia Informatica", "F2", 10),
+            _pdf_text_cmd(40, 694, "Universidade da Beira Interior", "F1", 10),
+            _pdf_text_cmd(40, 678, "Localidade: Covilha | Classificacao final: 17/20", "F1", 9),
+            _pdf_text_cmd(40, 35, "Pagina 2 / 2", "F1", 8),
+        ])
+
+        pdf_bytes = _build_minimal_pdf([p1, p2])
+        res = await client.post(
+            "/api/auth/onboarding/parse-cv",
+            headers=headers,
+            files={"cv_file": ("curriculo.pdf", pdf_bytes, "application/pdf")},
+        )
+        assert res.status_code == 200
+        body = res.json()
+        md = body["cv_markdown"]
+        prof = body["profile"]
+
+        # Boilerplate stripped, name & section headers intact
+        assert "Curriculum Vitae" not in md
+        assert "Pagina 1 / 2" not in md
+        assert "# Andy Dias" in md
+        assert prof["full_name"] == "Andy Dias"
+        assert prof["email"] == "andy.dias@example.com"
+        assert "+351 912 345 678" in prof["phone"]
+        assert "Python" in prof["skills"] and "TypeScript" in prof["skills"]
+
+        # Dehyphenated and unwrapped bullets without column mixing
+        assert len(prof["experiences"]) == 1
+        exp = prof["experiences"][0]
+        assert exp["role"] == "Diretor de Tecnologia"
+        assert exp["company"] == "Associacao Academica"
+        assert exp["period"] == "10/09/2025 - 10/09/2026"
+        assert exp["location"] == "Covilha, Portugal"
+        assert len(exp["bullets"]) == 2
+        assert "desenvolvimento de plataformas web modernas." in exp["bullets"][0]
+        assert "meios online, aumentando em 35% o alcance." in exp["bullets"][1]
+
+        # Education extracted cleanly without metadata lines turning into fake rows
+        assert len(prof["educations"]) == 1
+        edu = prof["educations"][0]
+        assert edu["degree"] == "Licenciatura em Engenharia Informatica"
+        assert edu["institution"] == "Universidade da Beira Interior"
+        assert edu["period"] == "15/09/2020 - 30/06/2024"
+
+
+@pytest.mark.asyncio
+async def test_pdf_classic_europass_timeline_table_layout():
+    await init_db()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        reg = await client.post("/api/auth/register", json={
+            "full_name": "Joana Pereira",
+            "email": "joana.timeline@example.com",
+            "password": "Password123!",
+            "preferred_language": "pt",
+        })
+        assert reg.status_code == 200
+        headers = {"Authorization": f"Bearer {reg.json()['access_token']}"}
+
+        # Classic Europass timeline table: left column has section labels & date ranges, right column has roles/bullets/degrees
+        p1 = "".join([
+            _pdf_text_cmd(40, 790, "Joana Pereira", "F2", 16),
+            _pdf_text_cmd(40, 772, "joana.timeline@example.com", "F1", 9),
+            _pdf_text_cmd(40, 730, "Experiencia Profissional", "F2", 11),
+            _pdf_text_cmd(40, 710, "10/09/2025 - 10/09/2026", "F1", 9),
+            _pdf_text_cmd(200, 710, "Gestora de Produto - InovaTech", "F2", 10),
+            _pdf_text_cmd(200, 692, "\x95 Lideranca de equipa multidisciplinar com 8 pessoas.", "F1", 9),
+            _pdf_text_cmd(40, 650, "01/03/2022 - 30/08/2025", "F1", 9),
+            _pdf_text_cmd(200, 650, "Analista Funcional - FinCorp", "F2", 10),
+            _pdf_text_cmd(200, 632, "\x95 Levantamento de requisitos e testes funcionais.", "F1", 9),
+            _pdf_text_cmd(40, 580, "Habilitacoes e Formacao", "F2", 11),
+            _pdf_text_cmd(40, 558, "15/09/2018 - 30/06/2021", "F1", 9),
+            _pdf_text_cmd(200, 558, "Mestrado em Gestao de Sistemas - Universidade do Porto", "F1", 10),
+            _pdf_text_cmd(40, 520, "Competencias Digitais", "F2", 11),
+            _pdf_text_cmd(200, 520, "SQL, Jira, Figma, Python", "F1", 9),
+        ])
+
+        pdf_bytes = _build_minimal_pdf([p1])
+        res = await client.post(
+            "/api/auth/onboarding/parse-cv",
+            headers=headers,
+            files={"cv_file": ("europass_classic.pdf", pdf_bytes, "application/pdf")},
+        )
+        assert res.status_code == 200
+        prof = res.json()["profile"]
+
+        assert len(prof["experiences"]) == 2
+        assert prof["experiences"][0]["role"] == "Gestora de Produto"
+        assert prof["experiences"][0]["company"] == "InovaTech"
+        assert prof["experiences"][0]["period"] == "10/09/2025 - 10/09/2026"
+        assert prof["experiences"][1]["role"] == "Analista Funcional"
+        assert prof["experiences"][1]["company"] == "FinCorp"
+        assert prof["experiences"][1]["period"] == "01/03/2022 - 30/08/2025"
+
+        assert len(prof["educations"]) == 1
+        assert prof["educations"][0]["degree"] == "Mestrado em Gestao de Sistemas"
+        assert prof["educations"][0]["institution"] == "Universidade do Porto"
+        assert prof["educations"][0]["period"] == "15/09/2018 - 30/06/2021"
+        assert "SQL" in prof["skills"] and "Figma" in prof["skills"]
